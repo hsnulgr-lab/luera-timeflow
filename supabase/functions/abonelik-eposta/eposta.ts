@@ -9,7 +9,8 @@
 // index.ts'te.
 //
 // ── Beş e-posta ─────────────────────────────────────────────────────────────
-//   hosgeldin  kartsız deneme başladı (bitişe 4+ gün varken)
+//   hosgeldin  kartsız deneme başladı (bitişe 4+ gün varken) · siteden
+//              ödeme önce açılan hesap (sihirli bağlantı, göç 127)
 //   uc_gun     bitişe 3 gün ya da daha az           (sihirli bağlantı)
 //   bitti      bitişin günü ve sonraki 2 gün        (sihirli bağlantı)
 //   son        bitişten 3–6 gün sonra; sonra YOK     (sihirli bağlantı)
@@ -46,6 +47,43 @@ export const MAGIC_LINK_HOURS = 24;
 /** Düğmesi sihirli bağlantı olan türler. Hoş geldiniz düz giriş bağlantısı:
  *  7 gün okunabilir, 24 saatlik bağlantı orada çoğu zaman ölü olurdu. */
 export const MAGIC_KINDS: readonly MailKind[] = ['uc_gun', 'bitti', 'son', 'odeme'];
+
+/**
+ * Siteden ödeme önce açılan hesabın hoş geldiniz e-postası (göç 127): hesabı
+ * Dodo'ya yazılan e-postayla ödeme açtı, kişinin bilinen bir şifresi YOK.
+ * Ödeme sekmesini kapatan panele bu e-postanın düğmesiyle döner — bu yüzden
+ * bu hoş geldiniz SİHİRLİ bağlantılı; ödemeden dakikalar sonra okunur.
+ */
+export const CHECKOUT_EVENT = 'checkout_claim';
+
+/** Ödeme talebi bundan eskiyse hoş geldiniz gitmez (tarama durmuşsa geç e-posta yok). */
+export const CHECKOUT_WELCOME_MAX_MS = 2 * 86_400_000;
+
+/** Düğme sihirli bağlantı mı? */
+export function isMagic(tur: MailKind, event?: string | null): boolean {
+    return MAGIC_KINDS.includes(tur) || (tur === 'hosgeldin' && event === CHECKOUT_EVENT);
+}
+
+/** Taramanın okuduğu ödeme talebi alanları (checkout_claims). */
+export interface ClaimRow {
+    id: string;
+    organization_id: string | null;
+    user_created: boolean;
+    attached_at: string | null;
+}
+
+/**
+ * Bu ödeme talebine hoş geldiniz düşüyor mu? Yalnız hesabı talebin AÇTIĞI
+ * (var olan hesaba eklenen aboneliğe değil — o kişinin şifresi var) ve
+ * işletmeye yeni bağlanmış talepler. Dönem talebe özgü: kartsız denemenin
+ * hoş geldinizini bloke etmez, aynı talebe iki kez gitmez.
+ */
+export function claimWelcomeDue(claim: ClaimRow, now: number): Due | null {
+    if (!claim.user_created || !claim.organization_id) return null;
+    const at = ms(claim.attached_at);
+    if (at === null || now - at > CHECKOUT_WELCOME_MAX_MS) return null;
+    return { tur: 'hosgeldin', donem: `site-${claim.id}` };
+}
 
 /**
  * Gönderen. Apple gizli e-posta kaydında (Apple Developer › Sign in with
@@ -171,8 +209,8 @@ function base(appUrl: string): string {
  * Sayfa: src/pages/EpostaBaglantiPage.tsx. GoTrue'nun kendi `action_link`i
  * KULLANILMAZ — API_EXTERNAL_URL iç ağ adresi, kimsenin tarayıcısında açılmaz.
  */
-export function magicUrl(appUrl: string, hashedToken: string): string {
-    return `${base(appUrl)}/baglanti#t=${encodeURIComponent(hashedToken)}`;
+export function magicUrl(appUrl: string, hashedToken: string, git?: 'panel'): string {
+    return `${base(appUrl)}/baglanti#t=${encodeURIComponent(hashedToken)}${git ? `&git=${git}` : ''}`;
 }
 
 /** Düz bağlantı: giriş, sonra paket ekranı (LoginPage `sonra=abonelik`). */
@@ -277,6 +315,21 @@ function body(tur: MailKind, ctx: MailContext): Body {
 
     switch (tur) {
         case 'hosgeldin': {
+            if (ctx.event === CHECKOUT_EVENT) {
+                return {
+                    subject: 'Luera TimeFlow hesabınız hazır',
+                    preheader: 'Tek tıkla panele girin; şifrenizi sonra belirleyebilirsiniz.',
+                    heading: 'Hesabınız hazır.',
+                    paras: [
+                        `${biz} için TimeFlow hesabınız açıldı ve ücretsiz denemeniz başladı. İlk ödeme deneme bitince alınır; o güne kadar Ayarlar › Abonelik'ten iptal ederseniz ücret alınmaz.`,
+                    ],
+                    info: { label: 'Hesabınızın e-postası', value: ctx.to },
+                    after: [
+                        "Kendi şifrenizi panelde Ayarlar › Hesabım'dan belirleyebilirsiniz. O zamana kadar giriş ekranında bu adresi yazıp \"Şifremi unuttum\"u seçerek de girebilirsiniz.",
+                    ],
+                    button: 'Panele gir',
+                };
+            }
             const opening = ctx.event === 'trial_opening';
             return {
                 subject: opening ? 'TimeFlow ücretsiz denemeniz başladı' : "Luera TimeFlow'a hoş geldiniz",

@@ -152,7 +152,7 @@ export function HosgeldinPage() {
                 <div className="badge g"><Ico n="ck" s="i26" /></div>
                 <h1>Ödemeniz alındı.</h1>
                 <p className="lede">
-                    Hesabınız {adres} ile açılıyor. Giriş ekranında bu adresle "Şifremi unuttum"u seçin; gelen bağlantıyla şifrenizi belirleyip panele girin.
+                    Hesabınız {adres} ile açılıyor. Birkaç dakika içinde bu adrese tek tıkla giriş bağlantısı gönderiyoruz. Beklemek istemezseniz giriş ekranında "Şifremi unuttum"u seçin; gelen bağlantıyla şifrenizi belirleyip panele girin.
                 </p>
                 {girisYap}
             </div>,

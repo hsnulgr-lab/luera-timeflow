@@ -2,8 +2,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { deny, identify } from '../_shared/auth.ts';
 import { getSecret } from '../_shared/wa.ts';
 import {
-    displayName, dueMail, MAGIC_KINDS, magicUrl, MAIL_FROM, MAIL_KINDS, MAIL_REPLY_TO, mailContent,
-    maskEmail, paywallLoginUrl, sendableAt, type Due, type MailKind, type MailRow,
+    CHECKOUT_EVENT, CHECKOUT_WELCOME_MAX_MS, claimWelcomeDue, displayName, dueMail, isMagic, magicUrl,
+    MAIL_FROM, MAIL_KINDS, MAIL_REPLY_TO, mailContent, maskEmail, paywallLoginUrl, sendableAt,
+    type ClaimRow, type Due, type MailKind, type MailRow,
 } from './eposta.ts';
 
 const corsHeaders = {
@@ -135,6 +136,21 @@ async function scan(admin: Admin, cfg: Config, now: number, detail: boolean): Pr
         if (!d) continue;
         if (!sendableAt(d.tur, now)) { quiet++; continue; }
         due.push({ row, due: d });
+    }
+
+    // Siteden ödeme önce açılan hesaplar (göç 127): hoş geldiniz + şifresiz
+    // giriş. Ayna satırı Dodo aboneliği olduğu için dueMail'e düşmez; talep
+    // tablosundan okunur. Okunamazsa tarama yine sürer — öteki e-postalar
+    // bunun yüzünden durmasın.
+    const { data: claims, error: claimErr } = await admin.from('checkout_claims')
+        .select('id, organization_id, user_created, attached_at')
+        .eq('user_created', true)
+        .gt('attached_at', new Date(now - CHECKOUT_WELCOME_MAX_MS).toISOString());
+    if (claimErr) console.error('abonelik-eposta: ödeme talepleri okunamadı', claimErr.message);
+    for (const claim of (claims ?? []) as ClaimRow[]) {
+        const d = claimWelcomeDue(claim, now);
+        if (!d || !claim.organization_id) continue;
+        due.push({ row: { organization_id: claim.organization_id, state: 'trial', last_event: CHECKOUT_EVENT }, due: d });
     }
 
     if (!cfg.live) return await dryRun(admin, due, quiet, detail);
@@ -287,11 +303,12 @@ async function sendOne(
     // Üretilemezse e-posta yine gider — düğme giriş sayfasına açılır.
     let link = paywallLoginUrl(cfg.appUrl);
     let magic = false;
-    if (MAGIC_KINDS.includes(due.tur)) {
+    if (isMagic(due.tur, copy.event)) {
         const { data: gl, error: glErr } = await admin.auth.admin.generateLink({ type: 'magiclink', email });
         const hash: string | undefined = gl?.properties?.hashed_token;
         if (!glErr && hash) {
-            link = magicUrl(cfg.appUrl, hash);
+            // Hoş geldiniz (siteden açılan hesap) panele; öteki her şey paket ekranına.
+            link = magicUrl(cfg.appUrl, hash, due.tur === 'hosgeldin' ? 'panel' : undefined);
             magic = true;
         } else {
             console.warn('abonelik-eposta: sihirli bağlantı üretilemedi, düz bağlantı', orgId, glErr?.message ?? 'hashed_token yok');
@@ -359,9 +376,15 @@ async function trialSend(admin: Admin, cfg: Config, raw: unknown, now: number): 
         .select('organization_id, state, dodo_subscription_id, last_event, trial_ends_at, expires_at, grace_until')
         .eq('organization_id', orgId).maybeSingle();
 
+    // Siteden açılan hesapta hoş geldiniz, ödeme önce metniyle denenir.
+    const { data: siteClaim } = await admin.from('checkout_claims')
+        .select('id').eq('organization_id', orgId).eq('user_created', true).limit(1).maybeSingle();
+    const event = siteClaim ? CHECKOUT_EVENT
+        : row?.last_event === 'trial_opening' ? 'trial_opening' : 'trial_phone';
+
     const res = await sendOne(admin, cfg, orgId, { tur, donem: `deneme-${iso(now)}` }, {
         endsAt: sampleEnd(tur, row as MailRow | null, now),
-        event: row?.last_event === 'trial_opening' ? 'trial_opening' : 'trial_phone',
+        event,
     }, now);
     console.log(`abonelik-eposta dene tur=${tur} sonuc=${res.kind}`);
     if (res.kind === 'sent') return json({ gonderildi: true, tur, alici: maskEmail(res.to), resend_id: res.resendId });

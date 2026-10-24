@@ -52,7 +52,10 @@ test('dodo-checkout: dönüş hep ödeme duvarına; e-posta kipi kendi ekranına
 
 test('ödeme duvarı: abonelik gelince kurulum yapıldıysa ana sayfa, yoksa kurulum; fiş yalnız e-postada', () => {
     const pw = oku('src/pages/PaywallPage.tsx');
-    const yol = pw.slice(pw.indexOf('async function afterPaymentPath'), pw.indexOf('interface Kept'));
+    // Karar ortak dosyada: ödeme duvarı ve hoş geldiniz e-postasının sihirli bağlantısı (göç 127).
+    const yol = oku('src/lib/odemeSonrasi.ts');
+    assert.match(pw, /import \{ afterPaymentPath \} from '@\/lib\/odemeSonrasi';/);
+    assert.match(oku('src/pages/EpostaBaglantiPage.tsx'), /import \{ afterPaymentPath \} from '@\/lib\/odemeSonrasi';/);
     assert.match(yol, /from\('settings'\)\.select\('sector, business_name, working_hours'\)/);
     assert.match(yol, /from\('services'\)\.select\('id', \{ count: 'exact', head: true \}\)/);
     assert.doesNotMatch(yol, /from\('organizations'\)/, 'adres/telefon karara girmez (Test B)');

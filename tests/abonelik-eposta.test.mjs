@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
 import {
-    displayName, dueMail, escapeHtml, MAIL_FROM, MAIL_KINDS, MAIL_REPLY_TO, magicUrl, mailContent,
-    maskEmail, paywallLoginUrl, sendableAt, trDaysLeft,
+    CHECKOUT_EVENT, claimWelcomeDue, displayName, dueMail, escapeHtml, isMagic, MAIL_FROM, MAIL_KINDS,
+    MAIL_REPLY_TO, magicUrl, mailContent, maskEmail, paywallLoginUrl, sendableAt, trDaysLeft,
 } from '../supabase/functions/abonelik-eposta/eposta.ts';
 
 /*
@@ -99,6 +99,21 @@ test('kartlı deneme, ödeyen, kilitli, demo, hediye ve elle yazılmış deneme 
     assert.equal(dueMail(row({ last_event: null }), NOW), null);
 });
 
+test('siteden açılan hesap: hoş geldiniz yalnız hesabı talep AÇTIYSA, 2 gün içinde, talep başına bir kez (göç 127)', () => {
+    const claim = (over = {}) => ({ id: 'c-1', organization_id: 'org-1', user_created: true, attached_at: iso(NOW - H), ...over });
+    assert.deepEqual(claimWelcomeDue(claim(), NOW), { tur: 'hosgeldin', donem: 'site-c-1' });
+    assert.equal(claimWelcomeDue(claim({ user_created: false }), NOW), null, 'var olan hesabın şifresi var');
+    assert.equal(claimWelcomeDue(claim({ attached_at: null }), NOW), null, 'işletmeye bağlanmamış');
+    assert.equal(claimWelcomeDue(claim({ organization_id: null }), NOW), null);
+    assert.equal(claimWelcomeDue(claim({ attached_at: iso(NOW - 3 * DAY) }), NOW), null, 'tarama durmuşsa geç e-posta yok');
+    // Kartsız denemenin hoş geldinizinden ayrı dönem: biri ötekini bloke etmez.
+    assert.notEqual(claimWelcomeDue(claim(), NOW).donem, dueMail(row(), NOW).donem);
+    // Düğme: site hoş geldinizi SİHİRLİ, kartsız denemeninki düz.
+    assert.equal(isMagic('hosgeldin', CHECKOUT_EVENT), true);
+    assert.equal(isMagic('hosgeldin', 'trial_phone'), false);
+    for (const tur of ['uc_gun', 'bitti', 'son', 'odeme']) assert.equal(isMagic(tur, null), true, tur);
+});
+
 test('ödeme alınamadı: yalnız ek süre SÜRERKEN; dönem = ek sürenin sonu', () => {
     const g = iso(NOW + 30 * H);
     assert.deepEqual(dueMail(row({ state: 'grace', dodo_subscription_id: 'sub_1', last_event: 'subscription.on_hold', grace_until: g }), NOW), { tur: 'odeme', donem: g });
@@ -150,6 +165,20 @@ test('hoş geldiniz: açılış denemesinin konusu ve başlığı ayrı', () => 
     const opening = mailContent('hosgeldin', ctx({ event: 'trial_opening' }));
     assert.equal(opening.subject, 'TimeFlow ücretsiz denemeniz başladı');
     assert.ok(opening.text.startsWith('Ücretsiz denemeniz başladı.'));
+});
+
+test('siteden açılan hesabın hoş geldinizi: panele tek tık, şifre yolu, iptal; kartsız metni YOK', () => {
+    const c = mailContent('hosgeldin', ctx({ event: CHECKOUT_EVENT, business: null }));
+    assert.equal(c.subject, 'Luera TimeFlow hesabınız hazır');
+    assert.ok(c.text.startsWith('Hesabınız hazır.'));
+    assert.match(c.text, /^İşletmeniz için TimeFlow hesabınız açıldı ve ücretsiz denemeniz başladı\./m);
+    assert.match(c.text, /Ayarlar › Abonelik'ten iptal ederseniz ücret alınmaz/);
+    assert.match(c.text, /Hesabınızın e-postası: kemal@gmail\.com/);
+    assert.match(c.text, /Ayarlar › Hesabım'dan belirleyebilirsiniz/);
+    assert.match(c.text, /"Şifremi unuttum"/);
+    assert.match(c.text, /Panele gir: https:\/\/timeflow\.lueratech\.com\/baglanti#t=abc/);
+    assert.match(c.text, /24 saat geçerli ve tek kullanımlıktır/, 'sihirli bağlantı notu');
+    assert.doesNotMatch(c.text, /kart bilgisi istemiyoruz|Paketleri gör/, 'kartsız denemenin metni değil');
 });
 
 test('ENFORCE kapalıyken "salt okunur" YAZMAZ, açıkken yazar', () => {
@@ -208,6 +237,7 @@ test('gönderen Apple\'a kayıtlı adres; yanıt gerçek posta kutusuna', () => 
 
 test('jeton PARÇADA (#), adreste değil; düz bağlantı paket ekranına girişle', () => {
     assert.equal(magicUrl('https://timeflow.lueratech.com/', 'ab/c'), 'https://timeflow.lueratech.com/baglanti#t=ab%2Fc');
+    assert.equal(magicUrl('https://timeflow.lueratech.com', 'x', 'panel'), 'https://timeflow.lueratech.com/baglanti#t=x&git=panel');
     assert.equal(paywallLoginUrl('https://timeflow.lueratech.com'), 'https://timeflow.lueratech.com/login?sonra=abonelik');
     assert.equal(maskEmail('kemal@gmail.com'), 'k***@gmail.com');
     assert.equal(maskEmail(null), '(adres yok)');
@@ -357,8 +387,8 @@ test('/baglanti kapının DIŞINDA; jeton parçadan okunur, hemen silinir, bir k
     assert.match(page, /window\.history\.replaceState\(null, '', window\.location\.pathname\)/);
     assert.match(page, /if \(started\.current\) return;/, 'StrictMode ikinci doğrulamada jetonu yakmasın');
     assert.match(page, /isAuthRetryableFetchError\(error\)\) \{ setPhase\('offline'\)/, 'ağ hatası "süresi dolmuş" değildir');
-    assert.match(page, /navigate\('\/login\?sonra=abonelik'\)/);
-    assert.match(page, /user\?\.id === target/, 'yönlendirme oturum yeni kişiye geçince');
+    assert.match(page, /navigate\(panel \? '\/login' : '\/login\?sonra=abonelik'\)/);
+    assert.match(page, /if \(!target \|\| user\?\.id !== target \|\| routed\.current\) return;/, 'yönlendirme oturum yeni kişiye geçince, bir kez');
     assert.doesNotMatch(page, /action_link/);
     // Tam marka (kullanıcı, 2026-10-21): giriş sayfasındaki gibi luera + "timeflow" hapı.
     assert.match(page, /<LueraTimeflowMark size=\{28\} animate=\{false\} pillHeightRatio=\{0\.5556\} textRatio=\{0\.62\} dark=\{dark\} \/>/);
@@ -371,7 +401,13 @@ test('e-postadan gelen web uygulamasına HİÇ düşmez: paket ekranında kalır
     const page = code('src/pages/EpostaBaglantiPage.tsx');
     assert.match(page, /const PAKET = '\/abonelik\?kaynak=eposta';/);
     assert.doesNotMatch(page, /navigate\('\/abonelik'/, 'kipsiz paket ekranı kalmadı');
-    assert.equal((page.match(/navigate\(PAKET, \{ replace: true \}\)/g) || []).length, 3);
+    // Tek çıkış: doğrulanan kullanıcıya geçilince — jetonsuz ve ikinci tıklama da oradan.
+    assert.equal((page.match(/navigate\(PAKET, \{ replace: true \}\)/g) || []).length, 1);
+    assert.match(page, /if \(!panel\) \{ routed\.current = true; navigate\(PAKET, \{ replace: true \}\); return; \}/);
+    // İstisna YALNIZ hoş geldiniz (göç 127): parçada git=panel → kurulum ya da ana sayfa.
+    assert.match(page, /\.get\('git'\) === 'panel'/);
+    assert.match(page, /void afterPaymentPath\(orgId\)\.then\(\(to\) => navigate\(to, \{ replace: true \}\)\);/);
+    assert.match(code('supabase/functions/abonelik-eposta/index.ts'), /magicUrl\(cfg\.appUrl, hash, due\.tur === 'hosgeldin' \? 'panel' : undefined\)/);
 
     const pw = code('src/pages/PaywallPage.tsx');
     assert.match(pw, /const fromEmail = params\.get\('kaynak'\) === 'eposta';/);
@@ -413,6 +449,12 @@ test('fonksiyon: yalnız zamanlayıcı; anahtar kapalıyken defter YAZILMAZ', ()
     assert.ok(send.indexOf("rpc('abonelik_eposta_ayir'") < send.indexOf('fetch(RESEND_URL'));
     assert.match(send, /'Idempotency-Key': `abonelik-\$\{slot\.id\}-\$\{slot\.deneme\}`/);
     assert.match(send, /generateLink\(\{ type: 'magiclink', email \}\)/);
+    assert.match(send, /if \(isMagic\(due\.tur, copy\.event\)\) \{/, 'sihirli düğme türe VE olaya göre');
+    // Siteden açılan hesaplar talep tablosundan, yalnız hesabı talep açtıysa.
+    const scan = fn.slice(fn.indexOf('async function scan'), fn.indexOf('async function dryRun'));
+    assert.match(scan, /from\('checkout_claims'\)[\s\S]*?\.eq\('user_created', true\)/);
+    assert.match(scan, /last_event: CHECKOUT_EVENT/);
+
     assert.match(send, /hashed_token/);
 });
 

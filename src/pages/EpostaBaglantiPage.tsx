@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { clearAllCache } from '@/lib/swrCache';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { afterPaymentPath } from '@/lib/odemeSonrasi';
 import { BillingSprite, Ico } from '@/components/billing/BillingIcons';
 import { LueraTimeflowMark } from '@/components/brand/LueraTimeflowMark';
 import './billing.css';
@@ -15,6 +16,8 @@ import './billing.css';
 // Abonelik e-postalarındaki düğme buraya gelir (supabase/functions/
 // abonelik-eposta). Bilgisayarı olmayan salon sahibi telefonun tarayıcısında
 // şifre yazmadan paket ekranına (/abonelik) düşer: docs/abonelik-kurallari.md §2.
+// Tek istisna `&git=panel`: siteden ödeme önce açılan hesabın hoş geldiniz
+// e-postası (göç 127) — o kişi panele gelir: kurulum ya da ana sayfa.
 //
 // ── Neden giriş servisinin kendi bağlantısı değil ───────────────────────────
 // GoTrue'nun `action_link`i API_EXTERNAL_URL'e gider ve o adres iç ağda
@@ -37,6 +40,11 @@ type Phase = 'checking' | 'offline' | 'expired';
  */
 const PAKET = '/abonelik?kaynak=eposta';
 
+/** Parçadaki hedef: hoş geldiniz e-postası panele, öteki her şey paket ekranına. */
+function panelFromHash(hash: string): boolean {
+    return new URLSearchParams(hash.replace(/^#/, '')).get('git') === 'panel';
+}
+
 /** Parçadaki jeton (#t=…); yoksa null. */
 function tokenFromHash(hash: string): string | null {
     const t = new URLSearchParams(hash.replace(/^#/, '')).get('t');
@@ -45,9 +53,12 @@ function tokenFromHash(hash: string): string | null {
 
 export function EpostaBaglantiPage() {
     const { dark } = useTheme();
-    const { user, refreshOrg } = useAuth();
+    const { user, orgId, refreshOrg } = useAuth();
     const navigate = useNavigate();
     const [phase, setPhase] = useState<Phase>('checking');
+    // İlk çizimde okunur: parça birazdan adres çubuğundan silinir.
+    const [panel] = useState(() => panelFromHash(window.location.hash));
+    const routed = useRef(false);
     // Doğrulanan kullanıcı: yönlendirme ancak uygulamanın oturumu da ona
     // geçince yapılır — aynı tarayıcıda başka biri açıksa paket ekranı bir
     // an ESKİ kullanıcının işletmesiyle açılmasın.
@@ -61,7 +72,7 @@ export function EpostaBaglantiPage() {
         const t = token.current;
         if (!t) {
             // Jetonsuz açıldı (yer imi, geri tuşu): oturum varsa zaten içeride.
-            if (before.session) navigate(PAKET, { replace: true });
+            if (before.session) setTarget(before.session.user.id);
             else setPhase('expired');
             return;
         }
@@ -73,7 +84,7 @@ export function EpostaBaglantiPage() {
             if (error && isAuthRetryableFetchError(error)) { setPhase('offline'); return; }
             token.current = null;
             // İkinci tıklama: ilk tıklama kişiyi zaten içeri almıştı.
-            if (before.session) { navigate(PAKET, { replace: true }); return; }
+            if (before.session) { setTarget(before.session.user.id); return; }
             setPhase('expired');
             return;
         }
@@ -100,8 +111,13 @@ export function EpostaBaglantiPage() {
     }, []);
 
     useEffect(() => {
-        if (target && user?.id === target) navigate(PAKET, { replace: true });
-    }, [target, user?.id, navigate]);
+        if (!target || user?.id !== target || routed.current) return;
+        if (!panel) { routed.current = true; navigate(PAKET, { replace: true }); return; }
+        // Panel: işletme çözülünce, ödeme dönüşüyle aynı kural (kurulum ya da ana sayfa).
+        if (!orgId) return;
+        routed.current = true;
+        void afterPaymentPath(orgId).then((to) => navigate(to, { replace: true }));
+    }, [target, user?.id, orgId, panel, navigate]);
 
     const shell = (body: React.ReactNode) => (
         <div className={cn('bl dash-theme', dark && 'dark')}
@@ -140,10 +156,12 @@ export function EpostaBaglantiPage() {
                 <div className="badge n"><Ico n="clock" s="i26" /></div>
                 <h1>Bu bağlantı artık geçerli değil.</h1>
                 <p className="lede">
-                    Bağlantının süresi dolmuş ya da daha önce kullanılmış. Giriş yapın, sizi paket ekranına götürelim.
+                    {panel
+                        ? 'Bağlantının süresi dolmuş ya da daha önce kullanılmış. Giriş ekranında e-postanızı yazıp "Şifremi unuttum"u seçin; gelen bağlantıyla şifrenizi belirleyin.'
+                        : 'Bağlantının süresi dolmuş ya da daha önce kullanılmış. Giriş yapın, sizi paket ekranına götürelim.'}
                 </p>
                 <div className="acts">
-                    <button className="btn pri big" onClick={() => navigate('/login?sonra=abonelik')}>
+                    <button className="btn pri big" onClick={() => navigate(panel ? '/login' : '/login?sonra=abonelik')}>
                         Giriş yap<Ico n="ar" s="i" />
                     </button>
                 </div>
@@ -155,7 +173,7 @@ export function EpostaBaglantiPage() {
         <div className="wall" role="status" aria-live="polite">
             <div className="badge n"><Ico n="loading" s="i26" className="spin" /></div>
             <h1>Giriş yapılıyor.</h1>
-            <p className="lede">Sizi paket ekranına götürüyoruz.</p>
+            <p className="lede">{panel ? 'Sizi panele götürüyoruz.' : 'Sizi paket ekranına götürüyoruz.'}</p>
         </div>,
     );
 }
