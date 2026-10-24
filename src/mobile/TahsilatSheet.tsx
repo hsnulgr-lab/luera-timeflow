@@ -120,7 +120,7 @@ export function TahsilatSheet({ open, onClose, lockStaffId, prefill, onPaid, tit
         }
         setSaving(false);
         if (ok) { toast.success('Tahsilat kaydedildi'); reset(); onPaid?.(); onClose(); }
-        else { toast.error('Tahsilat kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.'); }
+        else { toast.error('Tahsilat kaydedilemedi', { description: 'Bağlantınızı kontrol edip tekrar deneyin.' }); }
     };
 
     const activeStaff = staff.filter((s) => s.isActive);

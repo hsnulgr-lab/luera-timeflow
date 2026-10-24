@@ -204,7 +204,7 @@ export function useTreatmentPlans(customerId: string | undefined) {
             )));
             if (rollbackError || !rolledBackPlan) {
                 console.error(rollbackError);
-                toast.error('Klinik işlem tamamlanamadı; plan durumu yeniden yüklenmelidir');
+                toast.error('Klinik işlem tamamlanamadı', { description: 'Planı yeniden yükleyin.' });
             } else {
                 toast.error(message);
             }
@@ -248,7 +248,7 @@ export function useTreatmentPlans(customerId: string | undefined) {
                 if (inserts.length > 0) {
                     const { error: syncErr } = await supabase.from('dental_records').insert(inserts);
                     if (syncErr) return rollbackStatus('Diş şeması güncellenemediği için tedavi tamamlanmadı', syncErr);
-                    toast.success('Diş şeması güncellendi — planlı işlemler tamamlandı olarak işlendi');
+                    toast.success('Diş şeması güncellendi', { description: 'Planlı işlemler tamamlandı olarak işlendi.' });
                 }
             }
         }

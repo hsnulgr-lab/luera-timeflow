@@ -90,7 +90,7 @@ export function useStock() {
             console.error('stock_movements insert', error);
             if (isMissingTable(error)) {
                 setIsAvailable(false);
-                toast.error('Stok defteri okunamıyor — 074 uygulandıysa PostgREST şema önbelleğini yenileyin');
+                toast.error('Stok defteri okunamıyor', { description: '074 uygulandıysa PostgREST şema önbelleğini yenileyin.' });
             } else {
                 toast.error(`Stok hareketi kaydedilemedi: ${error.message || error.code || 'bilinmeyen hata'}`);
             }

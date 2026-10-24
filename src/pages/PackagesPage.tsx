@@ -239,7 +239,7 @@ function PackagesPageDefault() {
             .update({ renewal_offered_at: new Date().toISOString() }).eq('id', row.pkg.id);
         setOffering(null);
         if (error) { console.error(error); toast.error('Teklif damgası kaydedilemedi'); return; }
-        toast.success('Yenileme teklifi gönderildi ✨');
+        toast.success('Yenileme teklifi gönderildi');
         void refresh();
     };
 

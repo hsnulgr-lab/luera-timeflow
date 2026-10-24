@@ -166,7 +166,7 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
         // "Geç geldi" gelmedi damgasını da temizler (098 okuma kuralı)
         const updated = await updateReservation(r.id, { customerArrivedAt: new Date().toISOString(), ...(r.noShowAt ? { noShowAt: null } : {}) });
         if (updated) toast.success(r.staffName
-            ? `${r.staffName} bilgilendirildi 🔔`
+            ? `${r.staffName} bilgilendirildi`
             : `${settings.sector === 'dis' ? 'Hasta' : 'Müşteri'} geldi olarak işaretlendi`);
     };
     // Gelmedi: randevu iptal EDİLMEZ, damga basılır (098) — raporlar ve

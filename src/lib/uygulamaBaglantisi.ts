@@ -11,17 +11,17 @@ export const APP_STORE_URL = 'https://apps.apple.com/tr/app/luera-timeflow/id681
 export async function uygulamaBaglantisiniKopyala(): Promise<void> {
     try {
         await navigator.clipboard.writeText(APP_STORE_URL);
-        toast.success('Uygulama bağlantısı kopyalandı', { description: 'Personelinize WhatsApp ya da e-postayla gönderebilirsiniz.' });
+        toast.success('Bağlantı kopyalandı', { description: "WhatsApp'tan ya da e-postayla iletebilirsiniz." });
     } catch {
         // Pano izni yoksa bağlantı yeni sekmede açılır; adres çubuğundan alınır.
         window.open(APP_STORE_URL, '_blank', 'noopener');
     }
 }
 
-/** "Personel eklendi" bildirimi — uygulamanın yolu ve bağlantısıyla. */
+/** "Derya eklendi" bildirimi — uygulamanın yolu ve bağlantısıyla (kısa: bildirim tek hap). */
 export function personelEklendiBildirimi(kisi = 'Personel'): void {
     toast.success(`${kisi} eklendi`, {
-        description: "Telefonuna Luera TimeFlow'u indirip Personel sayfasındaki \"Telefon bağla\" koduyla girer.",
+        description: 'Uygulamaya "Telefon bağla" koduyla girer.',
         duration: 9000,
         action: { label: 'Bağlantıyı kopyala', onClick: () => { void uygulamaBaglantisiniKopyala(); } },
     });

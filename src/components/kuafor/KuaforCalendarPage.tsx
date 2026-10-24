@@ -524,7 +524,7 @@ export function KuaforCalendarPage() {
             return;
         }
         if (!slotRulesReady) {
-            toast.error('Salon uygunluğu kontrol ediliyor, lütfen kısa süre sonra yeniden deneyin');
+            toast.error('Uygunluk kontrol ediliyor', { description: 'Birazdan tekrar deneyin.' });
             return;
         }
         const pending = [...lines];

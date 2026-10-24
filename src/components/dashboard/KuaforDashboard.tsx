@@ -353,7 +353,7 @@ export function KuaforDashboard() {
             customFields: prevCF,
         }, message || `${r.customerName.split(' ')[0]} kasaya gönderildi`, false);
         if (usage.length > 0 && !stockOk) {
-            toast.warning('İşlem kasaya gönderildi; stok kaydı tamamlanamadı. Tekrar deneyebilirsiniz.');
+            toast.warning('Kasaya gönderildi, stok yazılamadı', { description: 'Tekrar deneyebilirsiniz.' });
         }
     };
 
@@ -1374,7 +1374,7 @@ export function KuaforDashboard() {
                         const created = await addReservation(payload);
                         if (!created) return false;
                         await updateReservation(created.id, { customerArrivedAt: new Date().toISOString() });
-                        toast.success(`${payload.customerName} sıraya eklendi ⚡`);
+                        toast.success(`${payload.customerName} sıraya eklendi`);
                         setWalkinOpen(false);
                         return true;
                     }}

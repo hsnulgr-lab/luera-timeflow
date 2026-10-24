@@ -144,7 +144,7 @@ export const MobileNewReservation = ({ onClose, lockedStaffId }: MobileNewReserv
         const endTime = addMinutes(time, svc.duration);
         const selectedResource = resources.find((x) => x.id === resourceId);
         const clash = checkConflict(date, time, endTime, undefined, selStaff.id, resourceId || undefined, selectedResource?.capacity);
-        if (clash) { toast.error(`${selStaff.name} bu saatte dolu (${clash.startTime}–${clash.endTime}). Başka saat veya personel seçin.`); return; }
+        if (clash) { toast.error(`${selStaff.name} bu saatte dolu`, { description: `${clash.startTime}–${clash.endTime} · başka saat ya da personel seçin.` }); return; }
         const s1 = toMin(time), e1 = toMin(endTime);
         if (lines.some((l) => l.staffId === selStaff.id && toMin(l.time) < e1 && s1 < toMin(l.endTime))) {
             toast.error(`${selStaff.name} bu saatte zaten ekli`); return;
@@ -235,7 +235,7 @@ export const MobileNewReservation = ({ onClose, lockedStaffId }: MobileNewReserv
             setSavedLines(succeeded);
             setDone(true);
         } else if (succeeded.length > 0) {
-            toast.success(`${succeeded.length} hizmet kaydedildi · ${remaining.length} hizmet çakıştığı için beklemede`);
+            toast.success(`${succeeded.length} hizmet kaydedildi`, { description: `${remaining.length} hizmet çakıştığı için bekliyor.` });
             setStep(2);
         }
     };

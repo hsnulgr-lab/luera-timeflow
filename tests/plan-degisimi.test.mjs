@@ -139,7 +139,7 @@ test('personel eklenince telefon uygulamasının yolu ve bağlantısı', () => {
     const b = oku('src/lib/uygulamaBaglantisi.ts');
     assert.match(b, /\\?"Telefon bağla\\?" koduyla girer/);
     assert.match(b, /action: \{ label: 'Bağlantıyı kopyala'/);
-    assert.match(oku('src/pages/StaffPage.tsx'), /else\s+\{ await addStaff\(payload\);\s+personelEklendiBildirimi\(staffWord\); \}/);
+    assert.match(oku('src/pages/StaffPage.tsx'), /else\s+\{ await addStaff\(payload\);\s+personelEklendiBildirimi\(payload\.name\); \}/);
     assert.match(oku('src/pages/StaffPage.tsx'), /App Store'da <a href=\{APP_STORE_URL\}/, 'ekip kodu kartında');
     assert.match(oku('src/mobile/pages/MobileStaff.tsx'), /personelEklendiBildirimi\(\);/);
     assert.match(oku('src/pages/SetupWizardPage.tsx'), /if \(yeni > 0\) personelEklendiBildirimi\(/);

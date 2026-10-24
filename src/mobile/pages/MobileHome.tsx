@@ -166,7 +166,7 @@ const MobileRandevuHome = () => {
                         {todayList.map((a, i) => (
                             <ApptRow key={a.id} r={a} last={i === todayList.length - 1} price={priceOf(a.service)} expanded={expanded === a.id}
                                 onToggle={() => setExpanded(expanded === a.id ? null : a.id)}
-                                onArrive={() => { updateReservation(a.id, { customerArrivedAt: new Date().toISOString() }); toast.success(a.staffName ? `${a.staffName} bilgilendirildi 🔔` : 'Müşteri geldi olarak işaretlendi'); }}
+                                onArrive={() => { updateReservation(a.id, { customerArrivedAt: new Date().toISOString() }); toast.success(a.staffName ? `${a.staffName} bilgilendirildi` : 'Müşteri geldi olarak işaretlendi'); }}
                                 onCancel={() => { const prev = a.status; updateReservation(a.id, { status: 'cancelled' }); setExpanded(null); toast('Randevu iptal edildi', { action: { label: 'Geri Al', onClick: () => updateReservation(a.id, { status: prev }) } }); }} />
                         ))}
                     </div>

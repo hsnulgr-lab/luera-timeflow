@@ -48,8 +48,8 @@ export async function requestPlanChange(orgId: string | null | undefined, plan: 
     if (!error && data?.changed && (data.when === 'now' || data.when === 'next_billing')) return data.when;
     const code = error ? await errorCode(error) : null;
     console.error('dodo-checkout change:', code ?? error, data);
-    if (code === 'team_too_large') toast.info('Bu paket yalnız sizin içindir; ekibinizde personel varken geçilemez.');
-    else if (code === 'change_pending') toast.info('Bekleyen bir paket değişikliğiniz var; yürürlüğe girince yenisini yapabilirsiniz.');
+    if (code === 'team_too_large') toast.info('Bu paket tek kişilik', { description: 'Ekibinizde personel varken geçilemez.' });
+    else if (code === 'change_pending') toast.info('Bekleyen bir değişiklik var', { description: 'Yürürlüğe girince yenisini yapabilirsiniz.' });
     else if (code === 'no_subscription') toast.info('Paket değişikliği için süren bir abonelik gerekiyor.');
     else if (code === 'same_plan') toast.info('Zaten bu paketi kullanıyorsunuz.');
     else toast.error('Paket değiştirilemedi, lütfen tekrar deneyin');
@@ -140,9 +140,9 @@ export function useBilling() {
             console.error('dodo-checkout:', code ?? error, data);
             // Süren aboneliğe ikinci abonelik açılmaz (çift tahsilat). Plan
             // değişikliği henüz kendi kendine yapılamıyor.
-            if (code === 'already_subscribed') toast.info('Aboneliğiniz sürüyor. Plan değişikliği için destek@lueratech.com adresine yazın.');
+            if (code === 'already_subscribed') toast.info('Aboneliğiniz sürüyor', { description: 'Plan değişikliği için destek@lueratech.com adresine yazın.' });
             // Tek kişilik paketi tek çalışana (dodo-checkout · MAX_STAFF).
-            else if (code === 'team_too_large') toast.info('Bu paket yalnız sizin içindir; ekibinizde personel var. Ekip paketini seçin.');
+            else if (code === 'team_too_large') toast.info('Bu paket tek kişilik', { description: 'Ekibinizde personel var; Ekip paketini seçin.' });
             else toast.error('Ödeme sayfası açılamadı, lütfen tekrar deneyin');
             return;
         }
@@ -161,7 +161,7 @@ export function useBilling() {
         setBusy(false);
         if (error || !data?.url) {
             console.error('dodo-checkout card:', error, data);
-            toast.error('Ödeme bilgileri sayfası açılamadı, lütfen tekrar deneyin');
+            toast.error('Ödeme sayfası açılamadı', { description: 'Tekrar deneyin.' });
             return;
         }
         window.location.href = data.url;
@@ -192,7 +192,7 @@ export function useBilling() {
         setBusy(false);
         if (error || !data?.change_cancelled) {
             console.error('dodo-checkout cancel_change:', error, data);
-            toast.error('Planlanan değişiklik geri alınamadı, lütfen tekrar deneyin');
+            toast.error('Değişiklik geri alınamadı', { description: 'Tekrar deneyin.' });
             return false;
         }
         toast.success('Planlanan paket değişikliğinden vazgeçildi');

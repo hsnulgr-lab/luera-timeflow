@@ -49,7 +49,7 @@ export function Abonelik() {
         if (handled.current) return;
         if (params.get('checkout') === 'success') {
             handled.current = true;
-            toast.success('Ödeme alındı! Aboneliğiniz birkaç saniye içinde etkinleşecek.');
+            toast.success('Ödeme alındı', { description: 'Aboneliğiniz birkaç saniye içinde etkinleşir.' });
             pollAfterCheckout();
             params.delete('checkout');
             setParams(params, { replace: true });

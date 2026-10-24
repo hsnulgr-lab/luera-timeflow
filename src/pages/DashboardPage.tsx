@@ -447,7 +447,7 @@ const RandevuDashboard = () => {
                                                             onClick={async (e) => {
                                                                 e.stopPropagation();
                                                                 await updateReservation(res.id, { customerArrivedAt: new Date().toISOString() });
-                                                                toast.success(res.staffName ? `${res.staffName} bilgilendirildi 🔔` : 'Müşteri geldi olarak işaretlendi');
+                                                                toast.success(res.staffName ? `${res.staffName} bilgilendirildi` : 'Müşteri geldi olarak işaretlendi');
                                                             }}
                                                             title="Müşteri Geldi"
                                                             aria-label={`${res.customerName} geldi olarak işaretle`}

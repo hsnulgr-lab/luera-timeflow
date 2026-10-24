@@ -187,7 +187,7 @@ export const KasaPage = () => {
         // Fiyatı tanımsız hizmette tek tıkla 0 ₺ kaydedip randevuyu "ödendi" işaretlemek
         // parayı sessizce kaybettirir — tutarı personel girsin diye tahsilat panelini aç.
         if (amt <= 0) {
-            toast.error(`"${r.service}" hizmetinin fiyatı tanımlı değil — tutarı elle girin`);
+            toast.error(`"${r.service}" için fiyat yok`, { description: 'Tutarı elle girin.' });
             resetSheet();
             if (r.customerId) setSelCust({ id: r.customerId, name: r.customerName, phone: r.customerPhone || '' });
             setNote(r.service);

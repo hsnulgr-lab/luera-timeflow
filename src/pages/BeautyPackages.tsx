@@ -333,7 +333,7 @@ export function BeautyPackages() {
             .update({ renewal_offered_at: new Date().toISOString() }).eq('id', p.raw.id);
         setOffering(null);
         if (error) { console.error(error); toast.error('Teklif damgası kaydedilemedi'); return; }
-        toast.success('Yenileme teklifi gönderildi ✨');
+        toast.success('Yenileme teklifi gönderildi');
         await refresh();
     };
 
@@ -924,7 +924,7 @@ function SaleDrawer({ customers, services, templates, packages, isArchived, addP
             });
         }
         
-        toast.success(`Paket oluşturuldu · ${customer.name} ✨`);
+        toast.success(`Paket oluşturuldu · ${customer.name}`);
         setSaving(false);
         await onDone(created.id);
     };

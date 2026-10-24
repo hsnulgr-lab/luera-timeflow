@@ -372,7 +372,7 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
             setQuery('');
             setQuickNameRaw(null);
             setQuickPhoneRaw(null);
-            toast.success(`${created.name} eklendi ✨`);
+            toast.success(`${created.name} eklendi`);
         }
     };
 
@@ -393,7 +393,7 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
         // kapalı gösteriyor; burası aradaki boşluk için (başka cihazda az önce
         // dolmuş olabilir) — sessizce kabinsiz kaydetmektense reddetmek doğru.
         if (activeResources.length > 0 && !autoResource(slot)) {
-            toast.error('Bu saatte uygun kabin yok — başka bir saat veya kabin seçin');
+            toast.error('Bu saatte boş kabin yok', { description: 'Başka saat ya da kabin seçin.' });
             return;
         }
         setSaving(true);
@@ -432,7 +432,7 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
         });
         setSaving(false);
         if (created) {
-            toast.success(`Seans oluşturuldu · ${customer.name} ✨`);
+            toast.success(`Seans eklendi · ${customer.name}`);
             onCreated();
         }
     };

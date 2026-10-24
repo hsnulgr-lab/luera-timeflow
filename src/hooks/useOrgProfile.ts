@@ -116,7 +116,7 @@ export function useOrgProfile() {
             .eq('id', orgId);
         setSaving(false);
         if (error) {
-            if (error.code === '23505') toast.error('Bu randevu adresi (slug) başka bir işletmede kullanılıyor');
+            if (error.code === '23505') toast.error('Bu adres alınmış', { description: 'Başka bir işletme bu randevu adresini kullanıyor.' });
             else { toast.error('Booking profili kaydedilemedi'); console.error(error); }
             return false;
         }
@@ -161,7 +161,7 @@ export function useOrgProfile() {
         if (error) {
             console.error('savePartial:', error);
             if (opts?.onError) opts.onError(error.code);
-            else if (error.code === '23505') toast.error('Bu randevu adresi (slug) başka bir işletmede kullanılıyor');
+            else if (error.code === '23505') toast.error('Bu adres alınmış', { description: 'Başka bir işletme bu randevu adresini kullanıyor.' });
             else toast.error('Ayar kaydedilemedi');
             return false;
         }

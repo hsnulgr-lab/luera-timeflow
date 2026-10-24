@@ -172,11 +172,11 @@ export function useStaff() {
     }, []);
 
     // Personel sil (soft delete)
-    const deleteStaff = useCallback(async (id: string) => {
+    const deleteStaff = useCallback(async (id: string, name?: string) => {
         const { error } = await supabase.from('staff').update({ is_active: false }).eq('id', id);
         if (error) { toast.error('Personel silinemedi'); return; }
         setStaff(prev => prev.filter(s => s.id !== id));
-        toast.success('Personel kaldırıldı');
+        toast.success(name ? `${name} ekipten çıkarıldı` : 'Ekipten çıkarıldı');
     }, []);
 
     const refetch = useCallback(() => {

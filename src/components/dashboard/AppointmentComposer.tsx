@@ -267,7 +267,7 @@ export function AppointmentComposer({ seed, privateMode, onClose, onCreated }: {
                     label: 'Geri al',
                     onClick: () => {
                         void updateReservation(created.id, { status: 'cancelled' });
-                        toast.info('Randevu iptal edildi. Teyit gönderildiyse hastayı ayrıca bilgilendirin.');
+                        toast.info('Randevu iptal edildi', { description: 'Teyit gittiyse hastaya ayrıca haber verin.' });
                     },
                 },
             });

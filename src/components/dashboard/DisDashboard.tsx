@@ -327,7 +327,7 @@ export function DisDashboard() {
         const customerId = await ensureReservationCustomer(r);
         if (!customerId) {
             setOpeningReservation(null);
-            toast.error('Muayeneyi açmak için bu randevuya bir hasta bağlanmalıdır');
+            toast.error('Önce randevuya hasta bağlayın', { description: 'Muayene hastasız açılmaz.' });
             return;
         }
         if (start && !r.arrivedAt) {

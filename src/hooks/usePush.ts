@@ -57,11 +57,11 @@ export function usePush(role: PushRole, staffId?: string) {
             // İzin daha önce reddedildiyse tarayıcı bir daha sormaz — kullanıcıyı
             // tarayıcı/işletim sistemi ayarına yönlendir, yoksa kısır döngüde kalır.
             if (Notification.permission === 'denied') {
-                toast.error('Bildirim izni daha önce reddedilmiş. Tarayıcının site ayarlarından (adres çubuğundaki kilit simgesi) bildirimlere izin verip tekrar deneyin.', { duration: 6000 });
+                toast.error('Bildirim izni kapalı', { description: 'Adres çubuğundaki kilit simgesinden izin verip tekrar deneyin.', duration: 6000 });
                 return false;
             }
             const perm = await Notification.requestPermission();
-            if (perm !== 'granted') { toast('Bildirim izni verilmedi', { icon: '🔕' }); return false; }
+            if (perm !== 'granted') { toast('Bildirim izni verilmedi'); return false; }
 
             // VAPID public key
             const cfg = await supabase.functions.invoke('push-subscribe', { body: { action: 'config' } });
@@ -83,7 +83,7 @@ export function usePush(role: PushRole, staffId?: string) {
             if (error) { toast.error('Abonelik kaydedilemedi'); return false; }
 
             setEnabled(true);
-            toast.success('Bildirimler açıldı 🔔');
+            toast.success('Bildirimler açık');
             return true;
         } catch (err) {
             console.error('push enable', err);
@@ -105,7 +105,7 @@ export function usePush(role: PushRole, staffId?: string) {
                 await sub.unsubscribe();
             }
             setEnabled(false);
-            toast('Bildirimler kapatıldı', { icon: '🔕' });
+            toast('Bildirimler kapalı');
         } catch (err) {
             console.error('push disable', err);
         } finally {

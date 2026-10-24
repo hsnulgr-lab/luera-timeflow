@@ -82,7 +82,7 @@ export const MobileStaff = () => {
     const remove = async () => {
         if (!editing) return;
         if (!(await confirmDialog({ title: `${editing.name} kaldırılsın mı?`, description: 'Personel listeden kaldırılır.', danger: true, confirmLabel: 'Kaldır' }))) return;
-        await deleteStaff(editing.id);
+        await deleteStaff(editing.id, editing.name);
         setSheetOpen(false);
     };
 

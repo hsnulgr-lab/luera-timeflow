@@ -1,0 +1,75 @@
+/* ── Bildirim hapı (2026-10-24) ──────────────────────────────────────────────
+   sonner'ın kendi stilini çalışma anında <head>'in sonuna ekliyor; seçiciler o
+   yüzden [data-sonner-toaster] ile başlıyor (sıra değil, özgüllük kazansın).
+   Konum, yığılma ve kaydırma sonner'da kalır — burada yalnız görünüm. */
+
+[data-sonner-toaster] [data-sonner-toast].lt-toast {
+    --lt-bg: #161310;
+    --lt-fg: #F6F1EA;
+    --lt-muted: rgba(246, 241, 234, .62);
+    --lt-line: rgba(246, 241, 234, .16);
+    --lt-act: #FF8A57;
+    --lt-shadow: 0 12px 32px -12px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .12);
+
+    /* içerik kadar geniş, ortada (sonner sabit genişlik verir) */
+    left: 50%; right: auto; translate: -50% 0;
+    width: max-content; max-width: min(560px, calc(100vw - 24px));
+
+    display: flex; align-items: center; gap: 10px;
+    min-height: 44px; padding: 10px 18px;
+    border-radius: 22px;
+    background: var(--lt-bg); color: var(--lt-fg);
+    box-shadow: var(--lt-shadow);
+    font-family: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
+    font-size: 14px; font-weight: 600; letter-spacing: -.005em; line-height: 1.35;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+}
+[data-sonner-toaster][data-sonner-theme='dark'] [data-sonner-toast].lt-toast {
+    --lt-bg: #EFE8DD;
+    --lt-fg: #141210;
+    --lt-muted: rgba(20, 18, 16, .6);
+    --lt-line: rgba(20, 18, 16, .14);
+    --lt-act: #E2531C;
+    --lt-shadow: 0 12px 32px -10px rgba(0, 0, 0, .85), 0 0 0 1px rgba(0, 0, 0, .2);
+}
+/* gelişte hafif büyüyerek oturur (sonner'ın kayması transform'da, bu scale'de) */
+[data-sonner-toaster] [data-sonner-toast].lt-toast[data-mounted='true'] { animation: lt-pop .34s cubic-bezier(.2, .9, .3, 1.15) both; }
+@keyframes lt-pop { from { scale: .94; } }
+/* sonner 600 px altında listeyi sol boşluk kadar sağa kaydırıp tam genişlik
+   verir (left 12 + width 100%) — hap ekranın ortasına gelsin */
+@media (max-width: 600px) {
+    [data-sonner-toaster] [data-sonner-toast].lt-toast { left: calc(50% - var(--mobile-offset-left)); }
+}
+@media (prefers-reduced-motion: reduce) {
+    [data-sonner-toaster] [data-sonner-toast].lt-toast[data-mounted='true'] { animation: none; }
+}
+
+[data-sonner-toaster] .lt-toast .lt-content { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+[data-sonner-toaster] .lt-toast .lt-title { font-weight: 600; }
+[data-sonner-toaster] .lt-toast .lt-desc { font-size: 13px; font-weight: 500; color: var(--lt-muted); }
+
+/* durum: yalnız hata ve uyarıda küçük nokta */
+[data-sonner-toaster] .lt-toast .lt-icon { display: flex; align-items: center; justify-content: center; flex: none; width: auto; height: auto; margin: 0 -2px 0 -4px; }
+[data-sonner-toaster] .lt-toast:has(.lt-desc) .lt-icon { align-self: flex-start; margin-top: 7px; }
+.lt-dot { width: 7px; height: 7px; border-radius: 50%; display: block; }
+.lt-dot.is-err { background: #FF6B5A; }
+.lt-dot.is-warn { background: #F2B13B; }
+[data-sonner-theme='dark'] .lt-dot.is-err { background: #D2452E; }
+[data-sonner-theme='dark'] .lt-dot.is-warn { background: #C98714; }
+.lt-spin { width: 13px; height: 13px; border-radius: 50%; display: block; border: 2px solid var(--lt-line); border-top-color: currentColor; animation: lt-spin .8s linear infinite; }
+@keyframes lt-spin { to { transform: rotate(360deg); } }
+
+/* düğme: sağda turuncu yazı, ince ayraçla */
+[data-sonner-toaster] .lt-toast .lt-act,
+[data-sonner-toaster] .lt-toast .lt-cancel {
+    flex: none; align-self: stretch; display: flex; align-items: center;
+    margin: -10px -6px -10px 4px; padding: 0 8px 0 14px;
+    border: 0; border-left: 1px solid var(--lt-line); border-radius: 0;
+    background: none; color: var(--lt-act);
+    font: inherit; font-size: 14px; font-weight: 800; white-space: nowrap; cursor: pointer;
+}
+[data-sonner-toaster] .lt-toast .lt-cancel { color: var(--lt-muted); }
+[data-sonner-toaster] .lt-toast .lt-act:hover { text-decoration: underline; text-underline-offset: 3px; }
+[data-sonner-toaster] .lt-toast .lt-act:focus-visible,
+[data-sonner-toaster] .lt-toast .lt-cancel:focus-visible { outline: 2px solid var(--lt-act); outline-offset: -4px; border-radius: 8px; }

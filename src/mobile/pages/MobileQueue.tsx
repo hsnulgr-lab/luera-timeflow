@@ -55,7 +55,7 @@ export const MobileQueue = () => {
         if (wa && e.customerPhone) {
             notify(e.customerPhone, buildQueueReadyMessage({ customerName: e.customerName, businessName: settings.businessName }), 'queue_ready');
         }
-        toast.success('Çağrıldı 🔔');
+        toast.success('Çağrıldı');
     };
 
     return (

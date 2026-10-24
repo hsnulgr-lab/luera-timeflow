@@ -135,7 +135,7 @@ export function useInstallmentSchedules(planIds: string[]) {
             if (isMissingInstallmentsTable(error)) setAvailable(false);
             else if (error.code === '23505') toast.error('Bu planın taksit vadeleri zaten oluşturulmuş');
             else if (`${error.message || ''} ${error.details || ''}`.includes('treatment_schedule_exceeds_plan_balance')) {
-                toast.error('Plan bakiyesi değişti; ödeme ve vadeleri yenileyip tekrar deneyin');
+                toast.error('Plan bakiyesi değişti', { description: 'Ödeme ve vadeleri yenileyip tekrar deneyin.' });
             } else { console.error('Error creating installment schedule:', error); toast.error('Taksit planı oluşturulamadı'); }
             return null;
         }

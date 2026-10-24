@@ -613,7 +613,7 @@ function useReservationsState() {
         if (!user) return null;
 
         if (!orgId) {
-            toast.error('Organizasyon bilgisi alınamadı. Lütfen sayfayı yenileyin.');
+            toast.error('İşletme bilgisi alınamadı', { description: 'Sayfayı yenileyin.' });
             return null;
         }
 
@@ -845,7 +845,7 @@ function useReservationsState() {
                 setReservations(prev => prev.map(r => r.id === id
                     ? { ...r, customFields: { ...r.customFields, paket_sayildi: true } } : r));
                 if (!result.counted) return;   // zaten sayılmış ya da hakkı bitmiş
-                toast.success(`Paket seansı işlendi · ${result.done}/${result.total}${result.completed ? ' — paket tamamlandı ✨' : ''}`);
+                toast.success(`Paket seansı işlendi · ${result.done}/${result.total}${result.completed ? ' · paket tamamlandı' : ''}`);
             })().catch(console.error);
         }
 
@@ -938,7 +938,7 @@ function useReservationsState() {
         }
         if (!serverRow) {
             // 0 satır → başka bir personel az önce sahiplendi; gerçek durumu çek
-            toast.error('Bu randevu az önce başka bir personel tarafından alındı');
+            toast.error('Bu randevu alınmış', { description: 'Başka bir personel az önce aldı.' });
             if (orgId) fetchReservations(orgId);
             return false;
         }

@@ -360,7 +360,7 @@ export const CalendarPage = () => {
         const additions = missingSeed.map((s, i) => ({ id: `svc-${Date.now()}-${i}`, ...s }));
         try {
             const saved = await updateSettings({ ...settings, services: [...settings.services, ...additions] });
-            if (saved) toast.success(`${serviceSeed.label} eklendi — süre ve ücretleri Ayarlar'dan düzenleyebilirsiniz`);
+            if (saved) toast.success(`${serviceSeed.label} eklendi`, { description: "Süre ve ücretleri Ayarlar'dan düzenleyebilirsiniz." });
         } finally {
             setLoadingSeed(false);
         }

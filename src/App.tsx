@@ -45,7 +45,7 @@ import { EpostaBaglantiPage } from '@/pages/EpostaBaglantiPage';
 import { SatinAlPage } from '@/pages/SatinAlPage';
 import { HosgeldinPage } from '@/pages/HosgeldinPage';
 import { BookingManagePage } from '@/pages/public/BookingManagePage';
-import { Toaster } from 'sonner';
+import { AppToaster } from '@/components/AppToaster';
 import { LoginNotice } from '@/components/LoginNotice';
 import { ConfirmDialogHost } from '@/components/ConfirmDialog';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -178,16 +178,7 @@ function App() {
         </Routes>
         </ManagerModeProvider>
       </BrowserRouter>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          style: {
-            background: '#111',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.1)',
-          },
-        }}
-      />
+      <AppToaster />
       <ConfirmDialogHost />
       <LoginNotice />
     </AuthProvider>

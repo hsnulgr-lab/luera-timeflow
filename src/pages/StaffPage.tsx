@@ -181,13 +181,13 @@ export const StaffPage = () => {
       color:form.color, workingHours:form.useCustomHours?form.workingHours:undefined, isActive:true,
       commissionRate: Math.max(0, Math.min(100, Number(form.commissionRate) || 0)),
       ...(pinHash ? { pin: pinHash } : {}) };
-    if (editing) { await updateStaff(editing.id, payload); toast.success('Personel güncellendi'); }
-    else         { await addStaff(payload);                 personelEklendiBildirimi(staffWord); }
+    if (editing) { await updateStaff(editing.id, payload); toast.success(`${payload.name} güncellendi`); }
+    else         { await addStaff(payload);                 personelEklendiBildirimi(payload.name); }
     setSaving(false); setShowModal(false);
   };
   const handleDelete = async (m: Staff) => {
     if (!(await confirmDialog({ title: `"${m.name}" kaldırılsın mı?`, description: 'Personel işletmeden kaldırılır.', danger: true, confirmLabel: 'Kaldır' }))) return;
-    await deleteStaff(m.id);
+    await deleteStaff(m.id, m.name);
     if (selId === m.id) closePanel();
   };
   const handleAddTimeOff = async () => {

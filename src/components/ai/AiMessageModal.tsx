@@ -110,7 +110,7 @@ export function AiMessageModal({ mode, open, onClose, orgId, targets, context }:
             await new Promise(r => setTimeout(r, 600));
         }
         setBulkSending(false);
-        toast.success(`${count} müşteriye mesaj gönderildi 🎉`);
+        toast.success(`${count} müşteriye mesaj gönderildi`);
     };
 
     const remaining = targets.filter(c => !sent.has(c.id)).length;

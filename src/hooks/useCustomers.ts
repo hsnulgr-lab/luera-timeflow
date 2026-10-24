@@ -200,7 +200,7 @@ export function useCustomers() {
             });
 
             console.error('Error fetching customer reservations:', reservationsError);
-            loadFailed('Randevu geçmişi yüklenemedi; mevcut metrikler korundu', reservationsError);
+            loadFailed('Randevu geçmişi yüklenemedi', reservationsError);
             setError('Müşteri geçmişi güncellenemedi; son bilinen veriler gösteriliyor');
             setCustomers(customersWithPreservedMetrics);
             setIsLoading(false);
@@ -368,7 +368,7 @@ export function useCustomers() {
     // ─── Müşteri ekle ────────────────────────────────────────────────────────
     const addCustomer = useCallback(async (customer: Omit<Customer, 'id' | 'createdAt' | 'totalReservations'>) => {
         if (!user || !orgId) {
-            toast.error('Organizasyon bilgisi alınamadı. Lütfen sayfayı yenileyin.');
+            toast.error('İşletme bilgisi alınamadı', { description: 'Sayfayı yenileyin.' });
             return null;
         }
         if (addingRef.current) return null;
@@ -527,7 +527,7 @@ export function useCustomers() {
         const { error } = await supabase.from('customers').update({ loyalty_stamps: next }).eq('id', id);
         if (error) { toast.error('Ödül kullanılamadı'); console.error(error); return; }
         setCustomers(prev => prev.map(c => c.id === id ? { ...c, loyaltyStamps: next } : c));
-        toast.success('Ödül kullanıldı 🎉');
+        toast.success('Ödül kullanıldı');
     }, [customers]);
 
     // ─── Arama filtresi (memoized) ───────────────────────────────────────────

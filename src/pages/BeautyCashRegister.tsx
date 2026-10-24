@@ -870,7 +870,7 @@ export function BeautyCashRegister({
                 const ok = await updateCustomer(customerId, { loyaltyStamps: next });
                 // Damga tahsilatın yan etkisidir; başarısızlığı hesabı geri almaz.
                 if (!ok) { console.error('Sadakat damgası yazılamadı:', customerId); continue; }
-                if (next >= threshold) toast.success(`🎁 ${customerById.get(customerId)?.name || 'Müşteri'} hediye hak etti — ${next}/${threshold} damga`);
+                if (next >= threshold) toast.success(`${customerById.get(customerId)?.name || 'Müşteri'} hediye hak etti · ${next}/${threshold} damga`);
             }
         };
 

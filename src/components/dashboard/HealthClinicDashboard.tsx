@@ -789,9 +789,7 @@ export function HealthClinicDashboard() {
                                                     </strong>
                                                     <small>Yalnız operasyon verisine dayanır; tıbbi karar üretmez.</small>
                                                 </div>
-                                                <button type="button" onClick={() => toast.info(
-                                                    'Dayanak: randevu teyit durumu, hekim/oda ataması ve canlı operasyon aşaması. Klinik değerlendirme içermez.',
-                                                )}>Neden?</button>
+                                                <button type="button" onClick={() => toast.info('Klinik değerlendirme içermez', { description: 'Teyit, hekim/oda ataması ve canlı aşamaya dayanır.' })}>Neden?</button>
                                             </section>
 
                                             <div className="lens-actions">

@@ -419,7 +419,7 @@ function VisitJourney(props: VisitJourneyProps) {
         if (res.ok) toast.success(res.queued
             ? 'Bağlantı şu an sorunlu — hatırlatma kuyruğa alındı, birazdan gönderilecek'
             : 'Kontrol hatırlatması WhatsApp\'tan gönderildi');
-        else if (res.reason === 'no_whatsapp') toast.error('WhatsApp bağlı değil — Ayarlar → WhatsApp bölümünden bağlayın');
+        else if (res.reason === 'no_whatsapp') toast.error('WhatsApp bağlı değil', { description: 'Ayarlar → WhatsApp bölümünden bağlayın.' });
         else toast.error('Hatırlatma gönderilemedi');
     });
 
@@ -1040,7 +1040,7 @@ export function DentalVisitPage() {
         if (!reservation || access?.readOnly) return;
         if (encounterApi.available === false) {
             const updated = await updateReservation(reservation.id, { status: 'completed', serviceEndedAt: new Date().toISOString() });
-            if (updated) toast.success('Ziyaret tamamlandı; tahsilat klinik kayıttan ayrı bekliyor');
+            if (updated) toast.success('Ziyaret tamamlandı', { description: 'Tahsilat klinik kayıttan ayrı bekliyor.' });
             return;
         }
         const encounter = await encounterApi.ensureEncounter('examination');
@@ -1048,7 +1048,7 @@ export function DentalVisitPage() {
         const completed = await encounterApi.setStatus('completed');
         if (!completed) return;
         const updated = await updateReservation(reservation.id, { status: 'completed', serviceEndedAt: new Date().toISOString() });
-        if (updated) toast.success('Ziyaret tamamlandı; tahsilat klinik kayıttan ayrı bekliyor');
+        if (updated) toast.success('Ziyaret tamamlandı', { description: 'Tahsilat klinik kayıttan ayrı bekliyor.' });
     };
 
     if (!reservationId) return <PageState title="Randevu seçilmedi" body="Hasta ziyareti, güvenli bağlam için bir randevu üzerinden açılır." action={() => navigate('/calendar')} />;

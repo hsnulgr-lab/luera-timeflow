@@ -218,7 +218,7 @@ export function StockPage() {
         });
         setSaving(false);
         if (!created) return;
-        toast.success('Ürün eklendi — açılış stoğunu "Stok girişi" ile yazın');
+        toast.success('Ürün eklendi', { description: 'Açılış stoğunu "Stok girişi" ile yazın.' });
         setCreating(false);
         setDraft(EMPTY_DRAFT);
         setSelectedId(created.id);
