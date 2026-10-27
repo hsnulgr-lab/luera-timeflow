@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { legacyRedirect, legacyTabTarget } from '../src/pages/settings/ayarlarModel.ts';
-import { CORE_STEPS, coreSetupDone, nextCoreStep, setupProgress } from '../src/lib/setupProgress.ts';
+import { CORE_STEPS, coreSetupDone, nextCoreStep, screenProgress } from '../src/lib/setupProgress.ts';
 
 // Dodo'dan dönüş (Test 1, 2026-10-22): Ayarlar'dan Tek kişilik alan yeni
 // salon onaysız biçimde Kurulum'un 1. adımına düştü. Kullanıcı kararı:
@@ -23,19 +23,21 @@ const BITMIS = {
 test('kurulum "yapıldı": zorunlu adımlar; atlanabilirler (kaynak, ekip, WhatsApp) sayılmaz', () => {
     assert.deepEqual([...CORE_STEPS], ['welcome', 'sector', 'identity', 'hours', 'services']);
     assert.equal(coreSetupDone(BITMIS), true, 'kaynak/ekip/WhatsApp atlanmış ama kurulum yapılmış');
-    assert.equal(setupProgress(BITMIS).complete, false, 'şerit atlananları yine hatırlatır');
+    assert.equal(screenProgress(BITMIS).complete, false, 'şerit atlanan WhatsApp\'ı yine hatırlatır');
     assert.equal(coreSetupDone({ ...BITMIS, sector: 'genel' }), false);
     // Test B (2026-10-22): sihirbaz Kimlik'te yalnız adı ister; adressiz,
     // telefonsuz kurulumu bitiren salon ödemeden sonra Kimlik'e düşüyordu.
     assert.equal(coreSetupDone({ ...BITMIS, address: '', phone: '' }), true, 'adres/telefon sihirbazda isteğe bağlı');
-    assert.equal(setupProgress({ ...BITMIS, address: '', phone: '' }).done.includes('identity'), false, 'şerit eksik iletişimi yine hatırlatır');
+    // Kurulum v2 (2026-10-25): adres/telefon sihirbazda hiç sorulmuyor; şerit
+    // de istemez — bitiş ekranı "Adres ve telefonunuzu ekleyin" kartıyla söyler.
+    assert.equal(screenProgress({ ...BITMIS, address: '', phone: '' }).done.includes('isletme'), true, 'şerit adres istemez');
     assert.equal(coreSetupDone({ ...BITMIS, businessName: ' ' }), false);
     assert.equal(nextCoreStep({ ...BITMIS, businessName: '' }), 'identity');
     assert.equal(nextCoreStep({ ...BITMIS, address: '', phone: '', serviceCount: 0 }), 'services', 'adres eksikliği kaldığı adımı öne çekmez');
     assert.equal(nextCoreStep(BITMIS), null);
     assert.equal(coreSetupDone({ ...BITMIS, openDays: 0 }), false);
     assert.equal(coreSetupDone({ ...BITMIS, serviceCount: 0 }), false);
-    assert.equal(setupProgress({ ...BITMIS, openDays: 0 }).next, 'hours', 'kaldığı adım');
+    assert.equal(screenProgress({ ...BITMIS, openDays: 0 }).next, 'hizmetler', 'kaldığı ekran');
 });
 
 test('dodo-checkout: dönüş hep ödeme duvarına; e-posta kipi kendi ekranına', () => {

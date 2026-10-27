@@ -1,13 +1,20 @@
-// Kurulum sihirbazının adım listesi ve ilerleme hesabı — saf modül.
+// Kurulum sihirbazının adımları, ekranları ve ilerleme hesabı — saf modül.
 //
 // Neden ayrı dosya: "kurulum bitti mi" sorusunu ÜÇ yer soruyor — sihirbazın
-// kendi ilerleme çubuğu, bitiş özeti ve uygulamanın üstündeki "devam et"
-// şeridi. Üçü ayrı hesaplasaydı biri "%60" derken diğeri "tamamlandı"
+// kendi ilerleme göstergesi, bitiş özeti ve uygulamanın üstündeki "devam et"
+// şeridi. Üçü ayrı hesaplasaydı biri "2 / 3" derken diğeri "tamamlandı"
 // diyebilirdi.
 //
 // Bir adımın "tamam" olması, kullanıcının o adımı GÖRMESİ değil VERİNİN
 // bulunması demek. Böylece sihirbazı hiç açmamış eski bir org da doğru okunur:
 // hizmetleri varsa o adım zaten tamamdır, sihirbaz onu tekrar sormaz.
+//
+// İki katman var (Kurulum v2, 2026-10-25):
+//   · ADIM (StepKey) — veri olgusu. Ödeme duvarı (`PaywallPage` ·
+//     afterPaymentPath) kaldığı yeri adım anahtarıyla taşır
+//     (/kurulum?adim=identity); eski şeridin bağlantıları da öyle.
+//   · EKRAN (ScreenKey) — kullanıcının gördüğü üç ekran. Her adım bir ekrana
+//     düşer; sihirbaz, şerit ve bitiş ekran sayacını okur.
 //
 // tests/setup-progress.test.mjs doğrudan import eder — `@/` alias'ı node'da
 // çözülmediği için burada hiçbir alias import'u olmamalı.
@@ -18,21 +25,19 @@ export type StepKey =
 
 export interface StepDef {
     key: StepKey;
-    /** İlerleme çubuğunun altındaki kısa etiket. */
-    label: string;
-    /** Karşılama ve bitiş ekranları sayılmaz; atlanabilir adımlar işaretli. */
+    /** Atlanabilir adım "kurulum yapıldı" kararına girmez. */
     skippable?: boolean;
 }
 
 export const SETUP_STEPS: readonly StepDef[] = [
-    { key: 'welcome', label: 'Başlangıç' },
-    { key: 'sector', label: 'Sektör' },
-    { key: 'identity', label: 'Kimlik' },
-    { key: 'hours', label: 'Saatler' },
-    { key: 'services', label: 'Hizmetler' },
-    { key: 'resources', label: 'Kaynak', skippable: true },
-    { key: 'team', label: 'Ekip', skippable: true },
-    { key: 'whatsapp', label: 'WhatsApp', skippable: true },
+    { key: 'welcome' },
+    { key: 'sector' },
+    { key: 'identity' },
+    { key: 'hours' },
+    { key: 'services' },
+    { key: 'resources', skippable: true },
+    { key: 'team', skippable: true },
+    { key: 'whatsapp', skippable: true },
 ];
 
 /** Sihirbazın okuduğu dünya durumu — hangi verinin VAR olduğu. */
@@ -43,6 +48,7 @@ export interface SetupFacts {
     phone?: string | null;
     /** Açık (isOff olmayan) gün sayısı. */
     openDays: number;
+    /** Veritabanındaki hizmet sayısı — yer tutucular sayılmaz (`isSavedServiceId`). */
     serviceCount: number;
     resourceCount: number;
     /** Sektörün hiç kaynak türü yoksa bu adım GEREKSİZDİR, atlanmış sayılmaz. */
@@ -56,8 +62,8 @@ export interface SetupFacts {
 /**
  * Adım tamam mı?
  *
- * 'welcome' her zaman tamamdır: ilerleme çubuğunda yer tutar ama kullanıcıdan
- * bir şey istemez. Aksi halde sihirbazı bitiren biri bile %88'de kalırdı.
+ * 'welcome' her zaman tamamdır: v1'in karşılama ekranıydı, v2'de yok. Anahtar
+ * duruyor çünkü zorunlu adımların listesi (ödeme dönüşü) onu sayıyor.
  */
 export function isStepDone(key: StepKey, f: SetupFacts): boolean {
     switch (key) {
@@ -79,9 +85,10 @@ export const CORE_STEPS: readonly StepKey[] = SETUP_STEPS.filter((s) => !s.skipp
 
 /**
  * Zorunlu adım, sihirbazın GEÇİT koşuluyla geçildi mi. Kimlikte sihirbaz
- * yalnız işletme adını ister; adres ve telefon isteğe bağlı. Test B'de
- * (2026-10-22) adressiz, telefonsuz kurulumu bitiren salon ödemeden sonra
- * yine Kimlik adımına düştü — `isStepDone` ikisinden birini arıyor.
+ * yalnız işletme adını ister; adres ve telefon hiç sorulmaz (Ayarlar ›
+ * İşletme profili). Test B'de (2026-10-22) adressiz, telefonsuz kurulumu
+ * bitiren salon ödemeden sonra yine Kimlik adımına düştü — `isStepDone`
+ * ikisinden birini arıyor.
  */
 function coreStepDone(key: StepKey, f: SetupFacts): boolean {
     return key === 'identity' ? Boolean(f.businessName?.trim()) : isStepDone(key, f);
@@ -97,65 +104,98 @@ export function nextCoreStep(f: SetupFacts): StepKey | null {
  * 2026-10-22: yapıldıysa ana sayfa, yapılmadıysa kurulum). Atlanabilir
  * adımlar (kaynak, ekip, WhatsApp) ve sihirbazın sormadan geçtiği alanlar
  * sayılmaz: sihirbazı bitiren kurulumu yapmıştır. Şerit
- * (`setupProgress().complete`) daha katı; o, eksikleri de hatırlatmak için.
+ * (`screenProgress().complete`) daha katı; WhatsApp'ı da hatırlatır.
  */
 export function coreSetupDone(f: SetupFacts): boolean {
     return nextCoreStep(f) === null;
 }
 
-export interface SetupProgress {
-    /** Tamamlanmış adımların anahtarları. */
-    done: StepKey[];
-    /** Kullanıcıdan hâlâ bir şey isteyen adımlar, sırayla. */
-    pending: StepKey[];
-    /** 0–100 arası tam sayı. */
-    percent: number;
-    /** Hepsi bittiyse true — şerit gösterilmez. */
-    complete: boolean;
-    /** Sıradaki adım; yoksa null. */
-    next: StepKey | null;
+// ── Ekranlar ────────────────────────────────────────────────────────────────
+
+export type ScreenKey = 'isletme' | 'hizmetler' | 'whatsapp';
+
+export interface ScreenDef {
+    key: ScreenKey;
+    /** Göstergenin ve şeridin "Sırada: …" metni. */
+    label: string;
 }
 
-export function setupProgress(f: SetupFacts): SetupProgress {
-    const done: StepKey[] = [];
-    const pending: StepKey[] = [];
-    for (const s of SETUP_STEPS) (isStepDone(s.key, f) ? done : pending).push(s.key);
-    return {
-        done, pending,
-        percent: Math.round((done.length / SETUP_STEPS.length) * 100),
-        complete: pending.length === 0,
-        next: pending[0] ?? null,
-    };
-}
+/** Kullanıcı kararı 2026-10-19: "çok az adım, az ve öz" — üç ekran + bitiş. */
+export const SETUP_SCREENS: readonly ScreenDef[] = [
+    { key: 'isletme', label: 'İşletmeniz' },
+    { key: 'hizmetler', label: 'Hizmetler ve saatler' },
+    { key: 'whatsapp', label: 'WhatsApp' },
+];
 
-/**
- * Şeritteki "yaklaşık N dakika" tahmini. Uydurma bir sayı değil, adım başına
- * ölçülü bir bütçe: kullanıcı "3 dakika" yazısını görüp 10 dakika harcarsa bir
- * daha o şeride güvenmez.
- */
-const MINUTES: Record<StepKey, number> = {
-    welcome: 0, sector: 1, identity: 2, hours: 1,
-    services: 2, resources: 1, team: 2, whatsapp: 1,
+/** Her adım hangi ekranda soruluyor. Ekip ve yer sayısı İşletmeniz'de. */
+const STEP_SCREEN: Record<StepKey, ScreenKey> = {
+    welcome: 'isletme', sector: 'isletme', identity: 'isletme', team: 'isletme', resources: 'isletme',
+    hours: 'hizmetler', services: 'hizmetler',
+    whatsapp: 'whatsapp',
 };
 
-export function remainingMinutes(pending: StepKey[]): number {
-    return pending.reduce((sum, k) => sum + MINUTES[k], 0);
+/**
+ * `?adim=` değerinin ekranı: ekran anahtarı (şerit) ya da adım anahtarı
+ * (ödeme duvarı, eski bağlantılar). Tanınmazsa null.
+ */
+export function screenFor(adim: string | null | undefined): ScreenKey | null {
+    if (!adim) return null;
+    if (SETUP_SCREENS.some((s) => s.key === adim)) return adim as ScreenKey;
+    return (STEP_SCREEN as Record<string, ScreenKey | undefined>)[adim] ?? null;
 }
 
 /**
- * "%63'ü", "%50'si", "%25'i" — yüzdenin iyelik eki, sayının OKUNUŞUNA göre.
- *
- * Şerit eki sabit "'ı" yazıyordu: "%63'ı tamamlandı" (2026-10-19, kullanıcı
- * gördü). Ek son okunan sözcüğe uyar: üç → üçü, elli → ellisi, yüz → yüzü;
- * ünlüyle biten sözcükte araya "s" girer (iki → ikisi, altı → altısı).
+ * Ekran tamam mı — yine VERİDEN. İlk iki ekran zorunlu adımların geçit
+ * kuralıyla okunur; böylece ödeme dönüşünün gittiği ekran (`nextCoreStep`)
+ * ile şeridin "Sırada"sı hep aynıdır. Ekip ve yer sayısı İşletmeniz'de
+ * sorulur ama sayılmaz: v1'den kalan eski org'larda bu bilgi saklı değil ve
+ * hepsini "1 / 3"e düşürmek yanlış olurdu.
  */
-const BIRLER = ['', "'i", "'si", "'ü", "'ü", "'i", "'sı", "'si", "'i", "'u"]; // bir…dokuz
-const ONLAR = ['', "'u", "'si", "'u", "'ı", "'si", "'ı", "'i", "'i", "'ı"];   // on…doksan
+export function isScreenDone(key: ScreenKey, f: SetupFacts): boolean {
+    switch (key) {
+        case 'isletme': return coreStepDone('sector', f) && coreStepDone('identity', f);
+        case 'hizmetler': return coreStepDone('hours', f) && coreStepDone('services', f);
+        case 'whatsapp': return f.whatsappConnected;
+    }
+}
 
-export function percentSuffix(n: number): string {
-    const v = Math.abs(Math.round(n));
-    if (v === 0) return "'ı";                 // sıfırı
-    if (v % 100 === 0) return "'ü";           // yüzü
-    if (v % 10 !== 0) return BIRLER[v % 10];
-    return ONLAR[(v % 100) / 10];
+export interface ScreenProgress {
+    /** Tamamlanmış ekranlar, sırayla. */
+    done: ScreenKey[];
+    /** Sıradaki (ilk eksik) ekran; hepsi tamamsa null. */
+    next: ScreenKey | null;
+    /** Hepsi bittiyse true — şerit gösterilmez. */
+    complete: boolean;
+}
+
+export function screenProgress(f: SetupFacts): ScreenProgress {
+    const done = SETUP_SCREENS.filter((s) => isScreenDone(s.key, f)).map((s) => s.key);
+    const next = SETUP_SCREENS.find((s) => !isScreenDone(s.key, f))?.key ?? null;
+    return { done, next, complete: next === null };
+}
+
+/**
+ * Kayıtlı işletme adı gerçekten işletmenin mi? Kayıt anında sunucunun yazdığı
+ * ad işletmenin adı DEĞİL (göç 121): e-postayla kayıtta e-posta adresi,
+ * Apple/Google'da kişinin kendi adı (`personName`), satır yoksa uygulamanın
+ * varsayılanı. Sihirbaz alanı bunlarla doldurmaz, boş açar (v1 kusuru, devir
+ * 12 §2.1). İşletmenin adı değilse ''.
+ */
+const PLACEHOLDER_NAMES = new Set(['luera timeflow', 'workspace']);
+export function ownBusinessName(value: string | null | undefined, personName?: string | null): string {
+    const v = (value ?? '').trim();
+    if (!v || v.includes('@') || PLACEHOLDER_NAMES.has(v.toLocaleLowerCase('tr'))) return '';
+    return personName && v === personName.trim() ? '' : v;
+}
+
+/**
+ * Hizmet veritabanından mı geldi? Hizmeti olmayan işletmede ayarlar beş
+ * YER TUTUCU hizmet taşır (kimlik '1'…'5', `useReservations` ·
+ * defaultServices). Onlar sayılsaydı yeni işletme "hizmetleri var"
+ * görünürdü; `updateSettings`'e gönderilseler veritabanına yazılırlardı ve
+ * sihirbaz sektörün hazır listesi yerine "Genel Randevu, Konsültasyon…"
+ * gösterirdi. Veritabanı kimlikleri UUID.
+ */
+export function isSavedServiceId(id: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 }

@@ -119,7 +119,9 @@ test('Tek kişilik\'te personel: üç ekleme yolu da önce yükseltme sorar', ()
     const tel = oku('src/mobile/pages/MobileStaff.tsx');
     assert.match(tel, /const openAdd = async \(\) => \{\s*if \(!\(await ensureRoom\(\)\)\) return;/);
     const sihirbaz = oku('src/pages/SetupWizardPage.tsx');
-    assert.match(sihirbaz, /const yeni = named\.filter\(\(t\) => !staff\.some\(\(s\) => s\.name\.trim\(\) === t\.name\.trim\(\)\)\)\.length;\s*if \(yeni > 0 && !\(await ensureRoom\(yeni\)\)\) return false;/);
+    // Kurulum v2: yalnız YENİ adlar sayılır ve soru kayıttan önce sorulur.
+    assert.match(sihirbaz, /\.filter\(\(n, i, a\) => a\.indexOf\(n\) === i && !activeStaff\.some\(\(s\) => s\.name\.trim\(\) === n\)\);/);
+    assert.match(sihirbaz, /if \(team === 'team' && newNames\.length > 0 && !\(await ensureRoom\(newNames\.length\)\)\) return;\s*await run\(saveIsletme,/);
     for (const s of [sayfa, tel, sihirbaz]) assert.match(s, /useStaffLimit\(staff\.filter\(\(?s\)? => s\.isActive\)\.length\)/);
 });
 
@@ -142,7 +144,7 @@ test('personel eklenince telefon uygulamasının yolu ve bağlantısı', () => {
     assert.match(oku('src/pages/StaffPage.tsx'), /else\s+\{ await addStaff\(payload\);\s+personelEklendiBildirimi\(payload\.name\); \}/);
     assert.match(oku('src/pages/StaffPage.tsx'), /App Store'da <a href=\{APP_STORE_URL\}/, 'ekip kodu kartında');
     assert.match(oku('src/mobile/pages/MobileStaff.tsx'), /personelEklendiBildirimi\(\);/);
-    assert.match(oku('src/pages/SetupWizardPage.tsx'), /if \(yeni > 0\) personelEklendiBildirimi\(/);
+    assert.match(oku('src/pages/SetupWizardPage.tsx'), /if \(newNames\.length > 0\) personelEklendiBildirimi\(/);
 });
 
 test('planlanan düşürme: aynada tutulur, ekranda yeni tutar ve gün, vazgeçilebilir (göç 126)', async () => {

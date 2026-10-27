@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
-    SETUP_STEPS, isStepDone, percentSuffix, remainingMinutes, setupProgress,
+    CORE_STEPS, SETUP_SCREENS, SETUP_STEPS, isSavedServiceId, isStepDone, nextCoreStep,
+    ownBusinessName, screenFor, screenProgress,
 } from '../src/lib/setupProgress.ts';
 import { SERVICE_SEEDS } from '../src/lib/serviceSeeds.ts';
 
-// Kurulum sihirbazı. Bu hesabı ÜÇ yer okuyor — sihirbazın ilerleme çubuğu,
-// bitiş özeti ve uygulamanın üstündeki "devam et" şeridi. Üçü ayrı hesaplasaydı
-// biri "%60" derken diğeri "tamamlandı" diyebilirdi.
+// Kurulum sihirbazı. Bu hesabı ÜÇ yer okuyor — sihirbazın göstergesi, bitiş
+// özeti ve uygulamanın üstündeki "devam et" şeridi. Üçü ayrı hesaplasaydı
+// biri "2 / 3" derken diğeri "tamamlandı" diyebilirdi.
 
 const BLANK = {
     sector: null, businessName: null, address: null, phone: null,
@@ -21,21 +22,71 @@ const FULL = {
     staffCount: 2, soloDeclared: false, whatsappConnected: true,
 };
 
-test('bomboş org — karşılama dışında hiçbir adım tamam değil', () => {
-    const p = setupProgress(BLANK);
-    assert.deepEqual(p.done, ['welcome']);
-    assert.equal(p.next, 'sector');
+test('bomboş org — hiçbir ekran tamam değil, sıradaki İşletmeniz', () => {
+    const p = screenProgress(BLANK);
+    assert.deepEqual(p.done, []);
+    assert.equal(p.next, 'isletme');
     assert.equal(p.complete, false);
-    // Yeni org'un gördüğü ilk sayı bu; %0 demek "hiç başlamadın" demek olurdu
-    // ama karşılama adımı gerçekten yapılacak iş içermiyor.
-    assert.equal(p.percent, 13);
 });
 
 test('her şey doluyken şerit hiç gösterilmez', () => {
-    const p = setupProgress(FULL);
+    const p = screenProgress(FULL);
     assert.equal(p.complete, true);
-    assert.equal(p.percent, 100);
     assert.equal(p.next, null);
+    assert.deepEqual(p.done, ['isletme', 'hizmetler', 'whatsapp']);
+});
+
+test('üç ekran + bitiş, sırası tasarımdan', () => {
+    // Kullanıcı kararı 2026-10-19: "çok az adım, az ve öz".
+    assert.deepEqual(SETUP_SCREENS.map((s) => s.key), ['isletme', 'hizmetler', 'whatsapp']);
+    assert.deepEqual(SETUP_SCREENS.map((s) => s.label), ['İşletmeniz', 'Hizmetler ve saatler', 'WhatsApp']);
+});
+
+test('?adim= — ekran anahtarı da, eski adım anahtarı da ekrana düşer', () => {
+    // Ödeme duvarı /kurulum?adim=identity gibi ADIM anahtarı gönderiyor;
+    // şerit ekran anahtarı. İkisi de kaldığı ekranı açmalı.
+    for (const s of SETUP_SCREENS) assert.equal(screenFor(s.key), s.key);
+    for (const { key } of SETUP_STEPS) assert.ok(screenFor(key), `${key} hiçbir ekrana düşmüyor`);
+    assert.equal(screenFor('sector'), 'isletme');
+    assert.equal(screenFor('identity'), 'isletme');
+    assert.equal(screenFor('team'), 'isletme');
+    assert.equal(screenFor('hours'), 'hizmetler');
+    assert.equal(screenFor('services'), 'hizmetler');
+    assert.equal(screenFor('whatsapp'), 'whatsapp');
+    assert.equal(screenFor('yok-boyle'), null);
+    assert.equal(screenFor(null), null);
+});
+
+test('ödeme dönüşünün gittiği ekran ile şeridin "Sırada"sı hep aynı', () => {
+    // nextCoreStep (PaywallPage) ve screenProgress (şerit) ayrı yazılmış iki
+    // hesap; biri "Hizmetler" derken öteki "İşletmeniz" demesin.
+    const opts = {
+        sector: [null, 'genel', 'kuafor'], businessName: ['', '  ', 'Salon'], address: ['', 'Kadıköy'],
+        openDays: [0, 5], serviceCount: [0, 3], whatsappConnected: [false, true],
+    };
+    const keys = Object.keys(opts);
+    const walk = (i, f) => {
+        if (i === keys.length) {
+            const facts = { ...BLANK, ...f };
+            const core = nextCoreStep(facts);
+            const strip = screenProgress(facts).next;
+            if (core) assert.equal(strip, screenFor(core), JSON.stringify(f));
+            else assert.ok(strip === 'whatsapp' || strip === null, JSON.stringify(f));
+            return;
+        }
+        for (const v of opts[keys[i]]) walk(i + 1, { ...f, [keys[i]]: v });
+    };
+    walk(0, {});
+});
+
+test('İşletmeniz: sektör + ad yeter; adres/telefon sihirbazda sorulmaz, şerit de istemez', () => {
+    const f = { ...BLANK, sector: 'kuafor', businessName: 'Salon Ayşe' };
+    assert.deepEqual(screenProgress(f).done, ['isletme']);
+    assert.equal(screenProgress(f).next, 'hizmetler');
+    assert.equal(screenProgress({ ...f, sector: 'genel' }).next, 'isletme', '"genel" seçim sayılmaz');
+    assert.equal(screenProgress({ ...f, businessName: '  ' }).next, 'isletme');
+    // Ekip ve yer sayısı sorulur ama sayılmaz: v1'den kalan org'larda saklı değil.
+    assert.equal(screenProgress({ ...f, staffCount: 0, soloDeclared: false }).done.includes('isletme'), true);
 });
 
 test('"genel" sektör seçim SAYILMAZ', () => {
@@ -45,50 +96,43 @@ test('"genel" sektör seçim SAYILMAZ', () => {
     assert.equal(isStepDone('sector', { ...BLANK, sector: 'dis' }), true);
 });
 
-test('kimlik: ad şart, adres VEYA telefon yeter', () => {
-    assert.equal(isStepDone('identity', { ...BLANK, businessName: 'X' }), false);
-    assert.equal(isStepDone('identity', { ...BLANK, businessName: 'X', phone: '0216' }), true);
-    assert.equal(isStepDone('identity', { ...BLANK, businessName: 'X', address: 'Cadde' }), true);
-    // Boşluktan ibaret ad geçmez.
-    assert.equal(isStepDone('identity', { ...BLANK, businessName: '   ', address: 'Cadde' }), false);
-});
-
 test('kaynak kavramı olmayan sektörde adım "atlandı" damgası yemez', () => {
-    // Danışmanlıkta ve restoranda resourceTypes boş; "kaç odanız var" diye
-    // sorulmuyor. Eksik saymak, hiç sorulmamış bir soruyu cevapsız göstermek
-    // olurdu ve o org asla %100 olamazdı.
     assert.equal(isStepDone('resources', { ...BLANK, resourcesApply: false }), true);
     assert.equal(isStepDone('resources', { ...BLANK, resourcesApply: true }), false);
     assert.equal(isStepDone('resources', { ...BLANK, resourcesApply: true, resourceCount: 1 }), true);
 });
 
 test('"yalnız ben çalışıyorum" ekip adımını tamamlar', () => {
-    // Tek kişilik işletme personel eklemez; eklemesini beklemek onu sonsuza
-    // kadar "eksik" gösterirdi. Hedef kitlenin büyük kısmı burada.
     assert.equal(isStepDone('team', { ...BLANK, soloDeclared: true }), true);
     assert.equal(isStepDone('team', { ...BLANK, staffCount: 1 }), true);
     assert.equal(isStepDone('team', BLANK), false);
 });
 
-test('kalan süre tahmini adım başına bütçeden gelir', () => {
-    assert.equal(remainingMinutes([]), 0);
-    assert.equal(remainingMinutes(['whatsapp']), 1);
-    assert.equal(remainingMinutes(['services', 'team', 'whatsapp']), 5);
-    // Karşılama adımı süre yazmaz — kullanıcıdan bir şey istemiyor.
-    assert.equal(remainingMinutes(['welcome']), 0);
+test('zorunlu adımlar değişmedi — ödeme dönüşü aynı kararı veriyor', () => {
+    assert.deepEqual([...CORE_STEPS], ['welcome', 'sector', 'identity', 'hours', 'services']);
 });
 
-test('sekiz adım, hepsi tekil', () => {
-    assert.equal(SETUP_STEPS.length, 8);
-    assert.equal(new Set(SETUP_STEPS.map((s) => s.key)).size, 8);
-    // Karşılama ilk, WhatsApp son: sıra tasarımdan geliyor ve şeritteki
-    // "sırada: X" metni bu diziye dayanıyor.
-    assert.equal(SETUP_STEPS[0].key, 'welcome');
-    assert.equal(SETUP_STEPS[SETUP_STEPS.length - 1].key, 'whatsapp');
+test('yer tutucu hizmetler sayılmaz', () => {
+    // Hizmeti olmayan işletmede ayarlar beş yer tutucu taşır (kimlik '1'…'5').
+    // Sayılsalardı yeni işletme "hizmetleri var" görünür, sihirbaz da sektörün
+    // hazır listesi yerine "Genel Randevu, Konsültasyon…" gösterirdi.
+    for (const id of ['1', '2', '5', '', 'abc12345']) assert.equal(isSavedServiceId(id), false, id);
+    assert.equal(isSavedServiceId('3f2b8c1e-9a4d-4b7e-8c2a-1d5e6f7a8b9c'), true);
+});
+
+test('işletme adı alanı kayıt anının adıyla dolmaz (devir 12 §2.1)', () => {
+    // E-postayla kayıtta sunucu adı e-posta yazıyor; Apple/Google'da kişinin adı.
+    assert.equal(ownBusinessName('ayse@ornek.com', 'ayse'), '');
+    assert.equal(ownBusinessName('Ayşe Yılmaz', 'Ayşe Yılmaz'), '', 'Apple/Google: kişinin kendi adı');
+    assert.equal(ownBusinessName('Luera TimeFlow', 'ayse'), '', 'uygulamanın varsayılanı');
+    assert.equal(ownBusinessName('Workspace', 'ayse'), '');
+    assert.equal(ownBusinessName('  ', 'ayse'), '');
+    assert.equal(ownBusinessName(null, 'ayse'), '');
+    assert.equal(ownBusinessName('Özmen Güzellik', 'ayse'), 'Özmen Güzellik', 'telefonda yazılmış gerçek ad gelir');
 });
 
 // ── Hizmet tohumları ────────────────────────────────────────────────────────
-// Sihirbazın 5. adımı listeyi DOLU açar; kullanıcının işi eklemek değil
+// Hizmetler ekranı listeyi DOLU açar; kullanıcının işi eklemek değil
 // çıkarmak olur. Seti olmayan sektör eski (kötü) davranışa düşer: boş tablo.
 
 test('13 sektörün hepsinde hizmet seti var', () => {
@@ -119,55 +163,80 @@ test('her tohum hizmeti ad, süre ve renk taşır', () => {
     }
 });
 
+test('kurulumda sektör simgesi her sektör için çizili', () => {
+    const icons = readFileSync(new URL('../src/pages/kurulumIkonlar.tsx', import.meta.url), 'utf8');
+    for (const s of Object.keys(SERVICE_SEEDS)) assert.match(icons, new RegExp(`'sector-${s}':`), `${s} simgesi yok`);
+});
+
 // ── Arayüz bağlantıları ─────────────────────────────────────────────────────
 
 const wizard = readFileSync(new URL('../src/pages/SetupWizardPage.tsx', import.meta.url), 'utf8');
+const banner = readFileSync(new URL('../src/components/layout/SetupBanner.tsx', import.meta.url), 'utf8');
 const layout = readFileSync(new URL('../src/components/layout/Layout.tsx', import.meta.url), 'utf8');
 const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
 
-test('/kurulum artık ulaşılabilir', () => {
+test('/kurulum ulaşılabilir', () => {
     // ASIL HATA BUYDU: sayfa vardı, hiçbir yerden ulaşılmıyordu (grep sıfır
     // referans buldu) ve yeni org bomboş uygulamaya düşüyordu.
     assert.match(app, /path="kurulum" element=\{<SetupWizardPage \/>\}/);
     assert.match(layout, /<SetupBanner \/>/);
 });
 
-test('şerit sihirbazı KALDIĞI YERDEN açar', () => {
-    // Bildirilen hata: şerit "%88, 1 adım kaldı" derken "Devam et" sihirbazı
-    // karşılama ekranından başlatıyordu — bitmiş yedi adım yeniden geziliyordu.
-    const banner = readFileSync(new URL('../src/components/layout/SetupBanner.tsx', import.meta.url), 'utf8');
+test('şerit sihirbazı KALDIĞI EKRANDAN açar, tek sayaçtan okur', () => {
     assert.match(banner, /\/kurulum\?adim=\$\{progress\.next\}/);
-    assert.match(wizard, /searchParams\.get\('adim'\)/);
-    // Anahtar tutulur, indis değil: sektör verisi gelince "Kaynak" adımı
-    // listeye girip çıkıyor ve indis başka bir adıma kayıyordu.
-    assert.match(wizard, /useState<StepKey>/);
-    assert.ok(!/setStepIdx/.test(wizard), 'adım indisle tutulmamalı');
+    assert.match(banner, /screenProgress\(/);
+    assert.doesNotMatch(banner, /percent|%\{/, 'v1 yüzdesi geri geldi');
+    assert.match(wizard, /screenFor\(searchParams\.get\('adim'\)\)/);
+    // Anahtar tutulur, indis değil.
+    assert.match(wizard, /useState<Screen>/);
+    assert.ok(!/setStepIdx/.test(wizard), 'ekran indisle tutulmamalı');
+    // Şerit yer tutucu hizmetleri saymaz (yoksa yeni işletmede "Hizmetler" hep tamam görünür).
+    assert.match(banner, /isSavedServiceId\(s\.id\)/);
 });
 
-test('kurulumda sidebar daralır', () => {
-    assert.match(layout, /const onSetup = path\.startsWith\('\/kurulum'\)/);
-    assert.match(layout, /onKasa \|\| onPackages \|\| onSetup/);
+test('kurulum tam ekran: sol menü yok, çıkış sağ üstte', () => {
+    const setup = layout.indexOf("if (path.startsWith('/kurulum'))");
+    assert.ok(setup > 0, 'Layout kurulumda kendi kabuğunu çizmiyor');
+    assert.ok(setup < layout.indexOf('<Sidebar'), 'kurulumda sol menü çiziliyor');
+    assert.match(wizard, /Sonra tamamlarım/);
 });
 
 test('sektör sözcükleri gömülü değil', () => {
-    // Tasarımın kuralı: "Ünite", "Koltuk", "Tedavi" sektöre göre değişir.
-    // Bileşenin içinde sabit yazılırsa 13 sektörden 12'sinde yanlış olur.
-    assert.match(wizard, /const resourceWord = resourceTypes\[0\]/);
+    assert.match(wizard, /const resourceTypes = sp\.resourceTypes/);
     assert.match(wizard, /sp\.labels\?\.service/);
     assert.ok(!/if \(sector === /.test(wizard), 'sektör davranışı registry\'de kalmalı');
 });
 
-test('mevcut hizmet listesi hazır setle EZİLMEZ', () => {
-    // Sihirbazı sonradan açan bir işletmenin listesini seed ile değiştirmek
-    // veri kaybıdır.
-    assert.match(wizard, /if \(settings\.services\?\.length\)/);
+test('kayıtlı hizmet listesi hazır setle EZİLMEZ', () => {
+    assert.match(wizard, /if \(savedServices\.length\)/);
+    // Kayıtlı hizmetin reçetesi ve etiketi kayıtta korunur.
+    assert.match(wizard, /\.\.\.r\.orig,/);
 });
 
-test('adımlar tek tek kaydeder', () => {
-    // Sonda topluca kaydetmek, yarıda bırakanın hiçbir şeyini saklamamaktı.
-    assert.match(wizard, /async function commitStep\(key: StepKey\)/);
-    assert.match(wizard, /case 'sector':/);
-    assert.match(wizard, /case 'whatsapp':/);
+test('her ekran Devam\'da kaydeder; cevap gelmezse "doğrulayamadık"', () => {
+    assert.match(wizard, /async function saveIsletme\(\)/);
+    assert.match(wizard, /async function saveHizmetler\(\)/);
+    assert.match(wizard, /withTimeout\(save\(\)/);
+    assert.match(wizard, /if \(isTimeout\(out\)\) \{ setFail\('unknown'\); return; \}/);
+    assert.match(wizard, /Kaydedildiğini doğrulayamadık\. Tekrar deneyin; girdikleriniz yerinde\./);
+    assert.match(wizard, /Kaydedilemedi, tekrar deneyin\./);
+});
+
+test('İşletmeniz yer tutucu hizmetleri veritabanına yazmaz', () => {
+    assert.match(wizard, /businessName: trimmed, sector, services: savedServices/);
+});
+
+test('v1 kusurları (devir 12 §2) geri gelmez', () => {
+    // 2 · "Yalnız ben" telefondaki tek kişilik kiple aynı bayrak.
+    assert.match(wizard, /supabase\.rpc\('set_business_mode', \{ p_solo: team === 'solo'/);
+    // 3 · Randevu adresi addan oluşur, alınmışsa -2, -3…
+    assert.match(wizard, /const slugFromName = /);
+    assert.match(wizard, /if \(code !== '23505'\) return false;/);
+    // 5 · Olmayan davet özelliği vaat edilmez.
+    assert.doesNotMatch(wizard, /davet/i);
+    // 6 · Süre yalnız bir kez ve tek sayı.
+    assert.equal(wizard.match(/Yaklaşık \d+ dakika/g)?.length, 1);
+    assert.doesNotMatch(wizard, /6 dakika|Adım \{/);
 });
 
 test('AI asistan anahtarı yalnız bağlıyken çevrilebilir', () => {
@@ -176,30 +245,12 @@ test('AI asistan anahtarı yalnız bağlıyken çevrilebilir', () => {
     assert.match(wizard, /disabled=\{connection\.status !== 'connected'\}/);
 });
 
-// ── 2026-10-19 · "%63'ı tamamlandı" ve iki sayaç ────────────────────────────
-
-test('yüzde eki okunuşa uyar — şeridin gösterebileceği bütün yüzdeler', () => {
-    // 8 adım → şerit yalnız bu yüzdeleri gösterebilir (karşılama hep tamam).
-    const want = { 13: "'ü", 25: "'i", 38: "'i", 50: "'si", 63: "'ü", 75: "'i", 88: "'i", 100: "'ü" };
-    for (let done = 1; done <= SETUP_STEPS.length; done++) {
-        const pct = Math.round((done / SETUP_STEPS.length) * 100);
-        assert.equal(percentSuffix(pct), want[pct], `%${pct}`);
-    }
-});
-
-test('yüzde eki — öbür sayılar', () => {
-    const cases = {
-        0: "'ı", 1: "'i", 2: "'si", 3: "'ü", 4: "'ü", 5: "'i", 6: "'sı", 7: "'si", 8: "'i", 9: "'u",
-        10: "'u", 20: "'si", 30: "'u", 40: "'ı", 60: "'ı", 70: "'i", 80: "'i", 90: "'ı",
-        12: "'si", 16: "'sı", 19: "'u", 44: "'ü", 99: "'u",
-    };
-    for (const [n, ek] of Object.entries(cases)) assert.equal(percentSuffix(Number(n)), ek, `%${n}`);
-});
-
-test('şerit eki sabit yazmıyor', () => {
-    const banner = readFileSync(new URL('../src/components/layout/SetupBanner.tsx', import.meta.url), 'utf8');
-    assert.match(banner, /percentSuffix\(progress\.percent\)/);
-    assert.doesNotMatch(banner, /percent\}'ı/, '"%63\'ı" geri geldi');
+test('bitiş: aboneliği olmayan duvara, denemesi başlamış olan uygulamaya', () => {
+    // Siteden gelen denemesi başlamış gelir; panelden kaydolanı kapı
+    // /abonelik'e atacak — bitiş bunu söyler ve oraya götürür.
+    assert.match(wizard, /const locked = ent\.locked;/);
+    assert.match(wizard, /onPri: \(\) => navigate\('\/abonelik'\)/);
+    assert.match(wizard, /pri: 'Uygulamaya git', onPri: \(\) => navigate\('\/'\)/);
 });
 
 test('kurulumu tek bir sayaç sayıyor — paneller kendi adımlarını saymıyor', () => {

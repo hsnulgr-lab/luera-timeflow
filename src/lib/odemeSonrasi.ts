@@ -28,6 +28,7 @@ export async function afterPaymentPath(orgId: string): Promise<string> {
         resourceCount: 0, resourcesApply: false, staffCount: 0, soloDeclared: false, whatsappConnected: false,
     });
     if (!next) return '/';
-    // Hiçbir şey girilmemişse karşılamadan; yarıdaysa kaldığı adımdan.
+    // Hiçbir şey girilmemişse baştan; yarıdaysa kaldığı adımın ekranından
+    // (sihirbaz adım anahtarını ekrana çevirir — setupProgress · screenFor).
     return next !== 'sector' ? `/kurulum?adim=${next}` : '/kurulum';
 }

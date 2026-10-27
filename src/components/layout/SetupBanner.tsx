@@ -1,23 +1,21 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { cn } from '@/utils/cn';
 import { useTheme } from '@/contexts/ThemeContext';
-import { ArrowRight, Settings, X } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
-import { useResources } from '@/hooks/useResources';
-import { useStaff } from '@/hooks/useStaff';
 import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { useAuth } from '@/contexts/AuthContext';
-import { useOrgProfile } from '@/hooks/useOrgProfile';
-import { profileForSector } from '@/lib/sectorProfiles';
-import { SETUP_STEPS, percentSuffix, remainingMinutes, setupProgress } from '@/lib/setupProgress';
+import { SETUP_SCREENS, isSavedServiceId, screenProgress } from '@/lib/setupProgress';
+import { KurulumIkon, KurulumIkonlar } from '@/pages/kurulumIkonlar';
 import '@/pages/setupWizard.css';
 
-// Kurulum yarıda kaldıysa uygulamanın üstünde duran şerit.
+// Kurulum yarıda kaldıysa uygulamanın üstünde duran şerit (Kurulum v2 · Ş1).
 //
-// Bunun olmaması bugünkü en somut boşluktu: /kurulum sayfası VARDI ama hiçbir
-// yerden ulaşılmıyordu (grep sıfır referans buldu). Yeni bir org bomboş
-// uygulamaya düşüyor ve kurulumun varlığından haberi olmuyordu.
+// Bunun olmaması bir zamanlar en somut boşluktu: /kurulum sayfası VARDI ama
+// hiçbir yerden ulaşılmıyordu. Yeni bir org bomboş uygulamaya düşüyor ve
+// kurulumun varlığından haberi olmuyordu.
+//
+// Tek sayaç: şeritteki üç parça, sihirbazın göstergesi ve bitiş aynı hesaptan
+// (`screenProgress`) okur. "Devam et" kaldığı EKRANI açar, baştan başlatmaz.
 //
 // Kapatılabilir ama KALICI DEĞİL: gizleme bir güne yazılır, ertesi gün geri
 // gelir. Kurulumsuz bir işletme hatırlatma gönderemiyor, online randevu
@@ -31,60 +29,45 @@ export function SetupBanner() {
     const { pathname } = useLocation();
     const { dark } = useTheme();
     const { orgId } = useAuth();
-    const { settings } = useReservations();
-    const { resources } = useResources();
-    const { staff } = useStaff();
-    const { connection } = useWhatsApp();
-    const { profile: org } = useOrgProfile();
+    const { settings, isSettingsLoading } = useReservations();
+    const { connection, loading: waLoading } = useWhatsApp();
     // İlk render'da okunur: efektle okumak şeridi bir kare için gösterip
     // gizliyor, kullanıcı her sayfa geçişinde bir titreme görüyordu.
     const [hidden, setHidden] = useState(() => localStorage.getItem(HIDE_KEY) === todayKey());
 
-    if (!orgId || hidden || pathname.startsWith('/kurulum')) return null;
+    // Veri gelmeden hesaplanan sayaç "1 / 3" deyip bir an sonra kaybolurdu.
+    if (!orgId || hidden || pathname.startsWith('/kurulum') || isSettingsLoading || waLoading) return null;
 
-    const sector = settings.sector || '';
-    const progress = setupProgress({
-        sector,
+    const progress = screenProgress({
+        sector: settings.sector,
         businessName: settings.businessName,
-        address: org.address,
-        phone: org.publicPhone,
         openDays: (settings.workingHours ?? []).filter((h) => !h.isOff).length,
-        serviceCount: settings.services?.length ?? 0,
-        resourceCount: resources.length,
-        resourcesApply: profileForSector(sector || 'genel').resourceTypes.length > 0,
-        staffCount: staff.filter((s) => s.isActive).length,
-        // "Yalnız ben çalışıyorum" ayrı bir bayrak olarak SAKLANMIYOR; tek
-        // kişilik işletmede org sahibi zaten personel listesinde değil. Bu
-        // yüzden ekip adımı, kurulum bir kez bitirildiyse tamam sayılır.
-        soloDeclared: Boolean(settings.sector) && staff.length === 0 && (settings.services?.length ?? 0) > 0,
+        serviceCount: (settings.services ?? []).filter((s) => isSavedServiceId(s.id)).length,
         whatsappConnected: connection.status === 'connected',
+        // Ekran sayacı bunları okumaz (bkz. isScreenDone).
+        resourceCount: 0, resourcesApply: false, staffCount: 0, soloDeclared: false,
     });
 
-    if (progress.complete) return null;
-    // Hiç başlanmamışsa da gösterilir — asıl derdimiz o.
-    const nextLabel = SETUP_STEPS.find((s) => s.key === progress.next)?.label ?? '';
-    const mins = remainingMinutes(progress.pending);
+    if (progress.complete || !progress.next) return null;
+    const at = SETUP_SCREENS.findIndex((s) => s.key === progress.next);
 
     return (
-        <div className={cn('dash-theme', dark && 'dark')} style={{ padding: '12px 24px 0' }}>
-            <div className="sw-resume">
-                <Settings size={20} />
-                <div className="tx">
-                    <b>Kurulumun %{progress.percent}{percentSuffix(progress.percent)} tamamlandı</b>
-                    <span>
-                        Sırada: {nextLabel} · {progress.pending.length} adım kaldı
-                        {mins > 0 ? `, yaklaşık ${mins} dakika` : ''}
-                    </span>
+        <div className="kv-t kv-strip-w" data-theme={dark ? 'dark' : 'light'}>
+            <KurulumIkonlar />
+            <div className="kv-strip" role="status">
+                <div className="mp" aria-hidden="true">
+                    {SETUP_SCREENS.map((s) => <i key={s.key} className={progress.done.includes(s.key) ? 'on' : undefined} />)}
                 </div>
-                <span className="bar"><i style={{ width: `${progress.percent}%` }} /></span>
-                {/* Kaldığı yerden: adım anahtarı adreste taşınır. Şerit "1 adım
-                    kaldı" deyip sihirbaz baştan açılırsa vaat tutulmamış olur. */}
-                <button className="sw-btn" onClick={() => navigate(`/kurulum?adim=${progress.next}`)}>
-                    Devam et<ArrowRight size={18} />
+                <div className="t">
+                    <b>Kurulum {at + 1} / {SETUP_SCREENS.length}</b>
+                    <span>Sırada: {SETUP_SCREENS[at].label}</span>
+                </div>
+                <button type="button" className="btn sm" onClick={() => navigate(`/kurulum?adim=${progress.next}`)}>
+                    Devam et<KurulumIkon n="arr" />
                 </button>
-                <button className="x" aria-label="Şimdilik gizle"
+                <button type="button" className="ix" aria-label="Bugün için gizle"
                     onClick={() => { localStorage.setItem(HIDE_KEY, todayKey()); setHidden(true); }}>
-                    <X size={18} />
+                    <KurulumIkon n="x" />
                 </button>
             </div>
         </div>

@@ -31,13 +31,21 @@ export const Layout = () => {
     // Takvim bütün sektörlerde bir odak çalışma alanıdır; dar sidebar programa
     // daha fazla alan verir.
     const onCalendar = path === '/calendar';
-    // Kurulum sihirbazı odaklanılacak tek iş: dolu bir menü, "önce şunu mu
-    // yapsam" diye dallandırıp kurulumu yarıda bıraktırıyor. Daraltıyoruz,
-    // kapatmıyoruz — kullanıcı istediği an çıkabilmeli.
-    const onSetup = path.startsWith('/kurulum');
-    const collapsed = onKasa || onPackages || onSetup || onStock || (onCalendar ? calendarCollapsed : isCollapsed);
+    const collapsed = onKasa || onPackages || onStock || (onCalendar ? calendarCollapsed : isCollapsed);
     // Personel adisyonu kasaya gönderince masaüstünde toast (köprü: personel → masaüstü)
     usePendingBillsAlert();
+
+    // Kurulum sihirbazı tam ekran odak sayfası (Kurulum v2): sol menü, üst
+    // şeritler ve WhatsApp satırı yok. Dolu bir menü "önce şunu mu yapsam"
+    // diye dallandırıp kurulumu yarıda bıraktırıyordu; çıkış sihirbazın sağ
+    // üstünde ("Sonra tamamlarım") her an açık.
+    if (path.startsWith('/kurulum')) {
+        return (
+            <ErrorBoundary>
+                <Outlet />
+            </ErrorBoundary>
+        );
+    }
 
     return (
         <div className={cn("min-h-screen", dark ? "bg-[#0C0A08]" : "bg-[#F3ECE0]")}>

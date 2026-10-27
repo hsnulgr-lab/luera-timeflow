@@ -136,7 +136,8 @@ export function PaywallPage() {
         const trial = ent.effective === 'trial';
         const until = ent.shownUntil ? fullFmt.format(new Date(ent.shownUntil)) : null;
         void afterPaymentPath(orgId).then((to) => {
-            toast.success(trial ? 'Denemeniz başladı' : 'Ödemeniz alındı', {
+            // Kurulumun başına gidene bunu K1'in bandı söyler (Ş2a).
+            if (to !== '/kurulum') toast.success(trial ? 'Denemeniz başladı' : 'Ödemeniz alındı', {
                 description: trial && until ? `İlk tahsilat ${until}. O güne kadar iptal ederseniz ücret alınmaz.` : 'Aboneliğiniz aktif.',
             });
             navigate(to, { replace: true });
