@@ -72,6 +72,22 @@ export const PLANS: readonly Plan[] = [
     },
 ];
 
+/**
+ * Ödeme duvarının karşılaştırma düzeni (Abonelik v2): kartlarda yalnız FARK,
+ * ortak olanlar altta tek satırda. Yeni özellik DEĞİL, yukarıdaki listelerin
+ * başka bir dizilişi; tests/fiyat-2026-10 ikisini eşler. null = bu planda yok.
+ */
+export const PLAN_COMPARE: readonly Record<PlanId, string | null>[] = [
+    { baslangic: '1 çalışan', pro: 'Sınırsız personel', isletme: 'Sınırsız personel' },
+    { baslangic: null, pro: 'Personel uygulaması ve raporları', isletme: 'Personel uygulaması ve raporları' },
+    { baslangic: 'E-posta destek', pro: 'E-posta destek', isletme: 'Öncelikli destek' },
+    { baslangic: null, pro: null, isletme: 'Birebir kurulum desteği' },
+];
+export const ALL_PLANS_FEATURES: readonly string[] = [
+    'Randevu & takvim', 'Online randevu sayfası', 'WhatsApp hatırlatma',
+    'Kasa & tahsilat', 'Müşteri paketleri', 'Raporlar',
+];
+
 /** Ücretsiz deneme uzunluğu — checkout'ta Dodo'ya geçilen değerle aynı olmalı. */
 export const TRIAL_DAYS = 7;
 

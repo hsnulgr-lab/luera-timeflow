@@ -416,16 +416,17 @@ test('e-postadan gelen web uygulamasına HİÇ düşmez: paket ekranında kalır
     assert.ok(aktif.length > 100, 'e-posta kipinde "aboneliğiniz sürüyor" dalı yok');
     assert.match(aktif, /Aboneliğiniz sürüyor\./);
     assert.match(aktif, /\{ent\.dodoManaged && \(/, 'Kartı güncelle yalnız Dodo aboneliğinde');
-    assert.match(aktif, /updateCard\(donus\)/);
+    assert.match(aktif, /void onCard\(\)/);
+    assert.match(pw, /const onCard = async \(\) => \{[\s\S]{0,120}updateCard\(donus\)/, 'kart sayfası e-posta kipiyle döner');
     assert.doesNotMatch(aktif, /navigate\(/, 'uygulamaya gönderen bir şey yok');
     assert.doesNotMatch(aktif, /Sonraki tahsilat/, 'iptal bekleyende yalan olurdu');
     // Ödeme dönüşü: fiş YALNIZ e-posta kipinde (kapatma notuyla); öteki dönüş
     // ana sayfaya ya da kuruluma yönlenir (tests/odeme-donusu). Kartsız
     // deneme: uygulama düğmesi e-posta kipinde yok.
     assert.match(pw, /if \(!ent\.ok \|\| !fromEmail\) \{/);
-    assert.match(pw, /Aynı karttan[\s\S]{0,600}<span style=\{\{ fontSize: 13\.5, color: 'var\(--dc-muted\)' \}\}>\{CLOSE_NOTE\}<\/span>\s*<\/div>,/);
-    assert.match(pw, /\{fromEmail \? \(\s*<span[^>]*>\{CLOSE_NOTE\}<\/span>\s*\) : \(\s*<button className="btn bare" onClick=\{\(\) => navigate\('\/'\)\}>\s*Şimdilik uygulamaya dön/);
-    assert.match(pw, /const onSelect = \(plan: PlanId, cycle: Cycle\) => \{ void startCheckout\(plan, cycle, donus\); \};/);
+    assert.match(pw, /Aynı karttan[\s\S]{0,300}<p className="mut in" style=\{d\(140\)\}>\{CLOSE_NOTE\}<\/p>/);
+    assert.match(pw, /left: fromEmail \? \(\s*<span className="mut">\{CLOSE_NOTE\}<\/span>\s*\) : \(\s*<button type="button" className="btn3 sm" onClick=\{\(\) => navigate\('\/'\)\}><Ic n="chl" \/>Şimdilik uygulamaya dön/);
+    assert.match(pw, /const ok = await startCheckout\(plan, c, donus, \{ inlineError: inline \}\);/);
     // Erken alan kartsız denemecinin denemesi 7 gün değil, kalan gündür.
     assert.match(pw, /const trialDaysShown = ent\.shownDaysLeft && ent\.shownDaysLeft > 0 \? ent\.shownDaysLeft : TRIAL_DAYS;/);
     assert.doesNotMatch(pw, /\$\{TRIAL_DAYS\} gün boyunca ücretsiz kullanacaksınız/);

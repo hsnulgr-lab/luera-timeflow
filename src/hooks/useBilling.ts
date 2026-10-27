@@ -124,7 +124,11 @@ export function useBilling() {
      * `donus: 'abonelik'` — abonelik e-postasından gelen (`?kaynak=eposta`):
      * Dodo'dan dönüş yine paket ekranına (dodo-checkout · toPaywall).
      */
-    const startCheckout = useCallback(async (plan: string, cycle: 'monthly' | 'yearly', donus?: 'abonelik') => {
+    // `inlineError`: genel "açılamadı" bildirimini atla, sonucu döndür — ödeme
+    // duvarı hatayı düğmenin altında, sakin bir satırla gösteriyor (Abonelik v2 · A1-f).
+    const startCheckout = useCallback(async (
+        plan: string, cycle: 'monthly' | 'yearly', donus?: 'abonelik', opts?: { inlineError?: boolean },
+    ): Promise<boolean> => {
         setBusy(true);
         const { data, error } = await supabase.functions
             .invoke('dodo-checkout', { body: { plan, cycle, orgId, ...(donus ? { donus } : {}) } })
@@ -133,7 +137,7 @@ export function useBilling() {
         if (data?.resumed) {
             toast.success('Aboneliğiniz devam ediyor — iptal geri alındı');
             void refresh();
-            return;
+            return true;
         }
         if (error || !data?.url) {
             const code = error ? await errorCode(error) : null;
@@ -143,17 +147,18 @@ export function useBilling() {
             if (code === 'already_subscribed') toast.info('Aboneliğiniz sürüyor', { description: 'Plan değişikliği için destek@lueratech.com adresine yazın.' });
             // Tek kişilik paketi tek çalışana (dodo-checkout · MAX_STAFF).
             else if (code === 'team_too_large') toast.info('Bu paket tek kişilik', { description: 'Ekibinizde personel var; Ekip paketini seçin.' });
-            else toast.error('Ödeme sayfası açılamadı, lütfen tekrar deneyin');
-            return;
+            else if (!opts?.inlineError) toast.error('Ödeme sayfası açılamadı, lütfen tekrar deneyin');
+            return false;
         }
         window.location.href = data.url;
+        return true;
     }, [orgId, refresh]);
 
     /**
      * Dodo kart güncelleme sayfası — yalnız bu aboneliğin kartı (yeni abonelik
      * AÇMAZ, tutar göstermez). Askıdaki abonelikte borç yeni karttan çekilir.
      */
-    const updateCard = useCallback(async (donus?: 'abonelik') => {
+    const updateCard = useCallback(async (donus?: 'abonelik'): Promise<boolean> => {
         setBusy(true);
         const { data, error } = await supabase.functions
             .invoke('dodo-checkout', { body: { action: 'card', orgId, ...(donus ? { donus } : {}) } })
@@ -162,9 +167,10 @@ export function useBilling() {
         if (error || !data?.url) {
             console.error('dodo-checkout card:', error, data);
             toast.error('Ödeme sayfası açılamadı', { description: 'Tekrar deneyin.' });
-            return;
+            return false;
         }
         window.location.href = data.url;
+        return true;
     }, [orgId]);
 
     const cancelSubscription = useCallback(async (): Promise<boolean> => {

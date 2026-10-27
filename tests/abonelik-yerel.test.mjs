@@ -707,7 +707,8 @@ test('ekranlar kartsız denemeyi doğru çizer (paket ekranı, abonelik, şerit,
     assert.match(pay, /if \(ent\.ok && ent\.cardlessTrial\) \{[\s\S]*?Denemeniz sürüyor\.[\s\S]*?ilk tahsilat denemeniz bittiğinde/);
     // Ödeme alınamadı → yeni abonelik DEĞİL, kart sayfası.
     const grace = pay.slice(pay.indexOf("if (ent.effective === 'grace')"));
-    assert.match(grace, /onClick=\{\(\) => void updateCard\(donus\)\}>\s*Kartı güncelle/);
+    assert.match(grace, /pbtn\('btn', 'Kartı güncelle', 'Kart sayfası açılıyor…', cardBusy, \(\) => void onCard\(\)\)/);
+    assert.match(pay, /const onCard = async \(\) => \{[\s\S]{0,120}updateCard\(donus\)/);
 
     const ab = read('src/pages/settings/bolumler/Abonelik.tsx');
     const kartsiz = ab.slice(ab.indexOf('if (onTrial && ent.cardlessTrial)'), ab.indexOf('if (!hasSub && !onTrial)'));

@@ -48,7 +48,7 @@ test('dodo-checkout: dönüş hep ödeme duvarına; e-posta kipi kendi ekranına
     assert.deepEqual(yollar, ['/abonelik?checkout=success&kaynak=eposta', '/abonelik?checkout=success']);
     assert.doesNotMatch(fn, /kurulum\?checkout=success/, 'kurulum checkout okumuyor — oraya dönülmez');
     // İstemci yalnız e-posta kipini söyler.
-    assert.match(oku('src/hooks/useBilling.ts'), /donus\?: 'abonelik'\) => \{/);
+    assert.match(oku('src/hooks/useBilling.ts'), /donus\?: 'abonelik'[,)]/);
     assert.match(oku('src/pages/settings/bolumler/Abonelik.tsx'), /const onSelect = \(planId: PlanId, c: Cycle\) => \{ void startCheckout\(planId, c\); \};/);
 });
 

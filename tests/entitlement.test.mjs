@@ -246,12 +246,15 @@ test('yedi durumun hepsinin bir karşılığı var', () => {
     assert.match(pricing, /className="explain"/);       //     deneme açıklaması
     assert.match(pricing, /className="trust"/);
     assert.match(pricing, /className="faq"/);
-    assert.match(wall, /badge n pausing/);              // 2 — deneme bitti
-    assert.match(wall, /className="keep"/);
-    assert.match(wall, /countdown live/);               // 3 — ödeme alınamadı
+    // Duvar 2026-10-28'den beri "Luera Masaustu - Abonelik v2" (A1–A6).
+    assert.match(wall, /className="plans"/);            // A1 — kurulumun son adımı
+    assert.match(wall, /className=\{`ovl/);             // A1-c — nasıl çalışır
+    assert.match(wall, /className="keep in"/);          // 2 / A3 — deneme bitti
+    assert.doesNotMatch(wall, /pause/, 'duraklat ikonu yok (yeni gelene ceza dili)');
+    assert.match(wall, /className="cd"/);               // 3 / A4 — ödeme alınamadı
     assert.match(strip, /className="strip"/);           // 4 — şerit
-    assert.match(wall, /className="receipt"/);          // 5 — ödeme sonrası
-    assert.match(wall, /badge n"><Ico n="loading"/);    //     işleniyor
+    assert.match(wall, /className="sum receipt in"/);   // 5 — ödeme sonrası (e-posta kipi)
+    assert.match(wall, /dt \$\{ok \? 'ok' : 'w'\}/);     //     işleniyor (A2)
     assert.match(tab, /className="ay-bill"/);          // 6 — faturalandırma
     assert.match(tab, /Fatura geçmişi/);
 });
@@ -280,6 +283,17 @@ test('tasarımın CSS\'i kapsayıcı sınıfla korunuyor', () => {
     // Renk jetonları kopyalanmadı — uygulamanın kendi seti kullanılıyor.
     assert.ok(!/--dc-page:\s*#/.test(css), 'jeton değeri kopyalanmamalı');
     assert.match(css, /dash-theme/, 'jeton kapsamı uyarısı dosyada kalmalı');
+});
+
+test('Abonelik v2 CSS\'i kapsayıcı sınıfla korunuyor', () => {
+    // Tasarım `.plan`, `.btn`, `.seg` gibi genel adlar kullanıyor; hepsi .ab altında.
+    const css = readFileSync(new URL('../src/pages/abonelik.css', import.meta.url), 'utf8');
+    const rules = css.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.trim())
+        .filter((l) => l && !l.startsWith('@') && !l.startsWith('}') && l.includes('{'));
+    const bare = rules.filter((l) => l.slice(0, l.indexOf('{')).split(',').some((s) => !/^\.ab(-t|\b)/.test(s.trim())));
+    assert.deepEqual(bare, [], `kapsayıcısız seçici: ${bare.join(' | ')}`);
+    assert.doesNotMatch(css, /@keyframes (?!ab-)/, 'animasyon adları da ab- önekli');
+    assert.match(css, /prefers-reduced-motion:reduce/);
 });
 
 test('mobilde en popüler plan başa alınır', () => {

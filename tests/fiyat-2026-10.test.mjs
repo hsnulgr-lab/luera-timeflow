@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import {
-    PLANS, planById, priceOf, fitsTeam, teamSize, yearlyFreeMonths, yearlyPerMonth, yearlySaving,
+    ALL_PLANS_FEATURES, PLAN_COMPARE, PLANS, planById, priceOf, fitsTeam, teamSize, yearlyFreeMonths, yearlyPerMonth, yearlySaving,
 } from '../src/lib/plans.ts';
 import { PAKETLER, urunAdi } from '../ops/abonelik/dodo-urun.mjs';
 import { MAX_STAFF, teamSize as sunucuTeamSize } from '../supabase/functions/dodo-checkout/paket.ts';
@@ -120,8 +120,11 @@ test('ekranlar: yıllıkta çekilen tutar toplam; sığmayan kart pasif; yumuşa
     }
 
     const paywall = oku('src/pages/PaywallPage.tsx');
-    assert.match(paywall, /const amount = priceOf\(plan, cycle\);/);
-    assert.equal((paywall.match(/<PlanCards [^>]*people=\{people\}/g) ?? []).length, 3, 'üç kart listesi de ekibi bilmeli');
+    assert.match(paywall, /const amount = priceOf\(plan, planCycle\);/);
+    // Abonelik v2: kartlar duvarın kendi işaretlemesi; sığmayan plan pasif, ekip sayısıyla.
+    assert.match(paywall, /const dis = !fitsTeam\(p, people\);/);
+    assert.match(paywall, /Sizinle birlikte \{people\} kişi/);
+    assert.match(paywall, /const pick = kept && fitsTeam\(solo, kept\.people\) \? solo : pro;/, 'öneri ekibe sığan en küçük paket');
     assert.match(paywall, /people: teamSize\(sf\.count \?\? 0, og\.data\?\.solo === true\)/, 'sahip dahil');
     assert.match(paywall, /\.from\('staff'\)\.select\('id', \{ count: 'exact', head: true \}\)\s*\.eq\('organization_id', id\)\.not\('is_active', 'is', false\)/);
     assert.doesNotMatch(paywall, /Pro'yu seç/);
@@ -161,4 +164,23 @@ test('telefon uygulaması fiyat ve paket adı taşımaz (Apple 3.1.1)', () => {
         const s = readFileSync(yol, 'utf8');
         assert.doesNotMatch(s, /lib\/plans|Tek kişilik paket|Ekip paket|₺\s?(799|1\.299|1\.999)/, yol);
     }
+});
+
+test('ödeme duvarının karşılaştırması plan listesinin başka bir dizilişi, yeni özellik değil', () => {
+    // Abonelik v2: kartlarda yalnız fark, ortaklar altta. Her satır gerçek bir
+    // özellikten gelmeli; "yakında" ya da uydurma satır girmez.
+    const all = (id) => PLANS.find((p) => p.id === id).features.map((f) => f.label);
+    const tek = all('baslangic');
+    for (const f of ALL_PLANS_FEATURES) assert.ok(tek.includes(f), `ortak özellik Tek kişilikte yok: ${f}`);
+    const parca = (t) => t === 'Personel uygulaması ve raporları' ? ['Personel uygulaması', 'Personel raporları'] : [t];
+    const kalit = { baslangic: [], pro: ['baslangic'], isletme: ['pro', 'baslangic'] };
+    for (const row of PLAN_COMPARE) {
+        for (const [id, t] of Object.entries(row)) {
+            if (!t) continue;
+            const sahip = [id, ...kalit[id]].flatMap(all);
+            for (const x of parca(t)) assert.ok(sahip.includes(x), `${id}: "${x}" planda yok`);
+        }
+    }
+    assert.equal(PLAN_COMPARE[0].baslangic, '1 çalışan');
+    assert.equal(PLAN_COMPARE[3].isletme, 'Birebir kurulum desteği');
 });
