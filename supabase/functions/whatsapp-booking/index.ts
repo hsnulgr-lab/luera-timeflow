@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
     featureOn, findCustomerByPhone, logMessage, sendWA as sendWhatsApp,
-    type OrgWa,
+    type Admin, type OrgWa,
 } from '../_shared/wa.ts';
 import { normalizePhone } from '../_shared/phone.ts';
 import { isSaneDate, matchOfferedTime, parseWhen } from '../_shared/booking/dates.ts';
@@ -24,6 +24,8 @@ import { computeBalance, formatTL } from '../_shared/booking/finance.ts';
 import { packageRights, type PackageResInput } from '../_shared/booking/packages.ts';
 import { announceFreedSlot, firstNameOf, notifyOwner } from '../_shared/notify.ts';
 import { checkAccess } from '../_shared/entitlement.ts';
+import { eligibilityBlock, isReservationConflict } from '../_shared/booking/reservationErrors.ts';
+import { agentRoute, type AgentConfig } from '../_shared/agent/guard.ts';
 
 // ============================================================
 // whatsapp-booking — WhatsApp üzerinden randevu
@@ -69,34 +71,61 @@ const corsHeaders = {
 const TZ_OFFSET_MIN = 3 * 60;
 const APP_ORIGIN = 'https://timeflow.lueratech.com';
 const SESSION_TTL_MIN = 120; // 2 saat sessizlikten sonra konuşma sıfırlanır
+// İşletme sahibi müşteriye telefondan elle yazınca ajan bu kadar susar (130).
+const OWNER_PAUSE_MS = 2 * 3600_000;
+// Ajana giden numara saatte bundan fazla yazarsa kuyruğa alınmaz: her mesaj
+// bir model çağrısı, yani para.
+const AGENT_FLOOD_PER_HOUR = 40;
 
 function ok(body: unknown = { ok: true }) {
     return new Response(JSON.stringify(body), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
-function isReservationConflict(error: { code?: string; message?: string } | null | undefined): boolean {
-    const message = (error?.message || '').toLowerCase();
-    return error?.code === '23P01'
-        || message.includes('reservation_staff_conflict')
-        || message.includes('reservation_resource_conflict');
+
+/** Birebir sohbet mi? Grup ve yayın listesi değil. */
+function isDirectChat(jid: string): boolean {
+    return jid.endsWith('@s.whatsapp.net') || jid.endsWith('@lid');
 }
+
+function mediaLabel(m: Record<string, unknown> | undefined): string {
+    return m?.documentMessage ? '[dosya]' : '[görsel]';
+}
+
 /**
- * Uygunluk engeli (076): hamilelik gibi bir risk bayrağı hizmetin etiketiyle
- * çakışıyor. Guard 23514 ile 'reservation_eligibility_blocked' fırlatıyor;
- * bunu tanımazsak müşteri "biraz sonra tekrar deneyin" görüp sonsuza kadar
- * dener — engel kalkmayacağı için hiç başarmaz.
+ * Salonun telefonundan bu müşteriye elle yazıldı → ajan o konuşmada bir süre
+ * susar; sahip devraldı demektir. Bizim gönderdiğimiz mesaj da fromMe olarak
+ * geri geliyor: log'da varsa sahibin değil, botun mesajıdır. Gönderim log'a
+ * Evolution cevap verdikten SONRA yazıldığı için webhook ondan önce gelebilir;
+ * bu yüzden bir kez bekleyip tekrar bakılır.
  */
-function eligibilityBlock(
-    error: { code?: string; message?: string; details?: string } | null | undefined,
-): { reason: string | null } | null {
-    if (!error) return null;
-    const message = (error.message || '') + ' ' + (error.details || '');
-    if (!message.includes('reservation_eligibility_blocked')) return null;
-    let reason: string | null = null;
-    try {
-        const parsed = JSON.parse(error.details || '{}');
-        if (typeof parsed?.reason === 'string') reason = parsed.reason;
-    } catch { /* detail JSON değilse gerekçesiz devam */ }
-    return { reason };
+async function pauseForOwner(
+    admin: Admin, orgId: string, phone: string, providerMsgId: string, body: string,
+): Promise<void> {
+    const sentByUs = async (): Promise<boolean> => {
+        if (providerMsgId) {
+            const { count } = await admin.from('wa_message_log')
+                .select('id', { count: 'exact', head: true })
+                .eq('organization_id', orgId).eq('provider_msg_id', providerMsgId);
+            if ((count ?? 0) > 0) return true;
+        }
+        if (body) {
+            const { count } = await admin.from('wa_message_log')
+                .select('id', { count: 'exact', head: true })
+                .eq('organization_id', orgId).eq('phone', phone)
+                .eq('direction', 'out').eq('body', body)
+                .gte('created_at', new Date(Date.now() - 60_000).toISOString());
+            if ((count ?? 0) > 0) return true;
+        }
+        return false;
+    };
+    if (await sentByUs()) return;
+    await new Promise((r) => setTimeout(r, 1500));
+    if (await sentByUs()) return;
+    const now = new Date();
+    await admin.from('wa_conversations').upsert({
+        organization_id: orgId, phone,
+        paused_until: new Date(now.getTime() + OWNER_PAUSE_MS).toISOString(),
+        updated_at: now.toISOString(),
+    }, { onConflict: 'organization_id,phone' });
 }
 
 Deno.serve(async (req: Request) => {
@@ -126,7 +155,11 @@ Deno.serve(async (req: Request) => {
         // ağsız; org çözümü ile sır doğrulamasından SONRA işlenir.
         const receipts = parseReceiptEvent(payload);
         const msgKind = inboundKind({ fromMe, remoteJid, text, hasMedia });
-        if (receipts.length === 0 && msgKind === 'skip') return ok({ skipped: true });
+        // Salonun telefonundan müşteriye elle yazılan mesaj: ajan açık
+        // işletmede botu o müşteri için susturur (130). Org ve sır çözüldükten
+        // sonra işlenir; eski botta hiçbir etkisi yok.
+        const ownerTyped = fromMe && receipts.length === 0 && isDirectChat(remoteJid) && Boolean(text || hasMedia);
+        if (receipts.length === 0 && msgKind === 'skip' && !ownerTyped) return ok({ skipped: true });
         // Numarayı tek biçime çevir — log, kota ve müşteri eşleşmesi buna dayanır.
         // LID'li gönderende numara ayrı alanda gelir (senderJid); numarasız
         // mesaja cevap verilemez, sessizce geçilir.
@@ -172,6 +205,11 @@ Deno.serve(async (req: Request) => {
                     .is(r.receipt === 'delivered' ? 'delivered_at' : 'read_at', null);
             }
             return ok({ receipts: receipts.length });
+        }
+
+        if (ownerTyped) {
+            if (featureOn(orgWa, 'agent_v2', false)) await pauseForOwner(admin, orgId, phone, providerMsgId, text);
+            return ok({ skipped: 'from_me' });
         }
 
         // Idempotency: Evolution aynı mesajı tekrar POST ederse ikinci kez
@@ -268,6 +306,47 @@ Deno.serve(async (req: Request) => {
         // vermez — DUR/BAŞLAT yukarıda işlendiği için opt-out hakkı korunur.
         // Varsayılan false: istemcideki useWhatsApp ile aynı (bilinçli açılmalı).
         if (!featureOn(orgWa, 'assistant', false)) return ok({ skipped: 'assistant_off' });
+
+        // ── Sekreter v2 · Claude ajanı (130) ─────────────────────────────────
+        // Bayrak yalnız seçilen işletmede açık; diğerlerinde aşağıdaki eski
+        // akış aynen sürer. Ajanın cevabı burada YAZILMAZ: mesaj kuyruğa girer,
+        // wa-agent birkaç saniye bekleyip art arda gelenleri tek turda işler.
+        // Kuyruğa yazılamazsa (göç eksik, bağlantı) eski bot devralır — müşteri
+        // cevapsız kalmaz.
+        if (featureOn(orgWa, 'agent_v2', false)) {
+            const [{ data: cfgRow }, { data: spent }, { count: lastHour }] = await Promise.all([
+                admin.from('org_whatsapp').select('agent_config').eq('organization_id', orgId).maybeSingle(),
+                admin.rpc('wa_agent_spend', { p_org: orgId }),
+                admin.from('wa_message_log')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('organization_id', orgId).eq('phone', phone)
+                    .eq('direction', 'in').gte('created_at', new Date(Date.now() - 3600_000).toISOString()),
+            ]);
+            const route = agentRoute({
+                enabled: true,
+                config: (cfgRow?.agent_config ?? null) as AgentConfig | null,
+                phone,
+                spentUsd: Number(spent) || 0,
+            });
+            if (route === 'silent') return ok({ skipped: 'agent_test_only' });
+            if (route === 'agent') {
+                if ((lastHour ?? 0) > AGENT_FLOOD_PER_HOUR) return ok({ skipped: 'agent_flood' });
+                const audio = d.message?.audioMessage;
+                const { error: inboxErr } = await admin.from('wa_inbox').insert({
+                    organization_id: orgId,
+                    phone,
+                    remote_jid: remoteJid || null,
+                    provider_msg_id: providerMsgId || null,
+                    kind: msgKind === 'text' ? 'text' : audio ? 'audio' : 'media',
+                    body: msgKind === 'text' ? text : audio ? null : mediaLabel(d.message),
+                    // Sesin indirme anahtarları; wa-agent döküm için Evolution'dan ister.
+                    media: audio ? { key: d.key, message: { audioMessage: audio } } : null,
+                    push_name: String(d.pushName || '').trim() || null,
+                });
+                if (!inboxErr) return ok({ queued: 'agent' });
+                console.error('wa_inbox insert error', inboxErr);
+            }
+        }
 
         // Sesli mesaj / fotoğraf: okuyamıyoruz ama sessiz kalmak müşteriyi
         // cevapsız bırakıyordu. Kısa bir yönlendirme, konuşmayı bozmadan.

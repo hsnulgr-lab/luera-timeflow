@@ -346,7 +346,11 @@ test('kabin ataması randevuya yazılır', () => {
 test('uygunluk engeli tanınır ve gerekçe söylenir', () => {
     // 076 guard 23514 / reservation_eligibility_blocked fırlatıyor. Tanınmazsa
     // müşteri "biraz sonra tekrar deneyin" görüp sonsuza kadar deniyordu.
-    assert.match(booking, /reservation_eligibility_blocked/);
+    // Tanıma 130'dan beri ortak modülde: Claude ajanı da aynısını kullanıyor.
+    const errors = readFileSync(
+        new URL('../supabase/functions/_shared/booking/reservationErrors.ts', import.meta.url), 'utf8');
+    assert.match(errors, /reservation_eligibility_blocked/);
+    assert.match(booking, /from '\.\.\/_shared\/booking\/reservationErrors\.ts'/);
     assert.match(booking, /eligibilityBlock\(reservationError\)/);
 });
 
