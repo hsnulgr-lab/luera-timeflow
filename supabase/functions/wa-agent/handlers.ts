@@ -22,7 +22,7 @@ import { announceFreedSlot, firstNameOf, notifyOwner } from '../_shared/notify.t
 import type { Profile } from '../_shared/agent/profile.ts';
 import type { IstanbulClock } from '../_shared/agent/prompt.ts';
 import {
-    commitBlock, filterTimes, PROPOSAL_TTL_MS, refPrefix, shortRef, type PartOfDay,
+    commitBlock, filterTimes, PROPOSAL_TTL_MS, refPrefix, shortRef, suggestTimes, type PartOfDay,
 } from '../_shared/agent/guard.ts';
 
 const APP_ORIGIN = 'https://timeflow.lueratech.com';
@@ -149,7 +149,7 @@ function nextDays(
         const date = addDays(from, i);
         const d = daySlots(w, { ...slotInput(ctx, date, duration), onlyStaffId: staffId });
         const times = filterTimes(d.times, part);
-        if (times.length > 0) out.push({ date, date_label: formatDateTr(date), times: times.slice(0, 4) });
+        if (times.length > 0) out.push({ date, date_label: formatDateTr(date), suggested: suggestTimes(times) });
     }
     return out;
 }
@@ -213,7 +213,10 @@ async function findSlots(ctx: TurnCtx, input: Input) {
     const times = filterTimes(d.times, part);
     const out: Record<string, unknown> = {
         ok: true, service: svc.name, date, date_label: formatDateTr(date),
-        times: times.slice(0, 10), total: times.length,
+        // Müşteriye bunlar önerilir; all_times yalnız müşteri başka saat
+        // sorarsa bakmak için.
+        suggested: suggestTimes(times),
+        all_times: times.slice(0, 24), total: times.length,
     };
     if (times.length === 0) {
         out.day_has_other_times = d.times.length > 0;

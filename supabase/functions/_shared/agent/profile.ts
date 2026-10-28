@@ -80,7 +80,11 @@ export function buildProfile(p: ProfileInput): Profile {
     const lines: string[] = [];
     lines.push('İŞLETME');
     lines.push(`Ad: ${oneLine(p.businessName) || 'İşletme'}`);
-    lines.push(`Üslup: ${oneLine(p.comms.persona)}`);
+    // Sektör notunun yalnız "ne olduğumuz" kısmı: ton kısmı ("şımartan bir ton
+    // kullan") eski hatırlatma metinleri için yazılmıştı; ajanın tonu her
+    // sektörde aynı — profesyonel ve sade (kurallar). Canlıda model "sizi
+    // şımartmak isteriz" yazdı.
+    lines.push(`Tür: ${oneLine(p.comms.persona.split(';')[0]).replace(/\.$/, '')}.`);
     lines.push(`Hizmete verilen ad: ${p.comms.serviceWord}`);
     if (p.comms.guardrail) lines.push(`Sınır: ${oneLine(p.comms.guardrail)}`);
     lines.push(`Adres: ${oneLine(p.address) || 'kayıtlı değil'}`);

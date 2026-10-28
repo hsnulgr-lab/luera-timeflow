@@ -12,7 +12,7 @@ import test from 'node:test';
 import { buildProfile, fnv1a, MAX_LISTED_SERVICES } from '../supabase/functions/_shared/agent/profile.ts';
 import {
     agentRoute, commitBlock, costUsd, DEFAULT_MONTHLY_BUDGET_USD, EPISODE_IDLE_MS, EPISODE_MAX_MESSAGES,
-    filterTimes, needsNewEpisode, refPrefix, sanitizeForWhatsApp, shortRef, supportsMidSystem,
+    filterTimes, needsNewEpisode, refPrefix, sanitizeForWhatsApp, shortRef, suggestTimes, supportsMidSystem,
 } from '../supabase/functions/_shared/agent/guard.ts';
 import { TOOLS } from '../supabase/functions/_shared/agent/tools.ts';
 import {
@@ -250,22 +250,22 @@ const intro = (over) => introMessage({
 test('ilk mesaj: yaklaşan randevuyu sorar, saate göre selamlar', () => {
     assert.equal(
         intro({ upcoming: { date: '2026-10-31', time: '12:00' } }),
-        'İyi akşamlar Nisanur, ben *Test Salon 2* dijital asistanıyım. '
-        + "Cumartesi 12:00'deki randevunuzla mı ilgili yazdınız, yoksa yeni bir randevu mu istersiniz?",
+        'İyi akşamlar Nisanur 👋\nBen *Test Salon 2* dijital asistanıyım.\n\n'
+        + "*Cumartesi 12:00*'deki randevunuzla mı ilgili yazdınız, yoksa yeni bir randevu mu istersiniz?",
     );
     assert.match(intro({ clock: at('09:00'), upcoming: { date: '2026-10-29', time: '13:00' } }),
-        /^Günaydın Nisanur, .* Bugün 13:00'teki randevunuzla/);
+        /^Günaydın Nisanur 👋\n[\s\S]*\*Bugün 13:00\*'teki randevunuzla/);
     assert.match(intro({ clock: at('14:00'), upcoming: { date: '2026-10-30', time: '10:40' } }),
-        /^Merhaba Nisanur, .* Yarın 10:40'taki randevunuzla/);
-    assert.match(intro({ upcoming: { date: '2026-11-12', time: '16:30' } }), / 12 Kasım 16:30'daki randevunuzla/);
+        /^Merhaba Nisanur 👋\n[\s\S]*\*Yarın 10:40\*'taki randevunuzla/);
+    assert.match(intro({ upcoming: { date: '2026-11-12', time: '16:30' } }), /\*12 Kasım 16:30\*'daki randevunuzla/);
 });
 
 test('ilk mesaj: randevusuz kayıtlı, kayıtsız ve selamün aleyküm', () => {
     assert.equal(intro({ clock: at('10:00') }),
-        'Günaydın Nisanur, ben *Test Salon 2* dijital asistanıyım. Yeni bir randevu mu istersiniz, yoksa bir sorunuz mu var?');
+        'Günaydın Nisanur 👋\nBen *Test Salon 2* dijital asistanıyım.\n\nYeni bir randevu mu istersiniz, yoksa bir sorunuz mu var?');
     assert.equal(intro({ firstName: null, known: false, clock: at('15:00') }),
-        'Merhaba, ben *Test Salon 2* dijital asistanıyım. Randevu almak mı istersiniz, yoksa bir sorunuz mu var?');
-    assert.match(intro({ salam: true }), /^Aleykümselam Nisanur, ben/);
+        'Merhaba 👋\nBen *Test Salon 2* dijital asistanıyım.\n\nRandevu almak mı istersiniz, yoksa bir sorunuz mu var?');
+    assert.match(intro({ salam: true }), /^Aleykümselam Nisanur 👋\nBen/);
     // Gece yarısı "İyi akşamlar" değil.
     assert.match(intro({ clock: at('23:30') }), /^Merhaba Nisanur/);
 });
@@ -388,4 +388,56 @@ test('göç 130: yalnız service_role, kira fonksiyonu kapalı, geçmiş TEXT', 
     assert.match(sql, /messages_json\s+TEXT/);
     assert.match(sql, /'x-cron-secret', v_secret/);
     assert.match(sql, /timeout_milliseconds := 55000/);
+});
+
+test('wa-agent: çalışanın 60 sn ömrüne sığar, sığmıyorsa turu başlatmaz', () => {
+    const src = read('supabase/functions/wa-agent/index.ts');
+    // Modül çalışan başına bir kez yüklenir; kalan ömür buradan hesaplanır.
+    assert.match(src, /const WORKER_BORN = Date\.now\(\);/);
+    assert.match(src, /if \(left < MIN_TURN_MS \+ DEBOUNCE_MS\) return \{ deferred: true/);
+    assert.match(src, /const deadline = Math\.min\(t0 \+ RUN_BUDGET_MS, WORKER_BORN \+ WORKER_LIFETIME_MS - SAFETY_MS\);/);
+    // Kira çalışan ömründen uzun ama fazla değil: yarıda kalan tur konuşmayı uzun kilitlemesin.
+    const lease = Number(/const LEASE_SEC = (\d+);/.exec(src)[1]);
+    assert.ok(lease * 1000 > 60_000 && lease <= 90, `LEASE_SEC=${lease}`);
+    // Cevap gönderilir gönderilmez işlendi sayılır (çift cevap olmasın).
+    const sendAt = src.indexOf('await send(text);');
+    const markAt = src.indexOf('await markProcessed();', sendAt);
+    const saveAt = src.indexOf("messages_json: apiFailed ? '[]'", sendAt);
+    assert.ok(sendAt > 0 && markAt > sendAt && markAt < saveAt);
+});
+
+test('kurallar: güne soruya tercih sormadan üç saat; süs cümlesi yok (canlı test 2026-10-29)', () => {
+    // İlk canlı denemede bot "sabah mı akşam mı" diye sordu ve "sizi şımartmak
+    // isteriz" yazdı: bir tur boşa gitti, mesaj reklam gibi durdu.
+    assert.match(RULES, /tercih sorma: find_slots sonucundaki suggested saatlerini doğrudan öner/);
+    assert.match(RULES, /Önerilen saatleri ayrı bir satırda "\*10:00\* · \*13:30\* · \*17:00\*" biçiminde ver/);
+    assert.match(RULES, /süs ya da reklam cümlesi kurma/);
+    assert.doesNotMatch(RULES, /İşletmenin üslup notuna uy\./);
+});
+
+test('profil: sektörün ton notu ajana gitmez, yalnız türü (canlıda "şımartmak" yazdı)', () => {
+    const p = buildProfile(profileInput({
+        comms: { ...NEUTRAL_COMMS, persona: 'Bir güzellik salonu / bakım merkezisin; sıcak, samimi ve şımartan bir ton kullan.' },
+    }));
+    assert.match(p.text, /^Tür: Bir güzellik salonu \/ bakım merkezisin\.$/m);
+    assert.doesNotMatch(p.text, /şımart|Üslup:/);
+});
+
+test('suggestTimes: günün başı, ortası, sonu; tam ya da buçuk saat tercih edilir', () => {
+    const day = [];
+    for (let m = 9 * 60; m <= 16 * 60 + 30; m += 15) day.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
+    assert.deepEqual(suggestTimes(day), ['09:00', '12:30', '16:30']);
+    assert.deepEqual(suggestTimes(['17:00', '17:15']), ['17:00', '17:15']);
+    assert.deepEqual(suggestTimes(['17:00', '17:15', '17:30', '17:45', '18:00']), ['17:00', '17:30', '18:00']);
+    for (const t of suggestTimes(day)) assert.ok(day.includes(t));
+});
+
+test('kurallar ve araç: örnek cevaplar uydurma diye işaretli, find_slots önerileri hazır verir', () => {
+    assert.match(RULES, /Örnek cevaplar\nTarzı göstermek içindir; içlerindeki hizmet, saat, fiyat ve adlar uydurmadır\./);
+    assert.match(RULES, /Sen: Yarın, \*30 Ekim Cuma\* manikür için uygun saatler:\n\*10:00\* · \*13:30\* · \*17:00\*\n\nHangisi size uyar\?/);
+    assert.match(RULES, /\*Bakım:\* manikür \(45 dk\)\n\*Tarih:\* 30 Ekim Cuma\n\*Saat:\* 13:30\n\*Uzman:\* Ayşe/);
+    const handlers = read('supabase/functions/wa-agent/handlers.ts');
+    assert.match(handlers, /suggested: suggestTimes\(times\)/);
+    const find = TOOLS.find((t) => t.name === 'find_slots');
+    assert.match(find.description, /suggested saatlerini öner/);
 });

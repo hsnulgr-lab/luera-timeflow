@@ -43,9 +43,9 @@ export const TOOLS: ToolDef[] = [
     {
         name: 'find_slots',
         description:
-            'Bir hizmet için boş saatleri getirir. date null ise önümüzdeki günlerden boş olanları '
-            + 've her birinin ilk saatlerini döner. Müşteriye saat önermeden önce mutlaka bunu çağır; '
-            + 'saat uydurma.',
+            'Bir hizmet için boş saatleri getirir; müşteriye sonuçtaki suggested saatlerini öner. '
+            + 'date null ise önümüzdeki boş günleri ve her birinin önerilen saatlerini döner. '
+            + 'Saat önermeden önce mutlaka bunu çağır; saat uydurma.',
         strict: true,
         input_schema: {
             type: 'object',

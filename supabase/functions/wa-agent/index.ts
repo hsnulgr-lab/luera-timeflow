@@ -48,12 +48,29 @@ const corsHeaders = {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const LEASE_SEC = 90;
+// ── Süre ────────────────────────────────────────────────────────────────────
+// Self-hosted çalıştırıcı (functions/main/index.ts) her çalışanı doğduktan
+// 60 sn sonra öldürüyor ve çalışan sonraki isteklere de hizmet edebiliyor:
+// yeni bir istek, ömrünün sonuna gelmiş bir çalışana düşebilir. Ölen çalışanın
+// turu yarıda kalır, kirası da süresi dolana kadar konuşmayı kilitler. Bu
+// yüzden her tur, çalışanın KALAN ömrüne sığacak şekilde planlanır; sığmıyorsa
+// hiç başlamaz, mesajı süpürme (en geç ~1 dk) taze bir çalışana bırakır.
+/** Modül çalışan başına bir kez yüklenir: bu an çalışanın doğumudur. */
+const WORKER_BORN = Date.now();
+const WORKER_LIFETIME_MS = Number(Deno.env.get('WA_WORKER_TIMEOUT_MS')) || 60_000;
+/** Ölümden önce cevabı gönderip kaydı yazacak pay. */
+const SAFETY_MS = 6_000;
+/** Bundan az ömür kaldıysa tur başlatılmaz. */
+const MIN_TURN_MS = 20_000;
+/** Çalışan ömründen uzun: yarıda kalan turun kirası en geç bu kadar sonra düşer. */
+const LEASE_SEC = 70;
 const DEBOUNCE_MS = 2500;
 /** Bu süreden sonra yeni tur başlatılmaz; kalan mesaj için kendini yeniden uyandırır. */
 const NEW_TURN_WINDOW_MS = 12_000;
-/** Model döngüsünün toplam süresi. Çalışan 60 sn'de kesiliyor (self-hosted). */
+/** Model döngüsünün en uzun süresi; çalışanın kalan ömrü daha kısaysa o geçerli. */
 const RUN_BUDGET_MS = 40_000;
+
+const workerLeftMs = () => WORKER_BORN + WORKER_LIFETIME_MS - Date.now();
 const MAX_CALLS = 6;
 const MAX_TOKENS = 4096;
 // Sonnet 5.5: Opus'a yakın kalite, yarı fiyat (2026-10-29 kararı: maliyet).
@@ -131,6 +148,12 @@ async function loadPending(admin: Admin, orgId: string, phone: string): Promise<
 }
 
 async function drain(admin: Admin, orgId: string, phone: string, started: number) {
+    // Ömrü bitmek üzere olan çalışan turu başlatmaz; kira da almaz, böylece
+    // süpürmenin uyandırdığı taze çalışan konuşmayı hemen alabilir.
+    const left = workerLeftMs();
+    console.log(`wa-agent drain worker_left_ms=${left}`);
+    if (left < MIN_TURN_MS + DEBOUNCE_MS) return { deferred: true, worker_left_ms: left };
+
     const { data: token } = await admin.rpc('wa_claim_conversation', {
         p_org: orgId, p_phone: phone, p_lease_sec: LEASE_SEC,
     });
@@ -138,7 +161,8 @@ async function drain(admin: Admin, orgId: string, phone: string, started: number
 
     let turns = 0;
     try {
-        while (Date.now() - started < NEW_TURN_WINDOW_MS && turns < 3) {
+        while (Date.now() - started < NEW_TURN_WINDOW_MS && turns < 3
+            && workerLeftMs() >= MIN_TURN_MS + DEBOUNCE_MS) {
             const pending = await loadPending(admin, orgId, phone);
             if (pending.length === 0) break;
             const newest = Math.max(...pending.map((r) => Date.parse(r.received_at)));
@@ -432,7 +456,7 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
     let finalText = '';
     let stopReason: string | null = null;
     let error: string | null = null;
-    const deadline = t0 + RUN_BUDGET_MS;
+    const deadline = Math.min(t0 + RUN_BUDGET_MS, WORKER_BORN + WORKER_LIFETIME_MS - SAFETY_MS);
 
     try {
         while (calls < MAX_CALLS) {
@@ -509,6 +533,9 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
             });
         }
     }
+    // Cevap gitti: bu mesajlar işlendi. Kayıttan ÖNCE işaretlenir — çalışan tam
+    // burada ölürse aynı mesaj ikinci kez cevaplanmasın.
+    await markProcessed();
 
     // ── Kayıt ───────────────────────────────────────────────────────────────
     // İstek reddedildiyse (4xx) geçmiş sıfırlanır: bozuk bir geçmişi her turda
@@ -527,7 +554,6 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
         updated_at: at,
         ...(fresh ? { episode_started_at: at } : {}),
     }).eq('id', conv.id);
-    await markProcessed();
 
     await admin.from('wa_agent_runs').insert({
         organization_id: orgId,

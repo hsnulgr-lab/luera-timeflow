@@ -123,6 +123,30 @@ export function filterTimes(times: string[], part: PartOfDay | null): string[] {
     });
 }
 
+/**
+ * Müşteriye önerilecek üç saat — model seçmez, kod seçer. Liste boyunca eşit
+ * aralıklı üç nokta alınır (günün başı, ortası, sonu ya da istenen bölümün);
+ * her noktanın yakınında tam ya da buçuk saat varsa o tercih edilir: insanlar
+ * 12:45 yerine 13:00 der. Canlıda model saat önermek yerine "sabah mı akşam
+ * mı" diye sordu; artık önerecek saatler hazır gelir.
+ */
+export function suggestTimes(times: string[], n = 3): string[] {
+    if (times.length <= n) return [...times];
+    const round = (t: string) => t.endsWith(':00') || t.endsWith(':30');
+    const picked: string[] = [];
+    for (let i = 0; i < n; i++) {
+        const target = Math.round((i * (times.length - 1)) / (n - 1));
+        let best = target;
+        for (let d = 1; d <= 3 && !round(times[best]); d++) {
+            for (const j of [target - d, target + d]) {
+                if (j >= 0 && j < times.length && round(times[j]) && !picked.includes(times[j])) { best = j; break; }
+            }
+        }
+        if (!picked.includes(times[best])) picked.push(times[best]);
+    }
+    return picked.sort();
+}
+
 // ── Çıktı ───────────────────────────────────────────────────────────────────
 
 /**
