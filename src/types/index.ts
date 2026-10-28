@@ -24,7 +24,7 @@ export interface Reservation {
     staffColor?: string;
     recurrenceRule?: 'weekly' | 'monthly';
     recurrenceUntil?: string;   // YYYY-MM-DD
-    source?: 'manual' | 'booking' | 'leadflow';
+    source?: 'manual' | 'booking' | 'leadflow' | 'whatsapp';
     isPaid?: boolean;
     customerArrivedAt?: string;   // Resepsiyon "Müşteri Geldi" dedi — personele push gider, hizmet başlamaz
     noShowAt?: string | null;   // Müdür "Gelmedi" dedi (098) — geldi damgası yoksa randevu gelmedi sayılır; null = damgayı kaldır

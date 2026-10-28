@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getOrgWa, sendWA, type Admin } from '../_shared/wa.ts';
 import { checkAccess } from '../_shared/entitlement.ts';
+import { minToTime, staffSlots, timeToMin, weekdayOf, type WorkingHour } from '../_shared/booking/slots.ts';
 
 // ============================================================
 // public-booking — Self-servis online randevu motoru
@@ -36,57 +37,9 @@ function isReservationConflict(error: { code?: string; message?: string } | null
         || message.includes('reservation_resource_conflict');
 }
 
-function timeToMin(t: string): number {
-    const [h, m] = t.split(':').map(Number);
-    return h * 60 + (m || 0);
-}
-function minToTime(m: number): string {
-    const h = Math.floor(m / 60);
-    const mm = m % 60;
-    return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
-}
-function weekdayOf(dateStr: string): number {
-    return new Date(dateStr + 'T00:00:00Z').getUTCDay(); // 0=Pazar..6=Cmt
-}
-function overlaps(aS: number, aE: number, bS: number, bE: number): boolean {
-    return aS < bE && bS < aE;
-}
-
-interface WH { day: number; start: string; end: string; isOff: boolean }
-
-// Bir personelin belirli tarihteki müsait slot başlangıçlarını (dakika) döndürür
-function staffSlots(opts: {
-    orgHours: WH[];
-    staffHours: WH[] | null;
-    weekday: number;
-    serviceDuration: number;
-    slotDuration: number;
-    dayReservations: { start_time: string; end_time: string }[];
-    isTimeOff: boolean;
-    minStart: number; // bugün için geçmiş saatleri ele (değilse 0)
-}): number[] {
-    if (opts.isTimeOff) return [];
-
-    const org = opts.orgHours?.find(h => h.day === opts.weekday);
-    if (!org || org.isOff) return []; // işletme kapalı
-
-    const staff = (opts.staffHours ?? opts.orgHours)?.find(h => h.day === opts.weekday);
-    if (!staff || staff.isOff) return [];
-
-    const start = Math.max(timeToMin(org.start), timeToMin(staff.start));
-    const end = Math.min(timeToMin(org.end), timeToMin(staff.end));
-
-    const busy = opts.dayReservations.map(r => [timeToMin(r.start_time), timeToMin(r.end_time)] as [number, number]);
-
-    const out: number[] = [];
-    for (let s = start; s + opts.serviceDuration <= end; s += opts.slotDuration) {
-        if (s < opts.minStart) continue;
-        const e = s + opts.serviceDuration;
-        if (busy.some(([bS, bE]) => overlaps(s, e, bS, bE))) continue;
-        out.push(s);
-    }
-    return out;
-}
+// Saat hesabı tek modülde (_shared/booking/slots.ts): WhatsApp botu ve
+// randevu yönetim sayfası da aynısını kullanır. Burada kendi kopyası vardı.
+type WH = WorkingHour;
 
 // Müşteri bul/oluştur — yarış güvenli. 072'nin kısmi UNIQUE indeksi eşzamanlı
 // iki insert'ten birini 23505 ile düşürür; kaybeden taraf kazananı yeniden okur.

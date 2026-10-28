@@ -255,7 +255,7 @@ export function myAppointments(c: Ctx, rows: AppointmentLine[], manageUrl?: stri
     return `${head}\n\n${list}${manage}`;
 }
 
-export interface PackageLine { title: string; done: number; total: number }
+export interface PackageLine { title: string; done: number; total: number; reserved?: number }
 
 export function myPackages(c: Ctx, rows: PackageLine[]): string {
     if (rows.length === 0) {
@@ -264,7 +264,10 @@ export function myPackages(c: Ctx, rows: PackageLine[]): string {
     }
     const list = rows.map((r) => {
         const left = Math.max(0, r.total - r.done);
-        return `• *${r.title}* — ${left} seans kaldı _(${r.done}/${r.total})_`;
+        // Randevusu alınmış haklar da müşterinin; ayrıca söylenir ki "kaldı"
+        // ile takvimdeki randevuları çelişmesin.
+        const planned = r.reserved ? ` (${r.reserved} tanesi randevulu)` : '';
+        return `• *${r.title}* — ${left} seans kaldı${planned} _(${r.done}/${r.total})_`;
     }).join('\n');
     return `Paket durumunuz:\n\n${list}\n\nSeans planlamak isterseniz yazmanız yeterli.`;
 }

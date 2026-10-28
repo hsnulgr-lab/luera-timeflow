@@ -267,7 +267,7 @@ export function KuaforReservationsPage() {
     const todayPending = todayReservations.filter((reservation) => liveStage(reservation, stageOptions) === 'pending').length;
     const lateWaits = todayReservations.filter((reservation) => reservation.customerArrivedAt && !reservation.arrivedAt
         && now.getTime() - new Date(reservation.customerArrivedAt).getTime() >= 10 * 60_000);
-    const onlineToday = todayReservations.filter((reservation) => reservation.source === 'booking').length;
+    const onlineToday = todayReservations.filter((reservation) => reservation.source === 'booking' || reservation.source === 'whatsapp').length;
     const todayRevenue = payments
         .filter((payment) => payment.reservationId && toISODate(new Date(payment.paidAt)) === today)
         .reduce((sum, payment) => sum + payment.amount, 0);
@@ -545,7 +545,7 @@ export function KuaforReservationsPage() {
                                     <div><dt>Hizmet</dt><dd>{selectedLive.service} {selectedService?.price ? `· ${moneyOf(selectedService.price)}` : ''}</dd></div>
                                     <div><dt>Kuaför</dt><dd>{selectedLive.staffName || 'Atanmadı'}</dd></div>
                                     <div><dt>Koltuk / alan</dt><dd>{selectedLive.resourceName || 'Seçilmedi'}</dd></div>
-                                    <div><dt>Kaynak</dt><dd>{selectedLive.source === 'booking' ? 'Online booking' : selectedLive.source === 'leadflow' ? 'LeadFlow' : 'Manuel'}</dd></div>
+                                    <div><dt>Kaynak</dt><dd>{selectedLive.source === 'booking' ? 'Online booking' : selectedLive.source === 'whatsapp' ? 'WhatsApp' : selectedLive.source === 'leadflow' ? 'LeadFlow' : 'Manuel'}</dd></div>
                                     {selectedLive.customFields?.[FORMULA_KEY] && <div className="formula"><dt>Renk formülü</dt><dd><Droplets size={14} />{String(selectedLive.customFields[FORMULA_KEY])}</dd></div>}
                                     {selectedLive.notes && <div><dt>Salon notu</dt><dd>{selectedLive.notes}</dd></div>}
                                 </dl>

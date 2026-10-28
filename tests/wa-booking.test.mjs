@@ -13,7 +13,7 @@ import {
     availabilityFor, availableDays, minToTime, overlaps, staffSlots, timeToMin, weekdayOf,
 } from '../supabase/functions/_shared/booking/slots.ts';
 import {
-    detectConfirm, detectIntent, detectListChoice, inboundKind,
+    detectConfirm, detectIntent, detectListChoice, inboundKind, senderJid,
 } from '../supabase/functions/_shared/booking/intent.ts';
 import {
     CLARIFY_OPTIONS, CLARIFY_QUESTION, clarifyQuestion, coerceTopic, detectClarify,
@@ -23,6 +23,8 @@ import {
     computeBalance, formatTL,
 } from '../supabase/functions/_shared/booking/finance.ts';
 import { computePatientFinance } from '../src/lib/patientBalance.ts';
+import { packageRights as edgePackageRights } from '../supabase/functions/_shared/booking/packages.ts';
+import { packageRights as appPackageRights } from '../src/lib/packageRights.ts';
 import {
     parseReceiptEvent, parseReceiptStatus, receiptPatch,
 } from '../supabase/functions/_shared/booking/receipts.ts';
@@ -1272,9 +1274,13 @@ test('iptal onay ister, tek adımda silmez', () => {
     assert.match(booking, /if \(state\.cancelId && ruleConfirm\)/);
 });
 
-test('iptal edilen slot bekleme listesine ve işletmeciye duyurulur', () => {
+test('iptal edilen slot bekleme listesine duyurulur; müdüre haber tek kaynaktan (tetikleyici)', () => {
     assert.match(booking, /announceFreedSlot\(admin, orgId/);
-    assert.match(booking, /notifyOwner\(admin, orgId, \{\s*\n\s*title: 'Randevu iptal edildi'/);
+    // Yeni randevu ve iptal müdüre notify_push_on_reservation (118) ile gider;
+    // ayrıca notifyOwner çağırmak aynı olayı iki kez, tercihi de yok sayarak bildiriyordu.
+    assert.doesNotMatch(booking, /title: 'Randevu iptal edildi'/);
+    assert.doesNotMatch(booking, /title: autoConfirm \? 'Yeni randevu'/);
+    assert.doesNotMatch(readFileSync(new URL('../supabase/functions/booking-manage/index.ts', import.meta.url), 'utf8'), /title: 'Randevu iptal edildi'/);
 });
 
 test('erteleme yeni kayıt AÇMAZ, mevcut kaydı taşır', () => {
@@ -1347,4 +1353,65 @@ test('iptal onayına gelen "Evet" hatırlatma yanıtı sanılmaz', () => {
     // cancelId inFlow'a dahil edilmezse "Evet" hatırlatmaya gider ve müşterinin
     // iptal etmek istediği randevu değil, BAŞKA bir randevusu etkilenir.
     assert.match(booking, /state\.cancelId \|\| state\.pickList/);
+});
+
+test('senderJid: LID\'li gönderende numara ayrı alandan, cihaz eki atılır', () => {
+    assert.equal(senderJid({ remoteJid: '905321112233@s.whatsapp.net' }), '905321112233@s.whatsapp.net');
+    assert.equal(senderJid({ remoteJid: '905321112233:12@s.whatsapp.net' }), '905321112233@s.whatsapp.net');
+    assert.equal(senderJid({ remoteJid: '123456789@lid', remoteJidAlt: '905321112233@s.whatsapp.net' }), '905321112233@s.whatsapp.net');
+    assert.equal(senderJid({ remoteJid: '123456789@lid', senderPn: '905321112233@s.whatsapp.net' }), '905321112233@s.whatsapp.net');
+    assert.equal(senderJid({ remoteJid: '123456789@lid' }, { senderPn: '905321112233@s.whatsapp.net' }), '905321112233@s.whatsapp.net');
+    assert.equal(senderJid({ remoteJid: '123456789@lid' }), '', 'numarasız LID: cevap verilemez');
+    assert.equal(senderJid(undefined), '');
+});
+
+test('WhatsApp randevusu kendi kaynağıyla yazılır (göç 129)', () => {
+    // 'booking' yazınca takvimde "Online booking" görünüyordu.
+    assert.match(booking, /resource_id: chosenResource, source: 'whatsapp',/);
+    const g = readFileSync(new URL('../supabase/129_kaynak_whatsapp.sql', import.meta.url), 'utf8');
+    assert.match(g, /CHECK \(source IN \('manual', 'booking', 'leadflow', 'whatsapp'\)\)/);
+});
+
+test('paket hakları: bot ve Paketler ekranı aynı formül (packageRights aynası)', () => {
+    const plan = { id: 'p1', sessionCount: 8, sessionsDone: 3 };
+    const res = [
+        { date: '2026-11-02', status: 'confirmed', customFields: { paket_plan_id: 'p1' } },
+        { date: '2026-11-09', status: 'pending', customFields: { paket_plan_id: 'p1' } },
+        { date: '2026-11-10', status: 'cancelled', customFields: { paket_plan_id: 'p1' } },
+        { date: '2026-10-01', status: 'confirmed', customFields: { paket_plan_id: 'p1' } },
+        { date: '2026-11-03', status: 'confirmed', customFields: { paket_plan_id: 'p1', paket_sayildi: true } },
+        { date: '2026-11-04', status: 'confirmed', customFields: { paket_plan_id: 'baska' } },
+        { date: '2026-11-05', status: 'confirmed', customFields: null },
+    ];
+    const cases = [
+        [plan, res, '2026-10-28'],
+        [{ id: 'p1', sessionCount: 3, sessionsDone: 2 }, res, '2026-10-28'],
+        [{ id: 'p1', sessionCount: 5, sessionsDone: 9 }, res, '2026-10-28'],
+        [{ id: 'p1', sessionCount: 0, sessionsDone: 0 }, [], '2026-10-28'],
+    ];
+    for (const [p, r, d] of cases) assert.deepEqual(edgePackageRights(p, r, d), appPackageRights(p, r, d));
+    assert.deepEqual(edgePackageRights(plan, res, '2026-10-28'), { total: 8, used: 3, reserved: 2, available: 3 });
+    assert.deepEqual(edgePackageRights({ id: 'p1', sessionCount: 3, sessionsDone: 2 }, res, '2026-10-28').reserved, 1, 'kalan haktan fazla rezerve sayılmaz');
+    assert.equal(readFileSync(new URL('../supabase/functions/_shared/booking/packages.ts', import.meta.url), 'utf8').split('\n').slice(3).join('\n'),
+        readFileSync(new URL('../src/lib/packageRights.ts', import.meta.url), 'utf8').split('\n').slice(3).join('\n'), 'iki dosyanın gövdesi birebir');
+    assert.match(booking, /packageRights\(\{/);
+    assert.match(readFileSync(new URL('../src/pages/BeautyPackages.tsx', import.meta.url), 'utf8'), /packageRights\(raw, resList, today\)/);
+});
+
+test('paket cevabı randevulu hakları ayrıca söyler', () => {
+    const ctx = { comms: MSG.resolveComms(null), businessName: 'X', firstName: 'Ayşe' };
+    const t = MSG.myPackages(ctx, [{ title: 'Lazer', done: 3, total: 8, reserved: 2 }]);
+    assert.match(t, /5 seans kaldı \(2 tanesi randevulu\) _\(3\/8\)_/);
+    assert.match(MSG.myPackages(ctx, [{ title: 'Lazer', done: 3, total: 8 }]), /5 seans kaldı _\(3\/8\)_/);
+});
+
+test('saat hesabı tek modülde: halka açık sayfa ve yönetim linki kendi kopyasını taşımaz', () => {
+    // Üç kopya vardı (public-booking staffSlots, booking-manage computeSlots,
+    // _shared/booking/slots.ts); biri düzeltilip öbürü unutulunca müşteri
+    // bir yerde dolu saati boş görürdü.
+    for (const f of ['public-booking', 'booking-manage']) {
+        const src = readFileSync(new URL(`../supabase/functions/${f}/index.ts`, import.meta.url), 'utf8');
+        assert.match(src, /import \{[^}]*\bstaffSlots\b[^}]*\} from '\.\.\/_shared\/booking\/slots\.ts';/, `${f} ortak modülü kullanmalı`);
+        assert.doesNotMatch(src, /function (staffSlots|computeSlots|timeToMin|minToTime)\(/, `${f} kendi kopyasını taşımamalı`);
+    }
 });

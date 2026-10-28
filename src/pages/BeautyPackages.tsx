@@ -25,6 +25,7 @@ import { EditReservationModal } from '@/components/reservations/EditReservationM
 import { useInstallmentSchedules } from '@/hooks/useInstallmentSchedules';
 import { useCashEnabled } from '@/hooks/useModules';
 import { todayISO } from '@/utils/date';
+import { packageRights } from '@/lib/packageRights';
 import type { Customer, Reservation, Service } from '@/types';
 import './beautyPackages.css';
 
@@ -201,11 +202,9 @@ export function BeautyPackages() {
     const items = useMemo<Pkg[]>(() => packages.map((raw) => {
         const customer = customerById.get(raw.customerId);
         const pay = paidByPlan.get(raw.id);
-        const total = raw.sessionCount;
-        const used = Math.min(total, raw.sessionsDone);
         const resList = reservedByPlan.get(raw.id) || [];
-        const reserved = Math.min(Math.max(0, total - used), resList.length);
-        const available = Math.max(0, total - used - reserved);
+        // Tek formül (packageRights): WhatsApp botu da aynı sayıyı söyler.
+        const { total, used, reserved, available } = packageRights(raw, resList, today);
         const price = raw.totalAmount;
         const paid = pay?.total || 0;
         const balance = Math.max(0, price - paid);

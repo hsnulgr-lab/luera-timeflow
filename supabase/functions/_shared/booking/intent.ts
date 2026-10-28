@@ -141,3 +141,18 @@ export function inboundKind(payload: {
     if (payload.hasMedia) return 'media';
     return 'skip';
 }
+
+/**
+ * Gönderenin numaralı JID'i. Yeni WhatsApp sürümleri numarayı gizleyen bir
+ * kimlikle (`…@lid`) gönderebiliyor; numara o zaman `remoteJidAlt` /
+ * `senderPn`'de gelir. Eskiden `remoteJid` doğrudan numara sanılıyordu: LID'li
+ * müşteri tanınmıyor, cevap da yanlış adrese gidiyordu. Cihaz eki (`:12`)
+ * atılır. Numara bulunamazsa ''.
+ */
+export function senderJid(key: {
+    remoteJid?: string; remoteJidAlt?: string; senderPn?: string; participantAlt?: string;
+} | undefined, data?: { senderPn?: string }): string {
+    const pn = (j?: string) => (j && j.endsWith('@s.whatsapp.net') ? j.replace(/:\d+@/, '@') : '');
+    return pn(key?.remoteJid) || pn(key?.remoteJidAlt) || pn(key?.senderPn)
+        || pn(data?.senderPn) || pn(key?.participantAlt) || '';
+}

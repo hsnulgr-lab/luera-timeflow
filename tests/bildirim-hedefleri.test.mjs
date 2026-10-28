@@ -64,7 +64,9 @@ test('bildirimde yalnız ilk ad — WhatsApp ve "randevumu yönet" de; numara ki
     assert.match(notify, /export function firstNameOf\(full: string \| null \| undefined\): string \{\s*return String\(full \?\? ''\)\.trim\(\)\.split\(\/\\s\+\/\)\[0\] \|\| 'Müşteri';/);
     const bodies = [read('supabase/functions/booking-manage/index.ts'), read('supabase/functions/whatsapp-booking/index.ts')]
         .flatMap((src) => [...src.matchAll(/body: `([^`]*)`/g)].map((m) => m[1]));
-    assert.ok(bodies.length >= 7, `bildirim gövdesi bulunamadı (${bodies.length})`);
+    // 2026-10-28: yeni randevu ve iptal bildirimleri buradan kalktı (müdüre
+    // tetikleyici gönderiyor, çift push'tu); kalanlar erteleme ve devir.
+    assert.ok(bodies.length >= 3, `bildirim gövdesi bulunamadı (${bodies.length})`);
     for (const body of bodies) {
         assert.match(body, /^\$\{firstNameOf\(/, body);
         assert.doesNotMatch(body, /\?\? phone/, body);

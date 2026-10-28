@@ -12,7 +12,7 @@ import {
     availabilityFor, availableDays, formatDateTr as fmtDate, minToTime, timeToMin, weekdayOf,
     type WorkingHour as WH,
 } from '../_shared/booking/slots.ts';
-import { detectConfirm, detectIntent, detectListChoice, inboundKind } from '../_shared/booking/intent.ts';
+import { detectConfirm, detectIntent, detectListChoice, inboundKind, senderJid } from '../_shared/booking/intent.ts';
 import { assignResources } from '../_shared/booking/resources.ts';
 import { parseReceiptEvent, receiptPatch } from '../_shared/booking/receipts.ts';
 import { EMPTY_EXTRACTION, extractWithAi, type Extraction, type Turn } from '../_shared/booking/ai.ts';
@@ -21,6 +21,7 @@ import {
     type Clarify, type Topic,
 } from '../_shared/booking/inquiry.ts';
 import { computeBalance, formatTL } from '../_shared/booking/finance.ts';
+import { packageRights, type PackageResInput } from '../_shared/booking/packages.ts';
 import { announceFreedSlot, firstNameOf, notifyOwner } from '../_shared/notify.ts';
 import { checkAccess } from '../_shared/entitlement.ts';
 
@@ -126,8 +127,12 @@ Deno.serve(async (req: Request) => {
         const receipts = parseReceiptEvent(payload);
         const msgKind = inboundKind({ fromMe, remoteJid, text, hasMedia });
         if (receipts.length === 0 && msgKind === 'skip') return ok({ skipped: true });
-        // Numarayı tek biçime çevir — log, kota ve müşteri eşleşmesi buna dayanır
-        const phone = normalizePhone(remoteJid.split('@')[0]) || remoteJid.split('@')[0];
+        // Numarayı tek biçime çevir — log, kota ve müşteri eşleşmesi buna dayanır.
+        // LID'li gönderende numara ayrı alanda gelir (senderJid); numarasız
+        // mesaja cevap verilemez, sessizce geçilir.
+        const jid = senderJid(d.key, d);
+        if (receipts.length === 0 && !jid) return ok({ skipped: 'numara yok' });
+        const phone = normalizePhone(jid.split('@')[0]) || jid.split('@')[0];
 
         const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
@@ -447,12 +452,7 @@ Deno.serve(async (req: Request) => {
                     .update({ status: 'cancelled', customer_confirm: 'no', customer_confirm_at: at })
                     .eq('id', pendingReply.id).in('status', ['pending', 'confirmed']);
                 announceFreedSlot(admin, orgId, pendingReply.date);
-                notifyOwner(admin, orgId, {
-                    title: 'Randevu iptal edildi',
-                    body: `${firstNameOf(known.name)} · ${fmtDate(pendingReply.date)} ${timeLabel} — hatırlatmaya "gelemem" yanıtı verdi.`,
-                    url: `/takvim?date=${pendingReply.date}`,
-                    tag: `res-${pendingReply.id}`,
-                });
+                // Müdüre haber veritabanından gider (notify_push_on_reservation · 118): iptal tetikleyicisi, tercihe uyarak.
                 return reply(M.reminderDeclined(msgCtx()));
             }
         }
@@ -474,12 +474,7 @@ Deno.serve(async (req: Request) => {
 
             const timeLabel = String(cancelled.start_time).slice(0, 5);
             announceFreedSlot(admin, orgId, cancelled.date);
-            notifyOwner(admin, orgId, {
-                title: 'Randevu iptal edildi',
-                body: `${firstNameOf(known?.name)} · ${fmtDate(cancelled.date)} ${timeLabel} — WhatsApp'tan iptal etti.`,
-                url: `/takvim?date=${cancelled.date}`,
-                tag: `res-${cancelled.id}`,
-            });
+            // Müdüre haber veritabanından gider (notify_push_on_reservation · 118): iptal tetikleyicisi, tercihe uyarak.
             return reply(M.cancelDone(msgCtx(), {
                 service: cancelled.service, dateLabel: fmtDate(cancelled.date), time: timeLabel,
             }));
@@ -685,20 +680,32 @@ Deno.serve(async (req: Request) => {
             }
 
             if (topic === 'my_package') {
-                const { data: plans } = await admin.from('treatment_plans')
-                    .select('title, session_count, sessions_done')
-                    .eq('organization_id', orgId).eq('customer_id', known!.id)
-                    .eq('status', 'active')
-                    .order('created_at', { ascending: false }).limit(5);
+                const [{ data: plans }, { data: linked }] = await Promise.all([
+                    admin.from('treatment_plans')
+                        .select('id, title, session_count, sessions_done')
+                        .eq('organization_id', orgId).eq('customer_id', known!.id)
+                        .eq('status', 'active')
+                        .order('created_at', { ascending: false }).limit(5),
+                    // Pakete bağlı ileri randevular: Paketler ekranının "rezerve"si.
+                    admin.from('reservations')
+                        .select('date, status, custom_fields')
+                        .eq('organization_id', orgId).eq('customer_id', known!.id)
+                        .gte('date', todayStr).neq('status', 'cancelled'),
+                ]);
+                const resIn: PackageResInput[] = (linked ?? []).map((r: { date: string; status: string; custom_fields: PackageResInput['customFields'] }) => ({
+                    date: r.date, status: r.status, customFields: r.custom_fields,
+                }));
                 // Tek seanslık plan "paket" değildir, tek bir işlemin kaydıdır;
-                // listelenirse müşteri her tedavisini paket sanır.
+                // listelenirse müşteri her tedavisini paket sanır. Sayılar
+                // Paketler ekranıyla aynı formülden (packageRights).
                 const rows = (plans ?? [])
                     .filter((p: any) => Number(p.session_count) > 1)
-                    .map((p: any) => ({
-                        title: p.title,
-                        done: Number(p.sessions_done) || 0,
-                        total: Number(p.session_count) || 0,
-                    }));
+                    .map((p: any) => {
+                        const k = packageRights({
+                            id: p.id, sessionCount: Number(p.session_count), sessionsDone: Number(p.sessions_done),
+                        }, resIn, todayStr);
+                        return { title: p.title, done: k.used, total: k.total, reserved: k.reserved };
+                    });
                 return reply(M.myPackages(msgCtx(), rows));
             }
 
@@ -1061,7 +1068,7 @@ Deno.serve(async (req: Request) => {
             date, start_time: state.time, end_time: endTime,
             service: svc.name, service_color: svc.color || '#FF5A1F',
             status: autoConfirm ? 'confirmed' : 'pending', notes: 'WhatsApp AI randevu',
-            staff_id: chosenStaff, resource_id: chosenResource, source: 'booking',
+            staff_id: chosenStaff, resource_id: chosenResource, source: 'whatsapp',
         }).select('id, customer_token').single();
 
         if (reservationError || !reservation) {
@@ -1090,18 +1097,14 @@ Deno.serve(async (req: Request) => {
         if (wh?.webhook_url) {
             fetch(wh.webhook_url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ event: 'reservation.created', source: 'timeflow', timestamp: new Date().toISOString(),
-                    data: { id: reservation?.id, customer_name: customerName, customer_phone: phone, date, start_time: state.time, end_time: endTime, service: svc.name, status: autoConfirm ? 'confirmed' : 'pending', source: 'booking' } }),
+                    data: { id: reservation?.id, customer_name: customerName, customer_phone: phone, date, start_time: state.time, end_time: endTime, service: svc.name, status: autoConfirm ? 'confirmed' : 'pending', source: 'whatsapp' } }),
             }).catch(() => {});
         }
 
-        // İşletmeciye haber ver — bot gece yarısı randevu alabiliyor ve bugüne
-        // kadar işletmeci bunu ertesi sabah takvimi açınca öğreniyordu.
-        notifyOwner(admin, orgId, {
-            title: autoConfirm ? 'Yeni randevu' : 'Yeni randevu — onay bekliyor',
-            body: `${firstNameOf(customerName)} · ${fmtDate(date)} ${state.time} — ${svc.name}`,
-            url: `/takvim?date=${date}`,
-            tag: `res-${reservation.id}`,
-        });
+        // İşletmeciye haber veritabanından gider: kaynağı 'manual' olmayan her
+        // yeni randevu müdüre push olur (notify_push_on_reservation · 118,
+        // tercihe uyarak). Burada ayrıca göndermek aynı randevuyu iki kez
+        // bildiriyordu.
 
         // Konuşmayı temizle + onay mesajı
         await clearSession();

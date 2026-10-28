@@ -3,7 +3,7 @@ import { checkAccess } from '../_shared/entitlement.ts';
 import { getOrgWa, sendWA } from '../_shared/wa.ts';
 import * as M from '../_shared/booking/messages.ts';
 import { greetingName } from '../_shared/booking/identity.ts';
-import { formatDateTr } from '../_shared/booking/slots.ts';
+import { formatDateTr, minToTime, staffSlots, timeToMin, weekdayOf, type WorkingHour } from '../_shared/booking/slots.ts';
 import { announceFreedSlot, firstNameOf, notifyOwner } from '../_shared/notify.ts';
 
 // ============================================================
@@ -32,36 +32,9 @@ function isReservationConflict(error: { code?: string; message?: string } | null
         || message.includes('reservation_staff_conflict')
         || message.includes('reservation_resource_conflict');
 }
-function timeToMin(t: string): number { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); }
-function minToTime(m: number): string { return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; }
-function weekdayOf(d: string): number { return new Date(d + 'T00:00:00Z').getUTCDay(); }
-function overlaps(aS: number, aE: number, bS: number, bE: number) { return aS < bE && bS < aE; }
-
-interface WH { day: number; start: string; end: string; isOff: boolean }
-
-function computeSlots(opts: {
-    orgHours: WH[]; staffHours: WH[] | null; weekday: number;
-    serviceDuration: number; slotDuration: number;
-    dayReservations: { start_time: string; end_time: string }[];
-    isTimeOff: boolean; minStart: number;
-}): number[] {
-    if (opts.isTimeOff) return [];
-    const org = opts.orgHours?.find(h => h.day === opts.weekday);
-    if (!org || org.isOff) return [];
-    const staff = (opts.staffHours ?? opts.orgHours)?.find(h => h.day === opts.weekday);
-    if (!staff || staff.isOff) return [];
-    const start = Math.max(timeToMin(org.start), timeToMin(staff.start));
-    const end = Math.min(timeToMin(org.end), timeToMin(staff.end));
-    const busy = opts.dayReservations.map(r => [timeToMin(r.start_time), timeToMin(r.end_time)] as [number, number]);
-    const out: number[] = [];
-    for (let s = start; s + opts.serviceDuration <= end; s += opts.slotDuration) {
-        if (s < opts.minStart) continue;
-        const e = s + opts.serviceDuration;
-        if (busy.some(([bS, bE]) => overlaps(s, e, bS, bE))) continue;
-        out.push(s);
-    }
-    return out;
-}
+// Saat hesabı tek modülde (_shared/booking/slots.ts) — halka açık sayfa ve
+// WhatsApp botuyla aynı; burada kendi kopyası (computeSlots) vardı.
+type WH = WorkingHour;
 
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -161,15 +134,8 @@ Deno.serve(async (req: Request) => {
 
             // Boşluk doldurma: bekleyenlere "slot açıldı" bildirimi (fire-and-forget)
             announceFreedSlot(supabase, orgId, res.date);
-            // İşletmeciye de haber ver — iptal, salonun en pahalı olayı ve
-            // haberi olmayan salon o slotu bir başkasına satamıyor. Bot iptali
-            // (whatsapp-booking) zaten bildiriyordu; link iptali sessizdi.
-            notifyOwner(supabase, orgId, {
-                title: 'Randevu iptal edildi',
-                body: `${firstNameOf(res.customer_name)} · ${formatDateTr(res.date)} ${(res.start_time || '').slice(0, 5)} — yönetim linkinden iptal etti.`,
-                url: `/takvim?date=${res.date}`,
-                tag: `res-${res.id}`,
-            });
+            // İşletmeciye haber veritabanından gider (iptal tetikleyicisi · 118,
+            // tercihe uyarak); burada ayrıca göndermek iki kez bildiriyordu.
 
             // İşletmeye bilgi (opsiyonel WhatsApp — settings instance + işletme telefonu yoksa atlanır)
             const orgWa = await getOrgWa(supabase, orgId);
@@ -207,7 +173,7 @@ Deno.serve(async (req: Request) => {
             const others = (dayRes || []).filter(r => r.id !== res.id);
 
             const minStart = date === todayTR ? (nowTR.getUTCHours() * 60 + nowTR.getUTCMinutes()) : 0;
-            const slots = computeSlots({
+            const slots = staffSlots({
                 orgHours, staffHours, weekday: weekdayOf(date), serviceDuration, slotDuration,
                 dayReservations: others, isTimeOff: (timeOff || []).length > 0, minStart,
             });
@@ -228,7 +194,7 @@ Deno.serve(async (req: Request) => {
                 .eq('organization_id', orgId).eq('date', date).eq('staff_id', res.staff_id || '').neq('status', 'cancelled');
             const others = (dayRes || []).filter(r => r.id !== res.id);
             const minStart = date === todayTR ? (nowTR.getUTCHours() * 60 + nowTR.getUTCMinutes()) : 0;
-            const available = computeSlots({
+            const available = staffSlots({
                 orgHours, staffHours, weekday: weekdayOf(date), serviceDuration, slotDuration,
                 dayReservations: others, isTimeOff: (timeOff || []).length > 0, minStart,
             }).map(minToTime);
