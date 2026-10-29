@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { checkAccess } from '../_shared/entitlement.ts';
-import { getOrgWa, sendWA } from '../_shared/wa.ts';
+import { featureOn, getOrgWa, sendWA } from '../_shared/wa.ts';
 import { identify, deny } from '../_shared/auth.ts';
 
 // ============================================================
@@ -59,6 +59,11 @@ Deno.serve(async (req: Request) => {
         const orgWa = await getOrgWa(supabase, organization_id);
         if (!orgWa?.instance || orgWa.status !== 'connected') {
             return json({ notified: 0, skipped: 'whatsapp bağlı değil' });
+        }
+        // Zamanlayıcı açık işletmede (131) boşalan saat bekleme listesine
+        // SIRAYLA teklif edilir (wa-scheduler); toplu link burada gitmez.
+        if (featureOn(orgWa, 'scheduler_v2', false)) {
+            return json({ notified: 0, skipped: 'zamanlayıcı sırayla teklif ediyor' });
         }
         const businessName = settings?.business_name || org.name || 'İşletme';
         const bookingUrl = `${APP_ORIGIN}/book/${org.slug}`;

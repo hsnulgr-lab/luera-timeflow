@@ -233,8 +233,12 @@ Deno.serve(async (req: Request) => {
                 return res.ok || Boolean(res.queued);
             };
 
+            // Zamanlayıcı açık işletmede (131) 24 saat, 2 saat ve yorum daveti
+            // wa-scheduler'dan tam zamanında gider; burada ikinci kez gitmesin.
+            const schedulerOn = featureOn(orgWa as OrgWa, 'scheduler_v2', false);
+
             // ── 24h Hatırlatma ───────────────────────────────────────────────
-            const { data: list24h } = !sendableHour ? { data: [] } : await supabase
+            const { data: list24h } = !sendableHour || schedulerOn ? { data: [] } : await supabase
                 .from('reservations')
                 .select('id, customer_id, customer_name, customer_phone, start_time, service')
                 .eq('organization_id', organization_id)
@@ -262,7 +266,7 @@ Deno.serve(async (req: Request) => {
             }
 
             // ── 2h Hatırlatma ────────────────────────────────────────────────
-            const { data: list2h } = await supabase
+            const { data: list2h } = schedulerOn ? { data: [] } : await supabase
                 .from('reservations')
                 .select('id, customer_id, customer_name, customer_phone, start_time, service')
                 .eq('organization_id', organization_id)
@@ -333,7 +337,7 @@ Deno.serve(async (req: Request) => {
             // deneyim hâlâ taze. Hemen göndermek (daha içerideyken) rahatsız
             // edici, ertesi güne bırakmak yanıt oranını düşürüyor.
             // İşletme Google değerlendirme linkini girmemişse hiç denenmez.
-            if (featureOn(orgWa, 'review') && sendableHour && extras.reviewUrl) {
+            if (!schedulerOn && featureOn(orgWa, 'review') && sendableHour && extras.reviewUrl) {
                 const readyBefore = new Date(nowUtc.getTime() - 3 * 3_600_000).toISOString();
                 // Çok eski hesapları diriltme: 2 günden fazla gecikmişse (cron
                 // durmuş, link sonradan girilmiş) davet artık anlamsız.

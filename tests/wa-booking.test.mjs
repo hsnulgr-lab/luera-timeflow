@@ -959,7 +959,8 @@ test('cooldown mesajı kotaya sayılmaz', () => {
     // Kota İŞLETMENİN başlattığı mesajları sayar; bu müşteriye verilen cevap.
     const wa = readFileSync(new URL('../supabase/functions/_shared/wa.ts', import.meta.url), 'utf8');
     assert.match(wa, /UNMETERED[\s\S]{0,200}'cooldown'/);
-    assert.match(wa, /\| 'cooldown';/, 'WaKind cooldown türünü tanımalı');
+    // 131'den beri birliğin sonunda zamanlayıcı türleri var; cooldown yine tanımlı.
+    assert.match(wa, /\| 'cooldown'[;\s]/, 'WaKind cooldown türünü tanımalı');
 });
 
 test('cooldown metni ne olduğunu ve ne yapılacağını söyler', () => {

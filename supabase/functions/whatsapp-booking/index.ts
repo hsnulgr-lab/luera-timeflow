@@ -26,6 +26,7 @@ import { announceFreedSlot, firstNameOf, notifyOwner } from '../_shared/notify.t
 import { checkAccess } from '../_shared/entitlement.ts';
 import { eligibilityBlock, isReservationConflict } from '../_shared/booking/reservationErrors.ts';
 import { agentRoute, type AgentConfig } from '../_shared/agent/guard.ts';
+import { handleScheduledReply } from '../_shared/scheduler/replies.ts';
 
 // ============================================================
 // whatsapp-booking — WhatsApp üzerinden randevu
@@ -239,7 +240,7 @@ Deno.serve(async (req: Request) => {
         // address / public_phone / maps_url (013) bilgi cevapları için: adres ve
         // telefon MODELDEN değil, işletmenin kendi profilinden gelir.
         const { data: org } = await admin.from('organizations')
-            .select('slug, owner_id, booking_auto_confirm, address, public_phone, maps_url')
+            .select('slug, owner_id, booking_auto_confirm, address, public_phone, maps_url, google_review_url')
             .eq('id', orgId).maybeSingle();
         const orgPhone: string | null = org?.public_phone || null;
 
@@ -254,7 +255,7 @@ Deno.serve(async (req: Request) => {
             comms, businessName, firstName: greetingName(known?.name),
         });
 
-        const reply = async (t: string, kind: 'booking' | 'optout' | 'cooldown' = 'booking') => {
+        const reply = async (t: string, kind: 'booking' | 'optout' | 'cooldown' | 'feedback' = 'booking') => {
             await sendWhatsApp(admin, {
                 org: orgWa, phone, text: t, kind,
                 customerId: known?.id ?? null,
@@ -305,6 +306,20 @@ Deno.serve(async (req: Request) => {
         // AI asistan toggle'ı (Ayarlar → WhatsApp). Kapalıysa bot hiç cevap
         // vermez — DUR/BAŞLAT yukarıda işlendiği için opt-out hakkı korunur.
         // Varsayılan false: istemcideki useWhatsApp ile aynı (bilinçli açılmalı).
+        // ── Zamanlayıcının sorularına cevap (131) ────────────────────────────
+        // Bekleme listesi teklifine "Evet", memnuniyet sorusuna "5": cevabı kod
+        // okur, bota gitmez. Asistan anahtarından ÖNCE: memnuniyet ve teklif
+        // yapay zekâ değil, asistan kapalı işletmede de çalışır.
+        if (msgKind === 'text' && featureOn(orgWa, 'scheduler_v2', false)) {
+            const handled = await handleScheduledReply(admin, {
+                orgId, phone, text, msgCtx: msgCtx(),
+                ownerId: org?.owner_id ?? null,
+                autoConfirm: Boolean(org?.booking_auto_confirm),
+                reviewUrl: org?.google_review_url ?? null,
+            });
+            if (handled) return reply(handled.text, handled.kind);
+        }
+
         if (!featureOn(orgWa, 'assistant', false)) return ok({ skipped: 'assistant_off' });
 
         // ── Sekreter v2 · Claude ajanı (130) ─────────────────────────────────

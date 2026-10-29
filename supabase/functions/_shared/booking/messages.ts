@@ -446,3 +446,94 @@ export function cooldown(c: Ctx): string {
 export function optedIn(c: Ctx): string {
     return `Tekrar hoş geldiniz! ${c.comms.emoji} Bilgilendirme mesajlarınız yeniden açık.`;
 }
+
+// ── Zamanlayıcı (131) ───────────────────────────────────────────────────────
+//
+// wa-scheduler ve cevap işleyicisi (scheduler/replies) bu metinleri gönderir.
+// Görünüm konuşmadaki onay mesajlarıyla aynı: selam ayrı satırda, randevu
+// etiketli satırlarla, en çok bir süs emojisi. Tarih ve saat etiketlerini
+// çağıran hazırlar ("Yarın, 30 Ekim Cuma"); ekler tr.ts'ten.
+
+function helloLine(c: Ctx): string {
+    return c.firstName ? `Merhaba ${c.firstName} 👋` : 'Merhaba 👋';
+}
+
+function serviceLabel(c: Ctx): string {
+    return c.comms.serviceWord.charAt(0).toLocaleUpperCase('tr') + c.comms.serviceWord.slice(1);
+}
+
+function withMaps(text: string, mapsUrl?: string | null): string {
+    return mapsUrl ? `${text}\n\n📍 Konum: ${mapsUrl}` : text;
+}
+
+/**
+ * 24 saat hatırlatması. "Gelebilecek misiniz?" yalnız asistan AÇIKKEN sorulur:
+ * kapalıyken cevabı okuyan olmaz, soru sormanın en kötü hâli budur (085).
+ */
+export function reminder24h(c: Ctx, o: {
+    service: string; dateLabel: string; time: string; mapsUrl?: string | null; askConfirm: boolean;
+}): string {
+    const ask = o.askConfirm ? `\n\nGelebilecek misiniz? *Evet* ya da *Hayır* yazmanız yeterli.` : '';
+    return withMaps(
+        `${helloLine(c)}\n*${c.businessName}* olarak randevunuzu hatırlatmak istedik.\n\n`
+        + `${detailBlock(c, { service: o.service, dateLabel: o.dateLabel, time: o.time })}${ask}`,
+        o.mapsUrl,
+    );
+}
+
+export function reminder2h(c: Ctx, o: { service: string; time: string; mapsUrl?: string | null }): string {
+    return withMaps(
+        `${helloLine(c)}\nRandevunuza 2 saat kaldı.\n\n`
+        + `*${serviceLabel(c)}:* ${o.service}\n*Saat:* ${o.time}\n\nGörüşmek üzere. ${c.comms.emoji}`,
+        o.mapsUrl,
+    );
+}
+
+/** 24 saat hatırlatmasına 4 saatte cevap gelmedi: tek cümlelik, kibar dürtme. */
+export function attendanceNudge(c: Ctx, o: { when: string }): string {
+    const who = c.firstName ? `${c.firstName}, ` : '';
+    return `Merhaba ${who}${o.when} randevunuz için gelebilecek misiniz? *Evet* ya da *Hayır* yazmanız yeterli.`;
+}
+
+/** Ziyaretten 30 dk sonra (21'den sonraysa ertesi sabah: "dünkü"). */
+export function satisfactionAsk(c: Ctx, o: { sameDay: boolean }): string {
+    const hello = c.firstName ? `Merhaba ${c.firstName} ${c.comms.emoji}` : `Merhaba ${c.comms.emoji}`;
+    return `${hello}\n${o.sameDay ? 'Bugünkü' : 'Dünkü'} ziyaretiniz için teşekkür ederiz.\n\n`
+        + 'Memnun kaldınız mı? 1 ile 5 arasında bir puan yazmanız yeterli (5 = çok memnun).';
+}
+
+export function feedbackHappy(c: Ctx, o: { reviewUrl: string | null }): string {
+    const who = c.firstName ? ` ${c.firstName}` : '';
+    return o.reviewUrl
+        ? `Çok teşekkür ederiz${who}! 🙏\n\nDeneyiminizi Google'da paylaşırsanız bize çok yardımcı olur:\n👉 ${o.reviewUrl}`
+        : `Çok teşekkür ederiz${who}, sizi yeniden görmeyi dört gözle bekliyoruz. 🙏`;
+}
+
+export function feedbackUnhappy(c: Ctx, o: { reviewUrl: string | null }): string {
+    const who = c.firstName ? ` ${c.firstName}` : '';
+    const link = o.reviewUrl
+        ? `\n\nDilerseniz deneyiminizi Google'da da paylaşabilirsiniz:\n👉 ${o.reviewUrl}`
+        : '';
+    return `Geri bildiriminiz için teşekkürler${who}. Daha iyisini yapabilmek için ekibimiz sizinle iletişime geçecek.${link}`;
+}
+
+/** Bekleme listesine sırayla teklif: ilk "Evet" alır. */
+export function slotOffer(c: Ctx, o: { service: string; dateLabel: string; time: string; minutes: number }): string {
+    return `${helloLine(c)}\nBeklediğiniz randevu için yer açıldı:\n\n`
+        + `${detailBlock(c, { service: o.service, dateLabel: o.dateLabel, time: o.time })}\n\n`
+        + `İster misiniz? *Evet* yazarsanız sizin adınıza ayırıyorum. Teklif ${o.minutes} dakika geçerli.`;
+}
+
+export function slotTaken(): string {
+    return 'Maalesef bu saat az önce doldu. Bekleme listesinde kalmaya devam ediyorsunuz; '
+        + 'yeni bir yer açılınca haber vereceğim.';
+}
+
+export function slotDeclined(): string {
+    return 'Anladım, teşekkürler. Bekleme listesinde kalmaya devam ediyorsunuz.';
+}
+
+export function slotOfferExpired(): string {
+    return 'Bu teklifin süresi doldu. Bekleme listesinde kalmaya devam ediyorsunuz; '
+        + 'yeni bir yer açılınca haber vereceğim.';
+}

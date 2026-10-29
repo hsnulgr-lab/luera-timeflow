@@ -144,7 +144,7 @@ function nextDays(
     ctx: TurnCtx, w: WindowData, from: string, duration: number,
     staffId: string | null, part: PartOfDay | null, limit: number,
 ) {
-    const out: { date: string; date_label: string; times: string[] }[] = [];
+    const out: { date: string; date_label: string; suggested: string[] }[] = [];
     for (let i = 0; i < SEARCH_DAYS && out.length < limit; i++) {
         const date = addDays(from, i);
         const d = daySlots(w, { ...slotInput(ctx, date, duration), onlyStaffId: staffId });

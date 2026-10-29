@@ -157,47 +157,16 @@ export function buildTurnContext(i: TurnContextInput): string {
     return lines.join('\n');
 }
 
+import { relativeDayLabel, timeLocativeKi } from '../booking/tr.ts';
+
 // ── Kodun kendi gönderdiği mesajlar ─────────────────────────────────────────
 
 export const CONSENT_VERSION = 'v3-2026-10';
 
 // ── İlk mesaj ───────────────────────────────────────────────────────────────
 
-const WEEKDAYS = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-const UNITS = ['', 'bir', 'iki', 'üç', 'dört', 'beş', 'altı', 'yedi', 'sekiz', 'dokuz'];
-const TENS = ['', 'on', 'yirmi', 'otuz', 'kırk', 'elli'];
-
-/** Sayının okunuşunun son kelimesi: 12 → "iki", 40 → "kırk". */
-function lastSpokenWord(n: number): string {
-    if (n === 0) return 'sıfır';
-    return n % 10 > 0 ? UNITS[n % 10] : TENS[Math.floor(n / 10)];
-}
-
-/**
- * Saate gelen "-deki" eki okunuşa göre değişir: 12:00'deki, 12:30'daki,
- * 13:00'teki, 10:40'taki. Dakika 00 ise saat okunur, değilse dakika.
- */
-export function timeLocativeKi(time: string): string {
-    const [h, m] = time.split(':').map(Number);
-    const word = lastSpokenWord(m > 0 ? m : h);
-    const vowels = [...word].filter((ch) => 'aeıioöuü'.includes(ch));
-    const back = 'aıou'.includes(vowels[vowels.length - 1] ?? 'e');
-    const voiceless = 'çfhkpsşt'.includes(word[word.length - 1]);
-    return `'${voiceless ? 't' : 'd'}${back ? 'a' : 'e'}ki`;
-}
-
-/** "Bugün", "Yarın", hafta içindeyse gün adı, değilse "31 Ekim". */
-export function relativeDayLabel(dateISO: string, todayISO: string): string {
-    const diff = Math.round(
-        (Date.parse(`${dateISO}T00:00:00Z`) - Date.parse(`${todayISO}T00:00:00Z`)) / 86_400_000,
-    );
-    if (diff === 0) return 'Bugün';
-    if (diff === 1) return 'Yarın';
-    if (diff > 1 && diff < 7) return WEEKDAYS[new Date(`${dateISO}T00:00:00Z`).getUTCDay()];
-    return new Date(`${dateISO}T00:00:00Z`).toLocaleDateString('tr-TR', {
-        day: 'numeric', month: 'long', timeZone: 'UTC',
-    });
-}
+// Saat ve gün ekleri ortak modülde (zamanlayıcı şablonları da kullanıyor).
+export { relativeDayLabel, timeLocativeKi } from '../booking/tr.ts';
 
 /** Saate göre selam: 05–11 Günaydın, 18–23 İyi akşamlar, diğer saatler Merhaba. */
 export function timeGreeting(nowMin: number): string {

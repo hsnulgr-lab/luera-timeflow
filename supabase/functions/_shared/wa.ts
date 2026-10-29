@@ -17,7 +17,10 @@ export type Admin = any; // service_role SupabaseClient
 export type WaKind =
     | 'confirmation' | 'review' | 'reminder_24h' | 'reminder_2h' | 'recall' | 'winback' | 'renewal'
     | 'queue_join' | 'queue_ready' | 'rebook' | 'waitlist'
-    | 'ai_draft' | 'manual' | 'booking' | 'inbound' | 'optout' | 'cooldown';
+    | 'ai_draft' | 'manual' | 'booking' | 'inbound' | 'optout' | 'cooldown'
+    // Zamanlayıcı (131): dürtme ve memnuniyet sorusu işletmenin başlattığı
+    // mesajdır (kotaya girer); memnuniyet cevabına teşekkür konuşmanın parçası.
+    | 'nudge' | 'satisfaction' | 'feedback';
 
 export type SendReason =
     | 'not_connected' | 'opt_out' | 'quota' | 'invalid_phone' | 'failed';
@@ -28,6 +31,8 @@ export interface OrgWa {
     status: 'disconnected' | 'connecting' | 'connected';
     webhook_secret: string;
     features: Record<string, boolean>;
+    /** Zamanlayıcı ayarları (131); yalnız gerektiğinde okunur. */
+    schedule_config?: Record<string, unknown>;
 }
 
 // Promosyon niteliğindeki mesajlar — kişi başına günde 1 taneden fazlası gitmez.
@@ -35,7 +40,7 @@ const PROMO: ReadonlySet<string> = new Set(['winback', 'renewal', 'recall']);
 // Kota dışı tutulanlar: kullanıcının elle tetiklediği, konuşmanın parçası olan
 // ya da işlemin karşılığı olanlar. Randevu onayı da buradadır — müşteri az önce
 // randevu aldı, kota yüzünden "kaydınız oluşturuldu" mesajı yutulmamalı.
-const UNMETERED: ReadonlySet<string> = new Set(['booking', 'inbound', 'optout', 'manual', 'confirmation', 'cooldown']);
+const UNMETERED: ReadonlySet<string> = new Set(['booking', 'inbound', 'optout', 'manual', 'confirmation', 'cooldown', 'feedback']);
 
 const PER_PHONE_DAILY = 4;   // kişi başına 24 saatte toplam giden mesaj
 const PER_ORG_HOURLY  = 120; // org başına saatte giden mesaj
