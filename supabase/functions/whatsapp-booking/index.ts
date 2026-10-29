@@ -12,7 +12,7 @@ import {
     availabilityFor, availableDays, formatDateTr as fmtDate, minToTime, timeToMin, weekdayOf,
     type WorkingHour as WH,
 } from '../_shared/booking/slots.ts';
-import { detectConfirm, detectIntent, detectListChoice, inboundKind, senderJid } from '../_shared/booking/intent.ts';
+import { detectConfirm, detectIntent, detectListChoice, inboundKind, senderJid, unwrapMessage, type WaMessage } from '../_shared/booking/intent.ts';
 import { assignResources } from '../_shared/booking/resources.ts';
 import { parseReceiptEvent, receiptPatch } from '../_shared/booking/receipts.ts';
 import { EMPTY_EXTRACTION, extractWithAi, type Extraction, type Turn } from '../_shared/booking/ai.ts';
@@ -87,7 +87,7 @@ function isDirectChat(jid: string): boolean {
     return jid.endsWith('@s.whatsapp.net') || jid.endsWith('@lid');
 }
 
-function mediaLabel(m: Record<string, unknown> | undefined): string {
+function mediaLabel(m: WaMessage | undefined): string {
     return m?.documentMessage ? '[dosya]' : '[görsel]';
 }
 
@@ -140,13 +140,15 @@ Deno.serve(async (req: Request) => {
         const fromMe = d.key?.fromMe === true;
         const remoteJid: string = d.key?.remoteJid || '';
         const providerMsgId: string = d.key?.id || '';
-        const text: string = (d.message?.conversation || d.message?.extendedTextMessage?.text || '').trim();
+        // Kaybolan/düzenlenmiş mesaj zarfı açılır; metin içeride (intent.ts).
+        const msg = unwrapMessage(d.message);
+        const text: string = (msg?.conversation || msg?.extendedTextMessage?.text || '').trim();
         // Sesli mesaj Türkiye'de çok yaygın; okuyamıyoruz ama sessiz kalmak
         // müşteriyi cevapsız bırakıyordu.
         const hasMedia = Boolean(
-            d.message?.audioMessage || d.message?.imageMessage
-            || d.message?.videoMessage || d.message?.documentMessage
-            || d.message?.stickerMessage,
+            msg?.audioMessage || msg?.imageMessage
+            || msg?.videoMessage || msg?.documentMessage
+            || msg?.stickerMessage,
         );
 
         if (!instance) return ok({ skipped: true });
@@ -160,7 +162,14 @@ Deno.serve(async (req: Request) => {
         // işletmede botu o müşteri için susturur (130). Org ve sır çözüldükten
         // sonra işlenir; eski botta hiçbir etkisi yok.
         const ownerTyped = fromMe && receipts.length === 0 && isDirectChat(remoteJid) && Boolean(text || hasMedia);
-        if (receipts.length === 0 && msgKind === 'skip' && !ownerTyped) return ok({ skipped: true });
+        if (receipts.length === 0 && msgKind === 'skip' && !ownerTyped) {
+            // Müşteri yazdı ama okuyamadık: türü iz bırakır (yeni bir zarf ya da
+            // çözülemeyen şifreli mesaj olabilir). İçerik yazılmaz.
+            if (!fromMe && remoteJid && !remoteJid.includes('@g.us')) {
+                console.log('whatsapp-booking okunamadı', d.messageType ?? '-', Object.keys(d.message ?? {}).join(','));
+            }
+            return ok({ skipped: true });
+        }
         // Numarayı tek biçime çevir — log, kota ve müşteri eşleşmesi buna dayanır.
         // LID'li gönderende numara ayrı alanda gelir (senderJid); numarasız
         // mesaja cevap verilemez, sessizce geçilir.
@@ -349,14 +358,14 @@ Deno.serve(async (req: Request) => {
             if (route === 'silent') return ok({ skipped: 'agent_test_only' });
             if (route === 'agent') {
                 if ((lastHour ?? 0) > AGENT_FLOOD_PER_HOUR) return ok({ skipped: 'agent_flood' });
-                const audio = d.message?.audioMessage;
+                const audio = msg?.audioMessage;
                 const { error: inboxErr } = await admin.from('wa_inbox').insert({
                     organization_id: orgId,
                     phone,
                     remote_jid: remoteJid || null,
                     provider_msg_id: providerMsgId || null,
                     kind: msgKind === 'text' ? 'text' : audio ? 'audio' : 'media',
-                    body: msgKind === 'text' ? text : audio ? null : mediaLabel(d.message),
+                    body: msgKind === 'text' ? text : audio ? null : mediaLabel(msg),
                     // Sesin indirme anahtarları; wa-agent döküm için Evolution'dan ister.
                     media: audio ? { key: d.key, message: { audioMessage: audio } } : null,
                     push_name: String(d.pushName || '').trim() || null,

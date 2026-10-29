@@ -13,7 +13,7 @@ import {
     availabilityFor, availableDays, minToTime, overlaps, staffSlots, timeToMin, weekdayOf,
 } from '../supabase/functions/_shared/booking/slots.ts';
 import {
-    detectConfirm, detectIntent, detectListChoice, inboundKind, senderJid,
+    detectConfirm, detectIntent, detectListChoice, inboundKind, senderJid, unwrapMessage,
 } from '../supabase/functions/_shared/booking/intent.ts';
 import {
     CLARIFY_OPTIONS, CLARIFY_QUESTION, clarifyQuestion, coerceTopic, detectClarify,
@@ -287,6 +287,17 @@ test('selamlama ayrı niyet', () => {
     assert.equal(detectIntent('Selam!'), 'greeting');
     assert.equal(detectIntent('merhaba yarın randevu almak istiyorum'), 'other',
         'içinde selam geçen dolu cümle selamlama değil');
+});
+
+test('zarflı mesaj açılır: kaybolan, düzenlenmiş, tek görümlük', () => {
+    assert.equal(unwrapMessage({ conversation: 'a' }).conversation, 'a');
+    assert.equal(unwrapMessage({ ephemeralMessage: { message: { extendedTextMessage: { text: 'yarın yer var mı' } } } }).extendedTextMessage.text, 'yarın yer var mı');
+    assert.equal(unwrapMessage({ editedMessage: { message: { ephemeralMessage: { message: { conversation: 'b' } } } } }).conversation, 'b');
+    assert.ok(unwrapMessage({ viewOnceMessageV2: { message: { imageMessage: {} } } }).imageMessage);
+    assert.equal(unwrapMessage(undefined), undefined);
+    const src = readFileSync(new URL('../supabase/functions/whatsapp-booking/index.ts', import.meta.url), 'utf8');
+    assert.match(src, /const msg = unwrapMessage\(d\.message\);/);
+    assert.doesNotMatch(src, /d\.message\?\.conversation/);
 });
 
 test('inboundKind grup ve kendi mesajımızı eler', () => {
