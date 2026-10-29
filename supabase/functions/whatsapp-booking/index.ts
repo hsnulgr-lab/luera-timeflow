@@ -151,7 +151,10 @@ Deno.serve(async (req: Request) => {
             || msg?.stickerMessage,
         );
 
-        if (!instance) return ok({ skipped: true });
+        if (!instance) {
+            console.log('whatsapp-booking okunamadı', JSON.stringify({ event: payload.event ?? '-', instance: 'yok', top: Object.keys(payload).slice(0, 12) }));
+            return ok({ skipped: true });
+        }
 
         // Teslimat makbuzu mu? Kendi gönderdiğimiz mesajın durumu olduğu için
         // fromMe=true gelir ve aşağıdaki eleme onu düşürürdü. Ayrıştırma saf ve
@@ -163,10 +166,13 @@ Deno.serve(async (req: Request) => {
         // sonra işlenir; eski botta hiçbir etkisi yok.
         const ownerTyped = fromMe && receipts.length === 0 && isDirectChat(remoteJid) && Boolean(text || hasMedia);
         if (receipts.length === 0 && msgKind === 'skip' && !ownerTyped) {
-            // Müşteri yazdı ama okuyamadık: türü iz bırakır (yeni bir zarf ya da
-            // çözülemeyen şifreli mesaj olabilir). İçerik yazılmaz.
-            if (!fromMe && remoteJid && !remoteJid.includes('@g.us')) {
-                console.log('whatsapp-booking okunamadı', d.messageType ?? '-', Object.keys(d.message ?? {}).join(','));
+            // Atlanan olayın biçimi iz bırakır (içerik değil): yeniden bağlanan
+            // hatta müşteri mesajı "metin yok" sayılıp kayboluyordu.
+            if (!remoteJid.includes('@g.us')) {
+                console.log('whatsapp-booking okunamadı', JSON.stringify({
+                    event: payload.event ?? '-', fromMe, jid: remoteJid.replace(/^\d+/, '#'),
+                    type: d.messageType ?? '-', keys: Object.keys(d.message ?? {}), data: Object.keys(d).slice(0, 12),
+                }));
             }
             return ok({ skipped: true });
         }
