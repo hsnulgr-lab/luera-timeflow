@@ -23,7 +23,7 @@ import { useOrgProfile } from '@/hooks/useOrgProfile';
 import { clearAllCache } from '@/lib/swrCache';
 import { showLoginNotice } from '@/lib/loginNotice';
 import { supabase } from '@/lib/supabase';
-import { appleReauth, appleSubOf } from '@/pages/login/sosyalGiris';
+import { appleReauth, appleSubOf, prepareApple } from '@/pages/login/sosyalGiris';
 import { holdCaption, nameGenitive, nameLocative } from '../ayarlarModel';
 import { deleteAccount, fetchDeletionFacts, type AppleProof, type DeletionFacts, type DeleteFailure } from '../hesapSilApi';
 import { Dots, I, Modal } from '../parcalar';
@@ -71,7 +71,10 @@ export function HesapSil({ facts, onClose, onDone }: { facts: AuthFacts | null; 
     const appleOk = !needsApple || apple.s === 'ok' || apple.s === 'unreachable';
     const ready = Boolean(info) && (!sole || checked) && appleOk && online && phase === 'ready' && failure !== 'unknown';
 
-    // ── Apple ile doğrula ──
+    // ── Apple ile doğrula ── (önceden hazırlanır: iPhone Safari pencereyi ancak dokunuşun içinde açar)
+    useEffect(() => {
+        if (needsApple) void prepareApple().catch(() => undefined);
+    }, [needsApple]);
     const verifyApple = async () => {
         setApple({ s: 'busy' });
         const r = await appleReauth();

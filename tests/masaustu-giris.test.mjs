@@ -127,6 +127,24 @@ test('Apple/Google açık; acil kapatma tek ayar (2026-10-19)', () => {
     assert.match(social, /signInWithIdToken\(\{ provider: 'apple', token, nonce \}\)/);
 });
 
+test('Apple penceresi dokunuşun içinde açılır — iPhone Safari (2026-10-30)', () => {
+    // Betik ve nonce özeti dokunuştan ÖNCE hazırlanır; dokunuştan sonraki her
+    // bekleme Safari'de pencereyi engelliyordu (popup_blocked_by_browser).
+    const open = social.slice(social.indexOf('async function openApple'), social.indexOf('export async function signInWithApple'));
+    const beforeSignIn = open.slice(0, open.indexOf('apple.auth.signIn()'));
+    assert.deepEqual(beforeSignIn.match(/await [^;]+/g), ['await prepareApple()'], 'signIn öncesi tek bekleme: hazırlık bitmediyse');
+    assert.match(beforeSignIn, /if \(!appleNonce\) await prepareApple\(\);/);
+    for (const fn of ['export async function signInWithApple', 'export async function appleReauth']) {
+        const body = social.slice(social.indexOf(fn));
+        const head = body.slice(0, body.indexOf('openApple()') + 'openApple()'.length);
+        assert.doesNotMatch(head, /await (?!openApple)/, `${fn}: openApple'dan önce bekleme yok`);
+    }
+    const onApple = page.slice(page.indexOf('const onApple = async'), page.indexOf('await signInWithApple()'));
+    assert.doesNotMatch(onApple, /await /, 'düğme işleyicisinde Apple\'dan önce bekleme yok');
+    assert.match(page, /if \(SOCIAL_ENABLED\) void prepareApple\(\)/);
+    assert.match(kod(oku('src/pages/settings/bolumler/HesapSil.tsx')), /if \(needsApple\) void prepareApple\(\)/);
+});
+
 test('işletme köprüde açılınca uygulama işletmeyi yeniden okur (2026-10-19, canlıda Apple)', () => {
     // Apple ile ilk giriş: o an işletme yok → orgId null önbelleğe alınıyordu;
     // "Yeni işletme oluştur"dan sonra Kurulum "Kaydedilemedi" diyordu.

@@ -33,7 +33,7 @@ import {
     LOCK_SECONDS, METIN, RESEND_SECONDS, type AuthErrorLike,
 } from './login/girisKurallari';
 import {
-    SOCIAL_ENABLED, businessCount, createOwnBusiness, signInWithApple, startGoogle, takeIntent,
+    SOCIAL_ENABLED, businessCount, createOwnBusiness, prepareApple, signInWithApple, startGoogle, takeIntent,
     type Intent, type Provider,
 } from './login/sosyalGiris';
 import './login/giris.css';
@@ -218,6 +218,11 @@ export const LoginPage = () => {
         navigate(afterDest ?? '/', { replace: true });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isLoading, user]);
+
+    // ── Apple önceden hazır: iPhone Safari pencereyi ancak dokunuşun içinde açar ─
+    useEffect(() => {
+        if (SOCIAL_ENABLED) void prepareApple().catch(() => undefined);
+    }, []);
 
     // ── Odak: ekran değişince ilk alan ──────────────────────────────────────
     useEffect(() => {

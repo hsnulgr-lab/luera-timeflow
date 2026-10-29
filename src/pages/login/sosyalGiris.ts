@@ -97,6 +97,54 @@ async function sha256Hex(text: string): Promise<string> {
     return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// iPhone Safari Apple penceresini yalnız dokunuşun İÇİNDE, araya bekleme
+// girmeden açılırsa açar. Betiği indirmek ve nonce özetini hesaplamak (ikisi
+// de bekler) dokunuştan sonra yapılınca pencere engelleniyor, Apple
+// `popup_blocked_by_browser` dönüyor → "şu an yapılamadı" bandı (2026-10-30,
+// telefon Safari'si). Bu yüzden ikisi sayfa açılınca hazırlanır; dokununca
+// ilk iş `AppleID.auth.signIn()`. Nonce tek kullanımlık: her denemeden sonra yenisi.
+let appleNonce: string | null = null;
+let applePreparing: Promise<void> | null = null;
+
+/** Apple'ı önceden hazırlar: betik iner, nonce'un özeti Apple'a verilir. Apple düğmesi olan ekran açılınca çağrılır. */
+export function prepareApple(): Promise<void> {
+    if (appleNonce || !APPLE_SERVICES_ID) return Promise.resolve();
+    if (!applePreparing) {
+        applePreparing = (async () => {
+            await loadAppleJs();
+            const apple = window.AppleID;
+            if (!apple) throw new Error('apple_js');
+            const nonce = randomNonce();
+            apple.auth.init({
+                clientId: APPLE_SERVICES_ID,
+                scope: 'name email',
+                redirectURI: `${window.location.origin}/login`,
+                usePopup: true,
+                nonce: await sha256Hex(nonce),
+            });
+            appleNonce = nonce;
+        })().finally(() => { applePreparing = null; });
+    }
+    return applePreparing;
+}
+
+/**
+ * Apple penceresini açar. Hazırlık bittiyse araya hiçbir bekleme girmez;
+ * bitmediyse önce beklenir (masaüstü tarayıcılarında yeter, iPhone engelleyebilir).
+ */
+async function openApple(): Promise<{ res: AppleSignInResponse; nonce: string }> {
+    if (!appleNonce) await prepareApple();
+    const nonce = appleNonce;
+    const apple = window.AppleID;
+    if (!nonce || !apple) throw new Error('apple_js');
+    appleNonce = null;
+    try {
+        return { res: await apple.auth.signIn(), nonce };
+    } finally {
+        void prepareApple().catch(() => undefined);
+    }
+}
+
 /**
  * Apple'a açılır pencereyle gider. Apple'a nonce'un özeti, giriş servisine
  * kendisi verilir — servis belgedeki özeti buna göre denetler.
@@ -105,18 +153,7 @@ async function sha256Hex(text: string): Promise<string> {
 export async function signInWithApple(): Promise<'ok' | 'cancelled' | 'failed'> {
     if (!APPLE_SERVICES_ID) return 'failed';
     try {
-        await loadAppleJs();
-        const apple = window.AppleID;
-        if (!apple) return 'failed';
-        const nonce = randomNonce();
-        apple.auth.init({
-            clientId: APPLE_SERVICES_ID,
-            scope: 'name email',
-            redirectURI: `${window.location.origin}/login`,
-            usePopup: true,
-            nonce: await sha256Hex(nonce),
-        });
-        const res = await apple.auth.signIn();
+        const { res, nonce } = await openApple();
         const token = res.authorization?.id_token;
         if (!token) return 'failed';
         const { error } = await supabase.auth.signInWithIdToken({ provider: 'apple', token, nonce });
@@ -146,23 +183,14 @@ export type AppleReauth =
 
 export async function appleReauth(): Promise<AppleReauth> {
     if (!APPLE_SERVICES_ID) return { ok: false, reason: 'failed' };
-    try { await loadAppleJs(); } catch { return { ok: false, reason: 'unreachable' }; }
-    const apple = window.AppleID;
-    if (!apple) return { ok: false, reason: 'unreachable' };
     const redirectUri = `${window.location.origin}/login`;
     try {
-        apple.auth.init({
-            clientId: APPLE_SERVICES_ID,
-            scope: 'name email',
-            redirectURI: redirectUri,
-            usePopup: true,
-            nonce: await sha256Hex(randomNonce()),
-        });
-        const res = await apple.auth.signIn();
+        const { res } = await openApple();
         const code = res.authorization?.code;
         if (!code) return { ok: false, reason: 'failed' };
         return { ok: true, code, idToken: res.authorization?.id_token ?? null, redirectUri };
     } catch (e) {
+        if (e instanceof Error && e.message === 'apple_js') return { ok: false, reason: 'unreachable' };
         const err = (e as { error?: string } | null)?.error;
         if (err === 'popup_closed_by_user' || err === 'user_cancelled_authorize') return { ok: false, reason: 'cancelled' };
         if (err === 'popup_blocked_by_browser') return { ok: false, reason: 'failed' };
