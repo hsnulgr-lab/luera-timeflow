@@ -73,7 +73,8 @@ interface DayAgendaGridProps {
      *  yok; iptal buradan ulaşılıyor. Vermeyen çağıran için düğme çizilmez. */
     onDetail?: (r: Reservation) => void;
     /** Boş saate tıklama — yeni seans */
-    onAddAt: (hour: number, columnId: string | null, groupBy: 'resource' | 'staff') => void;
+    /** anchor: tıklanan hücre — takvim mini pencereyi onun yanında açar */
+    onAddAt: (hour: number, columnId: string | null, groupBy: 'resource' | 'staff', anchor?: DOMRect) => void;
     /** Faz ilerletme — çubuktaki Geldi / Başladı / Bitti */
 }
 
@@ -339,7 +340,7 @@ export function DayAgendaGrid({
                             <div className="absolute top-0 bottom-0 left-1.5 right-1.5">
                                 {/* Boş saat yakalayıcıları */}
                                 {Array.from({ length: Math.max(0, Math.ceil(close) - Math.floor(open)) }, (_, i) => Math.floor(open) + i).map((h) => (
-                                    <button key={h} type="button" onClick={() => onAddAt(h, col.id, groupBy)}
+                                    <button key={h} type="button" onClick={(e) => onAddAt(h, col.id, groupBy, e.currentTarget.getBoundingClientRect())}
                                         aria-label={`${col.name} · ${fmtH(h)} için yeni seans`}
                                         className="absolute left-0 right-0 rounded-[11px] border border-transparent grid place-items-center text-transparent hover:border-[rgba(255,90,31,.5)] hover:bg-[rgba(255,90,31,.045)] hover:text-[var(--dc-orange)] transition-all"
                                         style={{ top: topPx(h) + 3, height: PPH - 6 }}>

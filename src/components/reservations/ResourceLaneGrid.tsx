@@ -13,7 +13,7 @@ interface ResourceLaneGridProps {
     resourceTypeLabel: string;
     reservations: Reservation[];
     onOpenReservation: (r: Reservation) => void;
-    onAddAt: (hour: number, resourceId: string | null) => void;
+    onAddAt: (hour: number, resourceId: string | null, anchor?: DOMRect) => void;
 }
 
 // Ünite/koltuk-şeritli gün görünümü: sütunlar = kaynaklar (ünite/koltuk/oda),
@@ -58,7 +58,7 @@ export function ResourceLaneGrid({ dateStr, today, hours, resources, resourceTyp
                                 <div key={c.id ?? 'none'}
                                     className={cn('group border-b border-r border-[var(--dc-border)] min-h-[64px] p-1.5 space-y-1.5 transition-colors',
                                         items.length === 0 && 'cursor-pointer hover:bg-[var(--dc-surface2)]', hour === nowHour && items.length === 0 && 'bg-[#FF5A1F]/[0.04]')}
-                                    onClick={() => { if (items.length === 0) onAddAt(hour, c.id); }}>
+                                    onClick={(e) => { if (items.length === 0) onAddAt(hour, c.id, e.currentTarget.getBoundingClientRect()); }}>
                                     {items.map((r) => (
                                         <button key={r.id} type="button"
                                             onClick={(e) => { e.stopPropagation(); onOpenReservation(r); }}

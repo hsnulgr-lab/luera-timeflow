@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
 import { normalizePhone } from '@/lib/phone';
 import { toast } from 'sonner';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, X, Sparkles, Search, Check, Users, ChevronDown, AlertTriangle, CalendarClock } from 'lucide-react';
@@ -18,54 +18,18 @@ import { useCustomers } from '@/hooks/useCustomers';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/utils/cn';
 import { useTheme } from '@/contexts/ThemeContext';
-import { textOn } from '@/utils/palette';
 import { todayISO, toISODate, formatDateEU } from '@/utils/date';
 import { STATUS_BADGE, STATUS_LABEL } from '@/utils/statusColors';
 import { ResourceLaneGrid } from '@/components/reservations/ResourceLaneGrid';
 import { DayAgendaGrid } from '@/components/reservations/DayAgendaGrid';
 import { AdisyonModal } from '@/components/reservations/AdisyonModal';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
+import './calendarNewBooking.css';
 import type { CalendarView, Reservation } from '@/types';
 
 const DAYS_TR = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 const DAYS_FULL = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
 const MONTHS_TR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-
-// ── Randevu Oluştur modalı tasarım tokenları (Luera v2) ───────────────────────
-// Renkler dashboard'ın --dc-* tema değişkenlerine bağlı: kök ".dash-theme[.dark]"
-// sarmalayıcısı sayesinde inline stiller + <style> bloğu otomatik tema-duyarlı olur.
-const M = {
-    ink: 'var(--dc-ink)', cream: 'var(--dc-inkbox-fg)', orange: '#FF5A1F',
-    surface: 'var(--dc-surface)', surface2: 'var(--dc-surface2)', surface3: 'var(--dc-surface3)',
-    border: 'var(--dc-border)', border2: 'var(--dc-border2)',
-    muted: 'var(--dc-muted)', muted2: 'var(--dc-muted2)',
-};
-const MONO = "'JetBrains Mono', monospace";
-
-// ISO tarih ("2026-06-08") → "8 HAZİRAN 2026 · PAZARTESİ" (modal alt başlığı)
-function modalDateLabel(iso: string): string {
-    const [y, mo, d] = iso.split('-').map(Number);
-    if (!y || !mo || !d) return iso;
-    const dow = (new Date(iso + 'T12:00:00').getDay() + 6) % 7;
-    return `${d} ${MONTHS_TR[mo - 1]} ${y} · ${DAYS_FULL[dow]}`;
-}
-
-// Field temel stili + turuncu focus davranışı
-const fieldBase: React.CSSProperties = {
-    width: '100%', background: M.surface2, border: `1px solid ${M.border2}`,
-    borderRadius: 10, padding: '9px 12px', fontSize: 13.5, color: M.ink,
-    outline: 'none', transition: 'all .15s', fontFamily: 'inherit',
-};
-const onFieldFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    e.target.style.borderColor = M.orange;
-    e.target.style.boxShadow = '0 0 0 3px rgba(255,90,31,.10)';
-    e.target.style.background = M.surface;
-};
-const onFieldBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    e.target.style.borderColor = M.border2;
-    e.target.style.boxShadow = 'none';
-    e.target.style.background = M.surface2;
-};
 
 // İki saat arası farkı dakika cinsinden ("11:00"→"11:30" = 30)
 function durationMin(start: string, end: string): number {
@@ -80,39 +44,26 @@ function durationMin(start: string, end: string): number {
 // clockMin / addMinutesToTime artık lib/slotResolution.ts içinde — slot
 // kurallarıyla aynı yerde dursun diye taşındı (davranış birebir aynı).
 
-// Birleşik zaman bloğu CSS'i (Luera v2 — güncellenmiş tasarım)
-const TIME_BLOCK_CSS = `
-.lz-timeblock{display:grid;grid-template-columns:1fr auto 1fr;background:${M.surface2};border:1.5px solid ${M.border2};border-radius:10px;overflow:hidden}
-.lz-ts{display:flex;flex-direction:column;gap:5px;padding:13px 16px;transition:background .15s;position:relative;cursor:pointer}
-.lz-ts:hover{background:rgba(14,14,14,.02)}
-.lz-ts:focus-within{background:${M.surface}}
-.lz-ts:focus-within::after{content:'';position:absolute;inset:-1px;border-radius:10px;box-shadow:0 0 0 1.5px ${M.orange},0 0 0 4px rgba(255,90,31,.09);pointer-events:none;z-index:1}
-.lz-ts-lbl{font-family:${MONO};font-size:7.5px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:${M.muted};line-height:1}
-.lz-ts input[type="time"]{-webkit-appearance:none;appearance:none;border:none!important;background:transparent!important;box-shadow:none!important;outline:none;padding:0!important;margin:0;font-size:28px;font-weight:800;letter-spacing:-0.04em;color:${M.ink};width:100%;cursor:pointer;font-family:'Hanken Grotesk',sans-serif;line-height:1}
-.lz-ts input[type="time"]::-webkit-calendar-picker-indicator{opacity:0;position:absolute;inset:0;width:100%;height:100%;cursor:pointer}
-.lz-ts-mid{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 14px;border-left:1px solid ${M.border};border-right:1px solid ${M.border}}
-.lz-ts-mid-line{width:1px;flex:1;min-height:5px;background:${M.border2}}
-.lz-ts-dur{font-family:${MONO};font-size:9px;font-weight:700;letter-spacing:.07em;color:${M.orange};white-space:nowrap;background:rgba(255,90,31,.09);padding:4px 9px;border-radius:999px}
-@keyframes lz-successIn{0%{opacity:0;transform:scale(.85)}60%{transform:scale(1.08)}100%{opacity:1;transform:scale(1)}}
-`;
-
-// Bölüm etiketi: mono uppercase + arkasında ince çizgi
-function MLabel({ children, optional }: { children: React.ReactNode; optional?: string }) {
-    return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-            <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', color: M.muted, whiteSpace: 'nowrap' }}>
-                {children}
-                {optional && <span style={{ fontFamily: 'inherit', textTransform: 'none', letterSpacing: 0, fontWeight: 400, fontSize: 10, opacity: .6, marginLeft: 4 }}>{optional}</span>}
-            </span>
-            <span style={{ flex: 1, height: 1, background: M.border }} />
-        </div>
-    );
+/** Gün içi dakikayı "HH:MM"e çevirir; 00:00–23:59 aralığına sıkıştırır (geri kaydırma için). */
+function hhmmOf(min: number): string {
+    const m = Math.max(0, Math.min(24 * 60 - 1, min));
+    return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 }
-
-// Bölüm altı yardım metni — v5: modal kendini anlatır, eğitim gerekmez
-function MHelp({ children }: { children: React.ReactNode }) {
-    return <p style={{ fontSize: 11.5, color: M.muted2, margin: '-3px 0 9px', lineHeight: 1.4 }}>{children}</p>;
+/** ISO tarihi gün kadar kaydırır. */
+function shiftISO(iso: string, days: number): string {
+    const d = new Date(`${iso}T12:00:00`);
+    d.setDate(d.getDate() + days);
+    return toISODate(d);
 }
+/** "Perşembe 15 Ekim" — kısa: "Per 15 Ekim". */
+function dayLabelOf(iso: string, short = false): string {
+    const [y, mo, d] = iso.split('-').map(Number);
+    if (!y || !mo || !d) return iso;
+    const dow = (new Date(`${iso}T12:00:00`).getDay() + 6) % 7;
+    return `${(short ? DAYS_TR : DAYS_FULL)[dow]} ${d} ${MONTHS_TR[mo - 1]}`;
+}
+const initialsOf = (name: string) =>
+    name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toLocaleUpperCase('tr');
 
 // Telefonu WhatsApp (wa.me) formatına çevir — TR numaraları için
 function waLinkTR(phone: string, text: string) {
@@ -127,7 +78,7 @@ export const CalendarPage = () => {
     // Uygunluk verisi ve kuralları useSlotResolver'dan gelir: kural nesnesi
     // burada ikinci kez elle kurulunca iki yüzey aynı taslağa farklı cevap
     // verebiliyordu. Hook'lar SWR cache'li — ikinci bir ağ isteği doğmaz.
-    const { staff, resources, resolve: resolveSlotWith, findSlots } = useSlotResolver();
+    const { staff, resources, resolve: resolveSlotWith, resolveStaff, findSlots, isReady: slotsReady } = useSlotResolver();
     // Saat ekseni, kapalı gün ve doluluk artık işletmenin gerçek çalışma
     // saatlerinden okunur — eksen 08–19 aralığına sabitlenmiş durumdaydı.
     const { isClosed, axisFor, occupancyOf } = useCalendarDay();
@@ -180,12 +131,18 @@ export const CalendarPage = () => {
     const [creatingReservation, setCreatingReservation] = useState(false);
     const [customerQuery, setCustomerQuery] = useState('');
     const [customerLocked, setCustomerLocked] = useState(false); // mevcut müşteri seçildi mi
-    // Randevu oluşturulduktan sonra gösterilecek başarı özeti (null = form görünür)
-    const [successData, setSuccessData] = useState<null | {
-        customerName: string; customerPhone: string; service: string; duration: number;
-        dateLabel: string; startTime: string; endTime: string; staffName: string; staffColor?: string; serviceColor: string;
-        createdCount: number; requestedCount: number;
-    }>(null);
+    // ── Yeni seans · takvimde mini pencere (2026-10-29) ─────────────────────
+    // Kullanıcı eski 9 bölümlük pencereyi "çok eski" buldu; taslaklardan B'yi
+    // seçti: boş saate tıklayınca pencere o hücrenin yanında açılır (müşteri,
+    // işlem, saat, personel — personel ve saat ayrıntılı). "Ayrıntılar" ve
+    // araç çubuğundaki düğme aynı taslağı tam pencerede (taslak A) açar.
+    // quickAnchor doluysa mini pencere, boşsa tam pencere.
+    const [quickAnchor, setQuickAnchor] = useState<DOMRect | null>(null);
+    const [stripOffset, setStripOffset] = useState(0);          // tam pencere gün şeridi (hafta)
+    const [allServices, setAllServices] = useState(false);       // mini pencerede tüm işlemler
+    const [customTime, setCustomTime] = useState(false);         // tam pencerede "Başka saat"
+    const [extras, setExtras] = useState<{ unit?: boolean; repeat?: boolean; lines?: boolean }>({});
+    const [nudge, setNudge] = useState(false);
 
     const [newRes, setNewRes] = useState(() => {
         const service = settings.services[0];
@@ -282,7 +239,7 @@ export const CalendarPage = () => {
             // Sektörün kontrendikasyon bayrakları (güzellik: hamilelik) — bu
             // uyarılar eskiden yalnız güzellik müşteri kartında görünüyordu,
             // randevunun kurulduğu ekranda değil.
-            ...activeRiskFlags(c, settings.sector).map((f) => `⚠ ${f.label}${f.note ? ` — ${f.note}` : ''}`),
+            ...activeRiskFlags(c, settings.sector).map((f) => `${f.label}${f.note ? ` — ${f.note}` : ''}`),
             cf.cilt_tipi ? `Cilt: ${cf.cilt_tipi}` : null,
             cf.alerji ? `Alerji: ${cf.alerji}` : null,
             cf.ilaclar ? `İlaç: ${cf.ilaclar}` : null,
@@ -328,20 +285,6 @@ export const CalendarPage = () => {
             sug: slot ? { start: slot.startTime, end: slot.endTime } : null,
         };
     }, [showNewDialog, selectedDate, newRes.startTime, newRes.endTime, newRes.staffId, resolveSlot, findSlots, resourceId]);
-
-    // Canlı özet (v5): Oluştur'a basmadan ne oluşturulacağı okunur
-    const draftSummary = useMemo(() => {
-        if (!selectedDate || !newRes.service) return '';
-        const staffName = staff.find((s) => s.id === newRes.staffId)?.name;
-        const unitName = resources.find((x) => x.id === resourceId)?.name;
-        return [
-            `${formatDateEU(selectedDate)} ${newRes.startTime}–${newRes.endTime}`,
-            newRes.service,
-            newRes.customerName || '—',
-            staffName || `uygun ${t('staff').toLowerCase()}`,
-            unitName,
-        ].filter(Boolean).join(' · ');
-    }, [selectedDate, newRes.service, newRes.startTime, newRes.endTime, newRes.customerName, newRes.staffId, staff, resources, resourceId, t]);
 
     // Sektörün hazır hizmet seti henüz yüklü değilse modalda öneri gösterilir.
     // Set içeriği lib/serviceSeeds'te — genel takvim yüzü tek bir sektörün
@@ -393,28 +336,35 @@ export const CalendarPage = () => {
         endTimeManuallyEditedRef.current = false;
         setCustomerQuery('');
         setCustomerLocked(false);
-        setSuccessData(null);
         setNewRes(resetReservationDraft());
         setRecurrence({ rule: '', until: '' });
         setResLines([]);
         setResourceId(null);
         setCfValues({});
         setShowNote(false);
+        setQuickAnchor(null);
+        setStripOffset(0);
+        setAllServices(false);
+        setCustomTime(false);
+        setExtras({});
     };
 
-    // Başarı ekranından "Yeni Randevu Oluştur" → formu sıfırla, modal açık kalsın
-    const resetForm = () => {
-        serviceManuallySelectedRef.current = false;
-        endTimeManuallyEditedRef.current = false;
-        setSuccessData(null);
-        setCustomerQuery('');
-        setCustomerLocked(false);
-        setNewRes(resetReservationDraft());
-        setRecurrence({ rule: '', until: '' });
-        setResLines([]);
-        setResourceId(null);
-        setCfValues({});
-        setShowNote(false);
+    /**
+     * Yeni seans aç. anchor = tıklanan takvim hücresi → mini pencere onun
+     * yanında; anchor yoksa (araç çubuğu, ?new=1) ya da ekran darsa tam pencere.
+     */
+    const openNewAt = (date: string, startTime: string, anchor?: DOMRect | null,
+        extra?: { staffId?: string | null; resourceId?: string | null }) => {
+        setSelectedDate(date);
+        if (extra?.resourceId !== undefined) setResourceId(extra.resourceId);
+        setNewRes(p => ({
+            ...p,
+            startTime,
+            endTime: addMinutesToTime(startTime, serviceDuration(p.service)),
+            ...(extra?.staffId ? { staffId: extra.staffId } : {}),
+        }));
+        setQuickAnchor(anchor && window.innerWidth >= 760 ? anchor : null);
+        setShowNewDialog(true);
     };
 
     // Personel menüsü — dışarı tıklayınca kapan
@@ -589,19 +539,131 @@ export const CalendarPage = () => {
             const totalDur = createdLines.reduce((s, l) => s + durationMin(l.startTime, l.endTime), 0);
             const names = [...new Set(createdLines.map(l => l.staffName).filter(Boolean))].join(', ');
             if (createdLines.length < lines.length) {
-                toast.warning(`${lines.length} işlemin ${createdLines.length} tanesi oluşturuldu; ${lines.length - createdLines.length} işlem eklenemedi`);
+                toast.warning(`${lines.length} işlemin ${createdLines.length} tanesi eklendi`, { description: `${lines.length - createdLines.length} işlem çakıştığı için eklenmedi.` });
             }
-            setSuccessData({
-                customerName: newRes.customerName, customerPhone: newRes.customerPhone,
-                service: lines.length > 1 ? `${createdLines.length} / ${lines.length} işlem` : first.service, duration: totalDur,
-                dateLabel: formatDateEU(selectedDate), startTime: createdLines[0].startTime, endTime: createdLines[createdLines.length - 1].endTime,
-                staffName: names || 'Fark etmez', staffColor: createdLines.length > 1 ? undefined : first.staffColor, serviceColor: first.serviceColor,
-                createdCount: createdLines.length, requestedCount: lines.length,
+            // Büyük "Oluşturuldu" ekranı kalktı (2026-10-29): pencere kapanır,
+            // üstte bildirim hapı çıkar; WhatsApp bildirimi hapın düğmesinde.
+            const last = createdLines[createdLines.length - 1];
+            const what = createdLines.length > 1 ? `${createdLines.length} işlem · ${totalDur} dk` : first.service;
+            const waText = `Merhaba ${newRes.customerName}, ${t('reservation').toLocaleLowerCase('tr')} kaydınız oluşturuldu: ${formatDateEU(selectedDate)} ${first.startTime}–${last.endTime} · ${what}. Görüşmek üzere!`;
+            const phone = newRes.customerPhone;
+            toast.success(`${t('reservation')} eklendi · ${newRes.customerName}`, {
+                description: `${dayLabelOf(selectedDate, true)} · ${first.startTime}–${last.endTime} · ${names || what}`,
+                duration: 7000,
+                ...(phone ? { action: { label: "WhatsApp'tan bildir", onClick: () => { window.open(waLinkTR(phone, waText), '_blank', 'noopener'); } } } : {}),
             });
+            closeDialog();
         } else if (lines.length > 1) {
             toast.error(`${lines.length} işlemin hiçbiri oluşturulamadı`);
         }
     };
+
+    // ── Yeni seans penceresi: hesaplanan değerler ────────────────────────────
+    const stepMin = Math.max(5, settings.slotDuration || 15);
+    const draftDur = Math.max(5, durationMin(newRes.startTime, newRes.endTime));
+    const nowHHMM = () => { const n = new Date(); return hhmmOf(n.getHours() * 60 + n.getMinutes()); };
+    const isDirty = Boolean(newRes.customerName.trim() || resLines.length || newRes.notes.trim());
+
+    // O günün boş başlangıç saatleri (seçili personel/ünite + işlem süresiyle)
+    const freeSlots = useMemo(() => {
+        if (!showNewDialog || !selectedDate || !slotsReady) return [];
+        return findSlots({
+            date: selectedDate, durationMin: draftDur, staffId: newRes.staffId || undefined,
+            resourceId: resourceId || undefined, cart: resLines, stepMin, limit: 96,
+            notBefore: selectedDate === today ? nowHHMM() : undefined,
+        });
+    }, [showNewDialog, selectedDate, slotsReady, findSlots, draftDur, newRes.staffId, resourceId, resLines, stepMin, today]);
+    // Mini pencere: seçili saate en yakın altı boş saat (±2 sa)
+    const nearSlots = useMemo(() => {
+        const at = clockMin(newRes.startTime);
+        return freeSlots
+            .filter((x) => Math.abs(clockMin(x.startTime) - at) <= 120)
+            .sort((a, b) => Math.abs(clockMin(a.startTime) - at) - Math.abs(clockMin(b.startTime) - at))
+            .slice(0, 6)
+            .sort((a, b) => clockMin(a.startTime) - clockMin(b.startTime));
+    }, [freeSlots, newRes.startTime]);
+
+    // Her personelin seçili saatteki durumu — kural katmanından (resolveStaff)
+    const staffRows = useMemo(() => {
+        if (!showNewDialog || !selectedDate) return [];
+        return staff.map((member) => {
+            const r = resolveStaff({ date: selectedDate, startTime: newRes.startTime, endTime: newRes.endTime, staffId: member.id, cart: resLines });
+            const state: 'free' | 'busy' | 'off' | 'wait' = !slotsReady ? 'wait' : !r.issue ? 'free' : r.conflict ? 'busy' : 'off';
+            const note = state === 'wait' ? 'Bakılıyor…'
+                : state === 'free' ? 'Boş'
+                : state === 'busy' ? `Dolu · ${r.conflict!.startTime}–${r.conflict!.endTime}`
+                : 'Bu saatte çalışmıyor';
+            return { member, state, note };
+        });
+    }, [showNewDialog, selectedDate, staff, resolveStaff, newRes.startTime, newRes.endTime, resLines, slotsReady]);
+    // "Fark etmez": kim atanacak?
+    const anyPick = useMemo(() => {
+        if (!showNewDialog || !selectedDate || !slotsReady) return null;
+        return resolveSlotWith({ date: selectedDate, startTime: newRes.startTime, endTime: newRes.endTime, resourceId, cart: resLines });
+    }, [showNewDialog, selectedDate, slotsReady, resolveSlotWith, newRes.startTime, newRes.endTime, resourceId, resLines]);
+
+    const setStart = (startTime: string, endTime?: string) => {
+        setNewRes(p => ({ ...p, startTime, endTime: endTime ?? addMinutesToTime(startTime, durationMin(p.startTime, p.endTime) || serviceDuration(p.service)) }));
+    };
+    const shiftStart = (delta: number) => setStart(hhmmOf(clockMin(newRes.startTime) + delta));
+    const pickService = (name: string, duration: number) => {
+        serviceManuallySelectedRef.current = true;
+        setNewRes(p => ({ ...p, service: name, endTime: addMinutesToTime(p.startTime, duration) }));
+    };
+    const tryClose = () => {
+        if (!isDirty) { closeDialog(); return; }
+        setNudge(true);
+        window.setTimeout(() => setNudge(false), 420);
+    };
+    const missing = !newRes.customerName.trim() ? `${t('customer')} seçin`
+        : !newRes.customerPhone.trim() ? 'Telefon girin'
+        : !newRes.service && resLines.length === 0 ? `${t('service')} seçin` : '';
+    const canSave = !missing && !creatingReservation;
+    const lineCount = resLines.length + (newRes.service ? 1 : 0);
+    const saveLabel = creatingReservation ? 'Kaydediliyor…' : lineCount > 1 ? `Kaydet · ${lineCount} işlem` : 'Kaydet';
+
+    // Esc kapatır. Pencere belirgin biçimde boyut değiştirirse hücre yeri
+    // eskir — mini pencere aynı taslakla tam pencereye geçer (küçük oynamalar,
+    // ör. tarayıcı çubuğu, sayılmaz).
+    useEffect(() => {
+        if (!showNewDialog) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeDialog(); };
+        const w0 = window.innerWidth, h0 = window.innerHeight;
+        const onResize = () => {
+            if (Math.abs(window.innerWidth - w0) > 40 || Math.abs(window.innerHeight - h0) > 160) setQuickAnchor(null);
+        };
+        document.addEventListener('keydown', onKey);
+        window.addEventListener('resize', onResize);
+        return () => { document.removeEventListener('keydown', onKey); window.removeEventListener('resize', onResize); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- closeDialog yalnız durum sıfırlar
+    }, [showNewDialog]);
+
+    // Mini pencerenin yeri: hücrenin sağı, sığmazsa solu. Dikeyde içeriği
+    // ölçülüp tıklanan hücrenin hizasına ortalanır ve ekranda kalır (içerik
+    // büyüdükçe — müşteri seçilince uyarılar gelir — yeniden yerleşir).
+    const POP_W = 404;
+    const popRef = useRef<HTMLElement | null>(null);
+    const popStyle = useMemo((): React.CSSProperties | null => {
+        if (!quickAnchor) return null;
+        const pad = 12, gap = 10, vw = window.innerWidth, vh = window.innerHeight;
+        let left = quickAnchor.right + gap;
+        if (left + POP_W > vw - pad) left = quickAnchor.left - gap - POP_W;
+        if (left < pad) left = Math.min(Math.max(pad, quickAnchor.left + 24), vw - POP_W - pad);
+        return { left, top: Math.max(pad, Math.min(quickAnchor.top - 160, vh - pad - 560)), maxHeight: vh - pad * 2 };
+    }, [quickAnchor]);
+    useLayoutEffect(() => {
+        const el = popRef.current;
+        if (!quickAnchor || !el) return;
+        const place = () => {
+            const pad = 12, vh = window.innerHeight, h = el.offsetHeight;
+            const mid = quickAnchor.top + quickAnchor.height / 2;
+            el.style.top = `${Math.round(Math.min(Math.max(pad, mid - h / 2), vh - pad - h))}px`;
+        };
+        place();
+        const ro = new ResizeObserver(place);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [quickAnchor, showNewDialog]);
 
     const todayCount = filteredReservations.filter(r => r.date === today && r.status !== 'cancelled').length;
     const weekTotal = weekDays.reduce((sum, d) => sum + getDateCount(d.date), 0);
@@ -745,7 +807,10 @@ export const CalendarPage = () => {
                             Çift zil hem tekrardı hem araç çubuğunu tek satıra
                             sığmaktan alıkoyuyordu. */}
                         <button
-                            onClick={() => { setSelectedDate(today); setShowNewDialog(true); }}
+                            onClick={() => {
+                                const [first] = findSlots({ date: today, durationMin: serviceDuration(newRes.service), notBefore: nowHHMM(), stepMin, limit: 1 });
+                                openNewAt(today, first?.startTime ?? newRes.startTime);
+                            }}
                             className="flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm bg-[var(--dc-inkbox)] text-[var(--dc-inkbox-fg)] hover:bg-[#FF5A1F] hover:-translate-y-px hover:shadow-[0_6px_18px_rgba(255,90,31,0.28)] transition-all active:translate-y-0"
                         >
                             <Plus className="w-4 h-4" />
@@ -890,12 +955,9 @@ export const CalendarPage = () => {
                                                     ? "bg-[var(--dc-border-soft)] cursor-not-allowed"
                                                     : cn("cursor-pointer", d.isToday ? "bg-[#FF5A1F]/[0.03] hover:bg-[#FF5A1F]/[0.07]" : "hover:bg-[var(--dc-surface2)]"),
                                             )}
-                                            onClick={() => {
+                                            onClick={(e) => {
                                                 if (!available) return;
-                                                const startTime = `${String(hour).padStart(2, '0')}:00`;
-                                                setSelectedDate(d.date);
-                                                setNewRes(p => ({ ...p, startTime, endTime: addMinutesToTime(startTime, serviceDuration(p.service)) }));
-                                                setShowNewDialog(true);
+                                                openNewAt(d.date, `${String(hour).padStart(2, '0')}:00`, e.currentTarget.getBoundingClientRect());
                                             }}
                                         >
                                             {hourRes.map((r) => {
@@ -962,17 +1024,11 @@ export const CalendarPage = () => {
                                     workingHours={settings.workingHours || []}
                                     onOpen={(r) => openReservation(r)}
                                     onDetail={openReservationDetail}
-                                    onAddAt={(hour, columnId, groupBy) => {
-                                        const startTime = `${String(hour).padStart(2, '0')}:00`;
-                                        setSelectedDate(toISODate(currentDate));
-                                        if (groupBy === 'resource') setResourceId(columnId);
-                                        setNewRes(p => ({
-                                            ...p,
-                                            startTime,
-                                            endTime: addMinutesToTime(startTime, serviceDuration(p.service)),
-                                            ...(groupBy === 'staff' && columnId ? { staffId: columnId } : {}),
-                                        }));
-                                        setShowNewDialog(true);
+                                    onAddAt={(hour, columnId, groupBy, anchor) => {
+                                        openNewAt(toISODate(currentDate), `${String(hour).padStart(2, '0')}:00`, anchor, {
+                                            ...(groupBy === 'resource' ? { resourceId: columnId } : {}),
+                                            ...(groupBy === 'staff' ? { staffId: columnId } : {}),
+                                        });
                                     }}
                                 />
                             ) : dayLayout === 'lane' && resources.length > 0 ? (
@@ -984,12 +1040,8 @@ export const CalendarPage = () => {
                                     resourceTypeLabel={resourceTypeLabel}
                                     reservations={filteredReservations}
                                     onOpenReservation={(r) => openReservation(r)}
-                                    onAddAt={(hour, resId) => {
-                                        const startTime = `${String(hour).padStart(2, '0')}:00`;
-                                        setSelectedDate(toISODate(currentDate));
-                                        setResourceId(resId);
-                                        setNewRes(p => ({ ...p, startTime, endTime: addMinutesToTime(startTime, serviceDuration(p.service)) }));
-                                        setShowNewDialog(true);
+                                    onAddAt={(hour, resId, anchor) => {
+                                        openNewAt(toISODate(currentDate), `${String(hour).padStart(2, '0')}:00`, anchor, { resourceId: resId });
                                     }}
                                 />
                             ) : (
@@ -1011,12 +1063,9 @@ export const CalendarPage = () => {
                                                     ? "bg-[var(--dc-border-soft)] cursor-not-allowed opacity-70"
                                                     : cn("cursor-pointer group", isCurrentHour ? "bg-[#FF5A1F]/[0.06]" : "hover:bg-[var(--dc-surface2)]"),
                                             )}
-                                            onClick={() => {
+                                            onClick={(e) => {
                                                 if (!available) return;
-                                                const startTime = `${String(hour).padStart(2, '0')}:00`;
-                                                setSelectedDate(dateStr);
-                                                setNewRes(p => ({ ...p, startTime, endTime: addMinutesToTime(startTime, serviceDuration(p.service)) }));
-                                                setShowNewDialog(true);
+                                                openNewAt(dateStr, `${String(hour).padStart(2, '0')}:00`, e.currentTarget.getBoundingClientRect());
                                             }}
                                         >
                                             <div className="w-[72px] flex-shrink-0 p-3 border-r border-[var(--dc-border)] bg-[var(--dc-surface2)] text-right relative">
@@ -1121,500 +1170,364 @@ export const CalendarPage = () => {
                 )}
             </div>
 
-            {/* New Reservation Dialog — Luera v2 */}
-            {showNewDialog && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={closeDialog} />
-                    <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="relative w-full animate-in fade-in zoom-in-95 duration-200 flex flex-col"
-                        style={{ maxWidth: 600, maxHeight: '90vh', background: M.surface, borderRadius: 22, boxShadow: '0 8px 48px rgba(14,14,14,.18), 0 2px 8px rgba(14,14,14,.08)' }}
-                    >
-                        <style>{TIME_BLOCK_CSS}</style>
-                        {/* HEADER */}
-                        <div className="flex items-center gap-3 flex-shrink-0" style={{ padding: '15px 18px 13px', borderBottom: `1px solid ${M.border}` }}>
-                            <div className="relative grid place-items-center flex-shrink-0 overflow-hidden" style={{ width: 38, height: 38, borderRadius: 11, background: M.ink }}>
-                                <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 68% 22%, rgba(255,90,31,.30), transparent 58%)' }} />
-                                <Plus className="relative w-[17px] h-[17px]" style={{ color: M.cream }} strokeWidth={2.4} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.022em', color: M.ink }}>{t('newReservation')}</div>
-                                <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, letterSpacing: '.13em', textTransform: 'uppercase', color: M.orange, marginTop: 3 }}>{modalDateLabel(selectedDate ?? '')}</div>
-                            </div>
-                            <button onClick={closeDialog} title="Kapat" className="grid place-items-center flex-shrink-0 transition-all" style={{ width: 32, height: 32, borderRadius: 7, color: M.muted }}
-                                onMouseEnter={(e) => { e.currentTarget.style.background = M.surface2; e.currentTarget.style.color = M.ink; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = M.muted; }}>
-                                <X className="w-3.5 h-3.5" />
-                            </button>
-                        </div>
+            {/* ── Yeni seans · mini pencere (takvim hücresi) / tam pencere (2026-10-29) ── */}
+            {showNewDialog && selectedDate && (() => {
+                const quick = Boolean(quickAnchor && popStyle);
+                const staffName = staff.find((s) => s.id === newRes.staffId)?.name;
+                const unitName = resources.find((x) => x.id === resourceId)?.name;
+                const lowerCustomer = t('customer').toLocaleLowerCase('tr');
+                const lowerStaff = t('staff').toLocaleLowerCase('tr');
+                const services = settings.services;
+                const shownServices = quick && !allServices
+                    ? services.filter((sv, i) => i < 6 || sv.name === newRes.service)
+                    : services;
+                const hiddenCount = services.length - shownServices.length;
+                const alerts = lockedCustomer ? medicalAlertsOf(lockedCustomer) : [];
 
-                        {/* ── BAŞARI EKRANI ── */}
-                        {successData && (
-                            <div className="flex flex-col items-center text-center" style={{ gap: 16, padding: '40px 24px 28px' }}>
-                                <div className="grid place-items-center" style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,90,31,.10)', animation: 'lz-successIn .4s cubic-bezier(.22,.8,.2,1) both' }}>
-                                    <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-                                        <path d="M6 16l7 7L26 10" stroke={M.orange} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
+                const customerSection = (
+                    <div className="nb-sec">
+                        <div className="nb-lbl"><span>{t('customer')}</span></div>
+                        {customerLocked ? (
+                            <>
+                                <div className="nb-cust">
+                                    <span className="nb-cust-av">{initialsOf(newRes.customerName) || '?'}</span>
+                                    <span className="nb-cust-tx">
+                                        <b>{newRes.customerName}</b>
+                                        <small>{newRes.customerPhone}{lockedCustomer?.lastVisit ? ` · son geliş ${formatDateEU(lockedCustomer.lastVisit)}` : ''}</small>
+                                    </span>
+                                    <button type="button" className="nb-icon" onClick={clearCustomer} aria-label={`Başka ${lowerCustomer} seç`}><X /></button>
                                 </div>
-                                <div>
-                                    <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.025em', color: M.ink }}>
-                                        {successData.createdCount < successData.requestedCount
-                                            ? `${t('reservation')} Kısmen Oluşturuldu`
-                                            : `${t('reservation')} Oluşturuldu`}
+                                {lockedCustomer && (alerts.length > 0 || lockedCustomer.recallDate || settings.sector === 'dis') && (
+                                    <div className="nb-tags">
+                                        {alerts.map((a) => <span key={a} className="nb-tag risk"><AlertTriangle />{a}</span>)}
+                                        {lockedCustomer.recallDate && <span className="nb-tag"><CalendarClock />Kontrol: {formatDateEU(lockedCustomer.recallDate)}</span>}
+                                        {settings.sector === 'dis' && (
+                                            <button type="button" className="nb-tag link" onClick={() => routerNavigate(`/dental-chart?patient=${lockedCustomer.id}`)}>Diş şeması</button>
+                                        )}
                                     </div>
-                                    <div style={{ fontSize: 13, color: M.muted, lineHeight: 1.6, maxWidth: 310, marginTop: 4 }}>
-                                        {successData.createdCount < successData.requestedCount
-                                            ? `${successData.requestedCount} işlemin ${successData.createdCount} tanesi takvime eklendi; ${successData.requestedCount - successData.createdCount} işlem çakışma veya kayıt hatası nedeniyle eklenemedi.`
-                                            : 'Takvime eklendi ve müşteriye onay bildirimi gönderildi.'}
-                                    </div>
-                                </div>
-                                {/* Özet kartı */}
-                                <div className="w-full flex flex-col text-left" style={{ background: M.surface2, border: `1px solid ${M.border}`, borderRadius: 10, padding: '14px 18px', gap: 8 }}>
-                                    {([
-                                        [t('customer'), successData.customerName],
-                                        ...(successData.customerPhone ? [['Telefon', successData.customerPhone]] : []),
-                                        ['Hizmet', `${successData.service} · ${successData.duration}dk`, successData.serviceColor],
-                                        ['Tarih', successData.dateLabel],
-                                        ['Saat', `${successData.startTime} – ${successData.endTime}`],
-                                        [t('staff'), successData.staffName, successData.staffColor],
-                                    ] as [string, string, string?][]).map(([k, v, dot], i) => (
-                                        <div key={i} className="flex items-baseline justify-between" style={{ gap: 16 }}>
-                                            <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: '.15em', textTransform: 'uppercase', color: M.muted, flexShrink: 0 }}>{k}</span>
-                                            <span className="text-right inline-flex items-center" style={{ gap: 6, fontSize: 13, fontWeight: 700, color: M.ink }}>
-                                                {dot && <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot, flexShrink: 0 }} />}
-                                                {v}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                                {/* WhatsApp bildirimi — v5 başarı ekranı ikincil aksiyonu */}
-                                {successData.customerPhone && (
-                                    <a href={waLinkTR(successData.customerPhone, `Merhaba ${successData.customerName}, ${t('reservation').toLocaleLowerCase('tr')} kaydınız oluşturuldu: ${successData.dateLabel} ${successData.startTime}–${successData.endTime} · ${successData.service}. Görüşmek üzere!`)}
-                                        target="_blank" rel="noreferrer"
-                                        className="inline-flex items-center justify-center gap-2 w-full transition-all"
-                                        style={{ height: 42, borderRadius: 999, fontWeight: 700, fontSize: 13, border: `1px solid ${M.border2}`, color: M.ink, background: 'transparent' }}>
-                                        WhatsApp ile bildir
-                                    </a>
                                 )}
-                                {/* Yeni randevu butonu */}
-                                <button onClick={resetForm} className="inline-flex items-center justify-center gap-2 w-full transition-all" style={{ marginTop: 4, height: 46, borderRadius: 999, fontWeight: 700, fontSize: 14.5, letterSpacing: '-0.01em', background: M.orange, color: M.ink }}
-                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(255,90,31,.32)'; }}
-                                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}>
-                                    {t('newReservation')} oluştur
-                                    <span style={{ fontSize: 16, lineHeight: 1 }}>→</span>
+                            </>
+                        ) : (
+                            <>
+                                <label className="nb-search">
+                                    <Search />
+                                    <input type="text" autoFocus autoComplete="off" spellCheck={false}
+                                        placeholder={`${t('customer')} ara ya da yeni isim yaz`}
+                                        value={customerQuery}
+                                        onChange={(e) => { setCustomerQuery(e.target.value); setNewRes(p => ({ ...p, customerName: e.target.value })); }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter' && customerMatches[0]) { e.preventDefault(); selectCustomer(customerMatches[0]); } }} />
+                                </label>
+                                {customerMatches.length > 0 && (
+                                    <div className="nb-matches" role="listbox">
+                                        {customerMatches.map((c) => (
+                                            <button key={c.id} type="button" role="option" aria-selected={false} onClick={() => selectCustomer(c)}>
+                                                <span className="nb-cust-av sm">{initialsOf(c.name) || '?'}</span>
+                                                <span className="nb-cust-tx"><b>{c.name}</b><small>{c.phone}</small></span>
+                                                {medicalAlertsOf(c).length > 0 && <span className="nb-risk" title={medicalAlertsOf(c).join(' · ')}><AlertTriangle /></span>}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                                {customerQuery.trim().length >= 2 && (
+                                    <label className="nb-field nb-newphone">
+                                        <span>Yeni {lowerCustomer} · telefon</span>
+                                        <input type="tel" inputMode="tel" placeholder="0532 xxx xx xx"
+                                            value={newRes.customerPhone} onChange={(e) => setNewRes(p => ({ ...p, customerPhone: e.target.value }))} />
+                                    </label>
+                                )}
+                            </>
+                        )}
+                    </div>
+                );
+
+                const serviceSection = (
+                    <div className="nb-sec">
+                        <div className="nb-lbl"><span>{quick ? 'İşlem' : t('service')}</span>{newRes.service && <em>{draftDur} dk</em>}</div>
+                        <div className="nb-chips">
+                            {shownServices.map((sv) => (
+                                <button key={sv.id} type="button" className={cn('nb-svc', newRes.service === sv.name && 'on')}
+                                    aria-pressed={newRes.service === sv.name} onClick={() => pickService(sv.name, sv.duration)}>
+                                    <i style={{ background: sv.color }} />
+                                    {sv.name}
+                                    <small>{sv.duration} dk{sv.price ? ` · ₺${sv.price.toLocaleString('tr-TR')}` : ''}</small>
                                 </button>
+                            ))}
+                            {hiddenCount > 0 && (
+                                <button type="button" className="nb-svc more" onClick={() => setAllServices(true)}>+{hiddenCount} {t('service').toLocaleLowerCase('tr')}</button>
+                            )}
+                        </div>
+                        {services.length === 0 && (quick || !seedMissing) && (
+                            <button type="button" className="nb-hint" onClick={() => routerNavigate('/settings')}>Henüz {t('service').toLocaleLowerCase('tr')} yok — Ayarlar'dan ekle</button>
+                        )}
+                        {!quick && seedMissing && serviceSeed && (
+                            <button type="button" className="nb-hint" onClick={loadServiceSeed} disabled={loadingSeed}>
+                                {loadingSeed ? 'Ekleniyor…' : `+ ${serviceSeed.label}ni yükle — ${serviceSeed.services.slice(0, 3).map((x) => x.name).join(', ')}…`}
+                            </button>
+                        )}
+                    </div>
+                );
+
+                const conflictLine = draftConflict && (
+                    <div className="nb-warn" role="status">
+                        <span>{draftConflict.message}</span>
+                        {draftConflict.sug && (
+                            <button type="button" onClick={() => { endTimeManuallyEditedRef.current = true; setStart(draftConflict.sug!.start, draftConflict.sug!.end); }}>
+                                {draftConflict.sug.start} boş · al
+                            </button>
+                        )}
+                    </div>
+                );
+
+                const timeSection = quick ? (
+                    <div className="nb-sec">
+                        <div className="nb-lbl"><span>Saat</span><em>{draftDur} dk</em></div>
+                        <div className="nb-time">
+                            <button type="button" className="nb-step" onClick={() => shiftStart(-stepMin)} aria-label={`${stepMin} dk erken`}><ChevronLeft /></button>
+                            <div className="nb-time-v"><b>{newRes.startTime}</b><i>–</i><b>{newRes.endTime}</b></div>
+                            <button type="button" className="nb-step" onClick={() => shiftStart(stepMin)} aria-label={`${stepMin} dk geç`}><ChevronRight /></button>
+                        </div>
+                        {nearSlots.length > 0 && (
+                            <div className="nb-slots" aria-label="Yakındaki boş saatler">
+                                <span className="nb-slots-l">Boş</span>
+                                {nearSlots.map((sl) => (
+                                    <button key={sl.startTime} type="button" className={cn('nb-slot', sl.startTime === newRes.startTime && 'on')}
+                                        onClick={() => setStart(sl.startTime, sl.endTime)}>{sl.startTime}</button>
+                                ))}
                             </div>
                         )}
+                        {conflictLine}
+                    </div>
+                ) : (
+                    <div className="nb-sec">
+                        <div className="nb-lbl">
+                            <span>Saat</span>
+                            <em>{staffName ? `${staffName} için boş saatler` : 'Boş saatler'} · {draftDur} dk</em>
+                        </div>
+                        {freeSlots.length > 0 ? (
+                            <div className="nb-chips">
+                                {!freeSlots.some((x) => x.startTime === newRes.startTime) && (
+                                    <button type="button" className="nb-slot on warn" title="Seçili saat — boş değil">{newRes.startTime}</button>
+                                )}
+                                {freeSlots.map((sl) => (
+                                    <button key={sl.startTime} type="button" className={cn('nb-slot', sl.startTime === newRes.startTime && 'on')}
+                                        onClick={() => setStart(sl.startTime, sl.endTime)}>{sl.startTime}</button>
+                                ))}
+                                <button type="button" className={cn('nb-slot more', customTime && 'on-soft')} onClick={() => setCustomTime((v) => !v)}>Başka saat</button>
+                            </div>
+                        ) : (
+                            <p className="nb-empty">{slotsReady ? 'Bu gün için boş saat yok — başka gün seç ya da saati elle gir.' : 'Boş saatlere bakılıyor…'}</p>
+                        )}
+                        {(customTime || freeSlots.length === 0) && (
+                            <div className="nb-times">
+                                <label><span>Başlangıç</span>
+                                    <input type="time" value={newRes.startTime} onChange={(e) => setStart(e.target.value)} /></label>
+                                <i>–</i>
+                                <label><span>Bitiş</span>
+                                    <input type="time" value={newRes.endTime} onChange={(e) => { endTimeManuallyEditedRef.current = true; setNewRes(p => ({ ...p, endTime: e.target.value })); }} /></label>
+                                <em>{draftDur} dk</em>
+                            </div>
+                        )}
+                        {conflictLine}
+                    </div>
+                );
 
-                        {/* BODY */}
-                        {!successData && (
-                        <div className="flex-1 overflow-y-auto flex flex-col" style={{ padding: '14px 18px 8px', gap: 16 }}>
-
-                            {/* MÜŞTERİ */}
-                            <div>
-                                <MLabel>{t('customer')}</MLabel>
-                                <MHelp>Kayıtlı {t('customer').toLowerCase()} arayın veya yeni isim yazın — otomatik kaydedilir.</MHelp>
-                                {customerLocked ? (
-                                    <>
-                                    <div className="flex items-center gap-3" style={{ padding: '9px 12px', borderRadius: 10, background: 'rgba(255,90,31,.08)', border: `1px solid rgba(255,90,31,.30)` }}>
-                                        <div className="grid place-items-center flex-shrink-0" style={{ width: 32, height: 32, borderRadius: '50%', background: M.orange }}>
-                                            <Check className="w-4 h-4" style={{ color: M.ink }} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="truncate" style={{ fontSize: 13.5, fontWeight: 700, color: M.ink }}>{newRes.customerName}</p>
-                                            <p style={{ fontSize: 11, color: M.muted, fontFamily: MONO, letterSpacing: '.04em' }}>{newRes.customerPhone}</p>
-                                        </div>
-                                        <button onClick={clearCustomer} className="grid place-items-center flex-shrink-0 transition-all" style={{ width: 28, height: 28, borderRadius: 7, color: M.muted }}
-                                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,.6)'; e.currentTarget.style.color = M.ink; }}
-                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = M.muted; }}>
-                                            <X className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                    {/* Hasta bağlamı — hekim randevu açarken kritik bilgiyi burada görür */}
-                                    {lockedCustomer && (
-                                        <div className="flex items-center flex-wrap" style={{ gap: 6, marginTop: 7 }}>
-                                            {medicalAlertsOf(lockedCustomer).map((a) => (
-                                                <span key={a} className="inline-flex items-center" style={{ gap: 4, fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'rgba(192,57,43,.12)', color: '#C0392B' }}>
-                                                    <AlertTriangle style={{ width: 11, height: 11, flexShrink: 0 }} />{a}
-                                                </span>
-                                            ))}
-                                            {lockedCustomer.recallDate && (
-                                                <span className="inline-flex items-center" style={{ gap: 4, fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: M.surface2, color: M.muted }}>
-                                                    <CalendarClock style={{ width: 11, height: 11, flexShrink: 0 }} />Kontrol: {formatDateEU(lockedCustomer.recallDate)}
-                                                </span>
-                                            )}
-                                            {lockedCustomer.lastVisit && (
-                                                <span style={{ fontSize: 10.5, fontWeight: 600, padding: '3px 9px', borderRadius: 999, background: M.surface2, color: M.muted }}>
-                                                    Son ziyaret: {formatDateEU(lockedCustomer.lastVisit)}
-                                                </span>
-                                            )}
-                                            {settings.sector === 'dis' && (
-                                                <button onClick={() => routerNavigate(`/dental-chart?patient=${lockedCustomer.id}`)}
-                                                    style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: 'transparent', border: `1px solid ${M.border2}`, color: M.ink, cursor: 'pointer' }}>
-                                                    Diş şeması →
-                                                </button>
-                                            )}
-                                        </div>
+                const staffSection = staff.length > 0 && (
+                    <div className="nb-sec">
+                        <div className="nb-lbl"><span>{t('staff')}</span><em>{newRes.startTime}–{newRes.endTime}</em></div>
+                        <div className={cn('nb-staff', quick && 'two')}>
+                            <button type="button" className={cn('nb-st', !newRes.staffId && 'on')} aria-pressed={!newRes.staffId}
+                                onClick={() => setNewRes(p => ({ ...p, staffId: '' }))}>
+                                <span className="nb-st-av any"><Users /></span>
+                                <span className="nb-st-tx"><b>Fark etmez</b><small className={cn('nb-st-note', anyPick?.staffMember ? 'free' : anyPick?.issue ? 'busy' : '')}>{anyPick?.staffMember ? `${anyPick.staffMember.name} atanır` : anyPick?.issue ? 'Herkes dolu' : `uygun ${lowerStaff} atanır`}</small></span>
+                            </button>
+                            {staffRows.map(({ member, state, note }) => (
+                                <button key={member.id} type="button" className={cn('nb-st', newRes.staffId === member.id && 'on', state !== 'free' && 'dim')}
+                                    aria-pressed={newRes.staffId === member.id} onClick={() => setNewRes(p => ({ ...p, staffId: member.id }))}>
+                                    <span className="nb-st-av" style={{ ['--c' as string]: member.color || 'var(--dc-orange)' }}>{initialsOf(member.name) || '?'}</span>
+                                    {quick ? (
+                                        <span className="nb-st-tx"><b>{member.name}</b><small className={cn('nb-st-note', state)}>{note}</small></span>
+                                    ) : (
+                                        <>
+                                            <span className="nb-st-tx"><b>{member.name}</b>{member.specialty && <small>{member.specialty}</small>}</span>
+                                            <span className={cn('nb-st-state', state)}>{note}</span>
+                                        </>
                                     )}
-                                    </>
-                                ) : (
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-[15px] h-[15px] pointer-events-none" style={{ color: M.muted2 }} />
-                                        <input
-                                            type="text" placeholder={`İsim ile ara veya yeni ${t('customer').toLowerCase()} yaz…`}
-                                            autoFocus autoComplete="off" spellCheck={false}
-                                            style={{ ...fieldBase, paddingLeft: 34 }}
-                                            onFocus={onFieldFocus} onBlur={onFieldBlur}
-                                            value={customerQuery}
-                                            onChange={(e) => { setCustomerQuery(e.target.value); setNewRes(p => ({ ...p, customerName: e.target.value })); }}
-                                        />
-                                        {customerMatches.length > 0 && (
-                                            <div className="absolute z-20 left-0 right-0 overflow-hidden" style={{ top: 'calc(100% + 5px)', background: M.surface, border: `1px solid ${M.border2}`, borderRadius: 10, boxShadow: '0 4px 16px rgba(14,14,14,0.11), 0 16px 48px rgba(14,14,14,0.10)' }}>
-                                                {customerMatches.map((c) => (
-                                                    <button key={c.id} onClick={() => selectCustomer(c)} className="flex items-center gap-2.5 w-full text-left transition-colors" style={{ padding: '9px 12px' }}
-                                                        onMouseEnter={(e) => e.currentTarget.style.background = M.surface2}
-                                                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                                                        <div className="grid place-items-center flex-shrink-0" style={{ width: 30, height: 30, borderRadius: '50%', background: M.ink, color: M.cream, fontSize: 10.5, fontWeight: 800 }}>
-                                                            {c.name.charAt(0).toUpperCase()}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="truncate" style={{ fontSize: 13, fontWeight: 650, color: M.ink }}>{c.name}</p>
-                                                            <p style={{ fontSize: 10.5, color: M.muted, fontFamily: MONO, letterSpacing: '.04em' }}>{c.phone}</p>
-                                                        </div>
-                                                        {medicalAlertsOf(c).length > 0 && (
-                                                            <span title={medicalAlertsOf(c).join(' · ')} style={{ color: '#C0392B', flexShrink: 0 }}>
-                                                                <AlertTriangle style={{ width: 14, height: 14 }} />
-                                                            </span>
-                                                        )}
-                                                    </button>
-                                                ))}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                );
+
+                const summary = (
+                    <p className="nb-sum">
+                        <b>{newRes.customerName.trim() || '—'}</b>
+                        {newRes.service ? ` · ${newRes.service}` : ''} · {newRes.startTime}–{newRes.endTime} · {staffName || `uygun ${lowerStaff}`}{unitName ? ` · ${unitName}` : ''}
+                        {missing && <em className="nb-miss"> · {missing}</em>}
+                    </p>
+                );
+
+                if (quick) {
+                    return (
+                        <div className="nb-layer" onMouseDown={tryClose}>
+                            <div className="nb-ghost" style={{ left: quickAnchor!.left, top: quickAnchor!.top, width: quickAnchor!.width, height: quickAnchor!.height }} />
+                            <section ref={popRef} className={cn('nb-pop', nudge && 'nudge')} style={{ ...popStyle!, width: POP_W }} role="dialog"
+                                aria-label={`Yeni ${t('reservation').toLocaleLowerCase('tr')}`} onMouseDown={(e) => e.stopPropagation()}>
+                                <header className="nb-pop-h">
+                                    <div>
+                                        <span className="nb-eyebrow">{t('newReservation')}</span>
+                                        <h3>{dayLabelOf(selectedDate, true)} · <span>{newRes.startTime}</span></h3>
+                                    </div>
+                                    <button type="button" className="nb-icon" onClick={closeDialog} aria-label="Kapat"><X /></button>
+                                </header>
+                                <div className="nb-pop-b">
+                                    {customerSection}
+                                    {serviceSection}
+                                    {timeSection}
+                                    {staffSection}
+                                </div>
+                                <footer className="nb-pop-f">
+                                    <button type="button" className="nb-link" onClick={() => setQuickAnchor(null)}>Ayrıntılar</button>
+                                    {missing && <span className="nb-miss">{missing}</span>}
+                                    <button type="button" className="nb-btn" disabled={!canSave} onClick={handleCreateReservation}>{saveLabel}</button>
+                                </footer>
+                            </section>
+                        </div>
+                    );
+                }
+
+                const strip = weekDaysOf(shiftISO(selectedDate, stripOffset * 7));
+                const unitOpen = extras.unit || Boolean(resourceId);
+                const noteOpen = showNote || Boolean(newRes.notes);
+                const repeatOpen = extras.repeat || Boolean(recurrence.rule);
+                const linesOpen = extras.lines || resLines.length > 0;
+                const hasUnits = resources.length > 0 || profileForSector(settings.sector).resourceTypes.length > 0;
+                return (
+                    <div className="nb-overlay">
+                        <div className="nb-scrim" onClick={tryClose} />
+                        <section className={cn('nb-full', nudge && 'nudge')} role="dialog" aria-label={t('newReservation')}>
+                            <header className="nb-full-h">
+                                <div>
+                                    <span className="nb-eyebrow">{t('newReservation')}</span>
+                                    <h2>{dayLabelOf(selectedDate)} · <span>{newRes.startTime}</span></h2>
+                                </div>
+                                <button type="button" className="nb-icon" onClick={closeDialog} aria-label="Kapat"><X /></button>
+                            </header>
+                            <div className="nb-days">
+                                <button type="button" className="nb-step" onClick={() => setStripOffset((o) => o - 1)} aria-label="Önceki hafta"><ChevronLeft /></button>
+                                {strip.map((iso, i) => (
+                                    <button key={iso} type="button" onClick={() => setSelectedDate(iso)}
+                                        className={cn('nb-day', iso === selectedDate && 'on', iso < today && 'past', isClosed(iso) && 'closed')}>
+                                        <small>{iso === today ? 'Bugün' : DAYS_TR[i]}</small><b>{Number(iso.slice(8, 10))}</b>
+                                    </button>
+                                ))}
+                                <button type="button" className="nb-step" onClick={() => setStripOffset((o) => o + 1)} aria-label="Sonraki hafta"><ChevronRight /></button>
+                            </div>
+                            <div className="nb-full-b">
+                                {customerSection}
+                                {serviceSection}
+                                {timeSection}
+                                {staffSection}
+                                {cfDefs.length > 0 && (
+                                    <div className="nb-sec nb-cf">
+                                        <CustomFieldsSection defs={cfDefs} values={cfValues} onChange={setCfValues}
+                                            T={{ ink: 'var(--dc-ink)', muted: 'var(--nb-muted)', surface2: 'var(--dc-surface2)', border2: 'var(--dc-border2)', rSm: 10 }} />
+                                    </div>
+                                )}
+
+                                <div className="nb-extras">
+                                    {hasUnits && (
+                                        <button type="button" className={cn('nb-x', unitOpen && 'on')} onClick={() => setExtras((x) => ({ ...x, unit: !unitOpen }))}>
+                                            <Plus />{resourceTypeLabel}<small>{unitName ?? 'otomatik'}</small>
+                                        </button>
+                                    )}
+                                    <button type="button" className={cn('nb-x', noteOpen && 'on')} onClick={() => setShowNote(!noteOpen)}><Plus />Not</button>
+                                    <button type="button" className={cn('nb-x', repeatOpen && 'on')} onClick={() => setExtras((x) => ({ ...x, repeat: !repeatOpen }))}>
+                                        <Plus />Tekrar{recurrence.rule && <small>{recurrence.rule === 'weekly' ? 'her hafta' : 'her ay'}</small>}
+                                    </button>
+                                    <button type="button" className={cn('nb-x', linesOpen && 'on')} onClick={() => setExtras((x) => ({ ...x, lines: !linesOpen }))}>
+                                        <Plus />Başka işlem{resLines.length > 0 && <small>{resLines.length}</small>}
+                                    </button>
+                                </div>
+
+                                {unitOpen && hasUnits && (
+                                    <div className="nb-sec">
+                                        <div className="nb-lbl"><span>{resourceTypeLabel}</span><em>Seçilmezse uygun olan atanır</em></div>
+                                        {resources.length === 0 ? (
+                                            <button type="button" className="nb-hint" onClick={() => routerNavigate('/settings')}>
+                                                Henüz {resourceTypeLabel.toLocaleLowerCase('tr')} tanımlı değil — Ayarlar'dan ekle
+                                            </button>
+                                        ) : (
+                                            <div className="nb-chips">
+                                                <button type="button" className={cn('nb-svc', !resourceId && 'on')} onClick={() => setResourceId(null)}>Otomatik</button>
+                                                {resources.map((res) => {
+                                                    const sel = resourceId === res.id;
+                                                    const busy = Boolean(newRes.startTime && newRes.endTime
+                                                        && reservations.filter((r) => r.resourceId === res.id && r.date === selectedDate && r.status !== 'cancelled'
+                                                            && clockMin(r.startTime) < clockMin(newRes.endTime) && clockMin(newRes.startTime) < clockMin(r.endTime)).length >= Math.max(1, res.capacity));
+                                                    return (
+                                                        <button key={res.id} type="button" disabled={busy} className={cn('nb-svc', sel && 'on', busy && 'busy')}
+                                                            onClick={() => setResourceId(sel ? null : res.id)}>
+                                                            {res.name}{res.capacity > 1 ? <small>{res.capacity} kişi</small> : null}{busy && <small>dolu</small>}
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>
                                 )}
-                            </div>
 
-                            {/* TELEFON */}
-                            {!customerLocked && (
-                                <div>
-                                    <MLabel>Telefon</MLabel>
-                                    <input
-                                        type="tel" placeholder="0532 xxx xxxx" inputMode="tel"
-                                        style={{ ...fieldBase, letterSpacing: '.04em' }}
-                                        onFocus={onFieldFocus} onBlur={onFieldBlur}
-                                        value={newRes.customerPhone} onChange={(e) => setNewRes(p => ({ ...p, customerPhone: e.target.value }))}
-                                    />
-                                </div>
-                            )}
-
-                            {/* HİZMET */}
-                            <div>
-                                <MLabel>{t('service')}</MLabel>
-                                <MHelp>{t('service')} seçilince süre ve bitiş saati otomatik hesaplanır.</MHelp>
-                                <div className="flex flex-wrap" style={{ gap: 5 }}>
-                                    {settings.services.map((s) => {
-                                        const sel = newRes.service === s.name;
-                                        return (
-                                            <button
-                                                key={s.id}
-                                                onClick={() => {
-                                                    serviceManuallySelectedRef.current = true;
-                                                    setNewRes(p => ({ ...p, service: s.name, endTime: addMinutesToTime(p.startTime, s.duration) }));
-                                                }}
-                                                className="inline-flex items-center transition-all whitespace-nowrap"
-                                                style={{
-                                                    padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, lineHeight: 1.2,
-                                                    border: `1px solid ${sel ? s.color : M.border2}`,
-                                                    background: sel ? s.color : M.surface2,
-                                                    color: sel ? textOn(s.color) : M.muted,
-                                                    boxShadow: sel ? `0 2px 10px ${s.color}40` : 'none',
-                                                }}
-                                            >
-                                                {s.name}
-                                                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '.04em', marginLeft: 5, opacity: sel ? .75 : .62 }}>{s.duration}dk</span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                {seedMissing && serviceSeed && (
-                                    <button onClick={loadServiceSeed} disabled={loadingSeed} className="w-full text-left transition-colors"
-                                        style={{ marginTop: 7, padding: '9px 12px', borderRadius: 10, border: `1px dashed ${M.border2}`, background: 'transparent', fontSize: 11.5, color: M.muted, cursor: loadingSeed ? 'wait' : 'pointer' }}
-                                        onMouseEnter={(e) => { e.currentTarget.style.background = M.surface2; }}
-                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                                        {loadingSeed
-                                            ? 'Ekleniyor…'
-                                            : `+ ${serviceSeed.label}ni yükle — ${serviceSeed.services.slice(0, 4).map((x) => x.name).join(', ')}…`}
-                                    </button>
+                                {noteOpen && (
+                                    <label className="nb-field">
+                                        <span>Not</span>
+                                        <textarea rows={2} autoFocus={showNote && !newRes.notes}
+                                            placeholder={settings.sector === 'dis' ? 'Örn. 25 distal — soğuk hassasiyeti' : 'Örn. ilk seans, hassas cilt'}
+                                            value={newRes.notes} onChange={(e) => setNewRes(p => ({ ...p, notes: e.target.value }))} />
+                                    </label>
                                 )}
-                            </div>
 
-                            {/* ZAMAN */}
-                            <div>
-                                <MLabel>Zaman</MLabel>
-                                <div className="lz-timeblock">
-                                    <div className="lz-ts" onClick={(e) => { const i = e.currentTarget.querySelector('input'); (i as HTMLInputElement & { showPicker?: () => void })?.showPicker?.(); }}>
-                                        <div className="lz-ts-lbl">Başlangıç</div>
-                                        <input type="time" value={newRes.startTime} onChange={(e) => {
-                                            const startTime = e.target.value;
-                                            setNewRes(p => ({ ...p, startTime, endTime: addMinutesToTime(startTime, serviceDuration(p.service)) }));
-                                        }} />
-                                    </div>
-                                    <div className="lz-ts-mid">
-                                        <div className="lz-ts-mid-line" />
-                                        <div className="lz-ts-dur">{durationMin(newRes.startTime, newRes.endTime)} dk</div>
-                                        <div className="lz-ts-mid-line" />
-                                    </div>
-                                    <div className="lz-ts" onClick={(e) => { const i = e.currentTarget.querySelector('input'); (i as HTMLInputElement & { showPicker?: () => void })?.showPicker?.(); }}>
-                                        <div className="lz-ts-lbl">Bitiş</div>
-                                        <input type="time" value={newRes.endTime} onChange={(e) => {
-                                            endTimeManuallyEditedRef.current = true;
-                                            setNewRes(p => ({ ...p, endTime: e.target.value }));
-                                        }} />
-                                    </div>
-                                </div>
-                                {draftConflict && (
-                                    <div role="status" className="flex items-center flex-wrap" style={{ gap: 6, marginTop: 8, padding: '9px 13px', borderRadius: 9, background: 'rgba(184,121,10,.12)', color: '#B8790A', fontSize: 12, fontWeight: 700 }}>
-                                        {draftConflict.message}
-                                        {draftConflict.sug && (
-                                            <button onClick={() => {
-                                                endTimeManuallyEditedRef.current = true;
-                                                setNewRes(p => ({ ...p, startTime: draftConflict.sug!.start, endTime: draftConflict.sug!.end }));
-                                            }}
-                                                style={{ color: '#B8790A', textDecoration: 'underline', fontWeight: 800, fontSize: 12, padding: 2 }}>
-                                                {draftConflict.sug.start} uygun →
-                                            </button>
+                                {repeatOpen && (
+                                    <div className="nb-sec">
+                                        <div className="nb-lbl"><span>Tekrar</span></div>
+                                        <div className="nb-chips">
+                                            {([['', 'Yok'], ['weekly', 'Her hafta'], ['monthly', 'Her ay']] as const).map(([val, lbl]) => (
+                                                <button key={val} type="button" className={cn('nb-svc', recurrence.rule === val && 'on')}
+                                                    onClick={() => setRecurrence(p => ({ ...p, rule: val }))}>{lbl}</button>
+                                            ))}
+                                        </div>
+                                        {recurrence.rule && (
+                                            <label className="nb-field" style={{ marginTop: 10 }}>
+                                                <span>Bitiş tarihi <i>· boşsa 8 {recurrence.rule === 'weekly' ? 'hafta' : 'ay'}</i></span>
+                                                <input type="date" min={selectedDate} value={recurrence.until}
+                                                    onChange={(e) => setRecurrence(p => ({ ...p, until: e.target.value }))} />
+                                            </label>
                                         )}
                                     </div>
                                 )}
-                            </div>
 
-                            {/* PERSONEL */}
-                            {staff.length > 0 && (
-                                <div>
-                                    <MLabel>{t('staff')}</MLabel>
-                                    <MHelp>Fark etmez seçilirse uygun {t('staff').toLowerCase()}e atanır.</MHelp>
-                                    <div className="flex flex-wrap" style={{ gap: 5 }}>
-                                        <button
-                                            onClick={() => setNewRes(p => ({ ...p, staffId: '' }))}
-                                            className="inline-flex items-center transition-all whitespace-nowrap"
-                                            style={{
-                                                padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, lineHeight: 1.2,
-                                                border: `1px solid ${!newRes.staffId ? M.ink : M.border2}`,
-                                                background: !newRes.staffId ? M.ink : M.surface2,
-                                                color: !newRes.staffId ? M.cream : M.muted,
-                                                boxShadow: !newRes.staffId ? '0 2px 10px rgba(14,14,14,.14)' : 'none',
-                                            }}
-                                        >
-                                            Fark etmez
+                                {linesOpen && (
+                                    <div className="nb-sec">
+                                        <div className="nb-lbl"><span>İşlemler</span>{resLines.length > 0 && <em>{resLines.length} eklendi</em>}</div>
+                                        {resLines.map((l) => (
+                                            <div key={l.id} className="nb-line">
+                                                <i style={{ background: l.serviceColor }} />
+                                                <span><b>{l.service}</b><small>{l.startTime}–{l.endTime} · {l.staffName || 'Fark etmez'}</small></span>
+                                                <button type="button" className="nb-icon" onClick={() => removeResLine(l.id)} aria-label="Çıkar"><X /></button>
+                                            </div>
+                                        ))}
+                                        <button type="button" className="nb-hint" onClick={addDraftLine} disabled={!newRes.service}>
+                                            {newRes.service ? `+ ${newRes.service} işlemini ekle, sonra yenisini seç` : `Önce bir ${t('service').toLocaleLowerCase('tr')} seç`}
                                         </button>
-                                        {staff.map(s => {
-                                            const sel = newRes.staffId === s.id;
-                                            return (
-                                                <button
-                                                    key={s.id}
-                                                    onClick={() => setNewRes(p => ({ ...p, staffId: s.id }))}
-                                                    className="inline-flex items-center transition-all whitespace-nowrap"
-                                                    style={{
-                                                        padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, lineHeight: 1.2,
-                                                        border: `1px solid ${sel ? s.color : M.border2}`,
-                                                        background: sel ? s.color : M.surface2,
-                                                        color: sel ? textOn(s.color) : M.muted,
-                                                        boxShadow: sel ? `0 2px 10px ${s.color}40` : 'none',
-                                                    }}
-                                                >
-                                                    <span style={{ fontWeight: 750 }}>{s.name}</span>
-                                                    {s.specialty && <span style={{ fontSize: 10.5, fontWeight: 500, opacity: sel ? .7 : .58, marginLeft: 4 }}>· {s.specialty}</span>}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* KAYNAK (051) — sektör profili kaynak tanımlıyor ama henüz eklenmemişse yönlendir */}
-                            {resources.length === 0 && profileForSector(settings.sector).resourceTypes.length > 0 && (
-                                <div>
-                                    <MLabel>{resourceTypeLabel}</MLabel>
-                                    <button onClick={() => routerNavigate('/settings')} className="w-full text-left transition-colors"
-                                        style={{ padding: '9px 12px', borderRadius: 10, border: `1px dashed ${M.border2}`, background: 'transparent', fontSize: 11.5, color: M.muted, cursor: 'pointer' }}
-                                        onMouseEnter={(e) => { e.currentTarget.style.background = M.surface2; }}
-                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                                        Henüz {resourceTypeLabel.toLowerCase()} tanımlı değil — {t('reservations').toLocaleLowerCase('tr')} {resourceTypeLabel.toLowerCase()} bazında takip etmek için Ayarlar'dan ekleyin →
-                                    </button>
-                                </div>
-                            )}
-                            {resources.length > 0 && (
-                                <div>
-                                    <MLabel>{resourceTypeLabel}</MLabel>
-                                    <MHelp>Seçilmezse uygun {resourceTypeLabel.toLowerCase()} otomatik atanır.</MHelp>
-                                    <div className="flex flex-wrap" style={{ gap: 5 }}>
-                                        {/* v9: "Otomatik" = kaynak seçilmemiş durum (resourceId null) */}
-                                        <button onClick={() => setResourceId(null)}
-                                            className="inline-flex items-center transition-all whitespace-nowrap"
-                                            style={{
-                                                padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, lineHeight: 1.2,
-                                                border: `1px solid ${!resourceId ? M.ink : M.border2}`,
-                                                background: !resourceId ? M.ink : M.surface2,
-                                                color: !resourceId ? M.cream : M.muted,
-                                            }}>
-                                            Otomatik
-                                        </button>
-                                        {resources.map(res => {
-                                            const sel = resourceId === res.id;
-                                            // Seçili saat aralığında bu ünitedeki dolu randevu sayısı kapasiteyi doldurmuş mu?
-                                            const busy = Boolean(selectedDate && newRes.startTime && newRes.endTime
-                                                && reservations.filter((r) => r.resourceId === res.id && r.date === selectedDate && r.status !== 'cancelled'
-                                                    && clockMin(r.startTime) < clockMin(newRes.endTime) && clockMin(newRes.startTime) < clockMin(r.endTime)).length >= Math.max(1, res.capacity));
-                                            return (
-                                                <button key={res.id} onClick={() => { if (!busy) setResourceId(sel ? null : res.id); }}
-                                                    disabled={busy}
-                                                    className="inline-flex items-center transition-all whitespace-nowrap"
-                                                    style={{
-                                                        padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, lineHeight: 1.2, gap: 6,
-                                                        border: `1px solid ${sel ? M.ink : M.border2}`,
-                                                        background: sel ? M.ink : M.surface2,
-                                                        color: sel ? M.cream : busy ? M.muted2 : M.muted,
-                                                        opacity: busy ? 0.55 : 1, cursor: busy ? 'not-allowed' : 'pointer',
-                                                        textDecoration: busy ? 'line-through' : 'none',
-                                                    }}>
-                                                    {res.name}{res.capacity > 1 ? ` · ${res.capacity} kişi` : ''}
-                                                    {busy && <span style={{ textDecoration: 'none', fontSize: 9.5, fontWeight: 800, color: '#B8790A', background: 'rgba(184,121,10,.14)', padding: '2px 6px', borderRadius: 999 }}>dolu</span>}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* SEKTÖRE ÖZEL ALANLAR (050) */}
-                            {cfDefs.length > 0 && (
-                                <div>
-                                    <CustomFieldsSection defs={cfDefs} values={cfValues} onChange={setCfValues}
-                                        T={{ ink: M.ink, muted: M.muted, surface2: M.surface2, border2: M.border2, rSm: 10 }} />
-                                </div>
-                            )}
-
-                            {/* İŞLEMLER (çoklu hizmet) */}
-                            <div>
-                                {resLines.length > 0 && (
-                                    <>
-                                        <MLabel>Eklenen İşlemler · {resLines.length}</MLabel>
-                                        <div className="flex flex-col" style={{ gap: 6, marginBottom: 8 }}>
-                                            {resLines.map((l) => (
-                                                <div key={l.id} className="flex items-center" style={{ gap: 10, padding: '8px 11px', borderRadius: 10, background: M.surface2, border: `1px solid ${M.border}` }}>
-                                                    <span style={{ width: 9, height: 9, borderRadius: 3, background: l.serviceColor, flexShrink: 0 }} />
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="truncate" style={{ fontSize: 12.5, fontWeight: 700, color: M.ink }}>{l.service}</div>
-                                                        <div style={{ fontSize: 10.5, color: M.muted, fontFamily: MONO, letterSpacing: '.03em' }}>{l.startTime}–{l.endTime} · {l.staffName || 'Fark etmez'}</div>
-                                                    </div>
-                                                    <button onClick={() => removeResLine(l.id)} title="Çıkar" className="grid place-items-center flex-shrink-0 transition-all" style={{ width: 24, height: 24, borderRadius: 6, color: M.muted }}
-                                                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(224,90,90,.12)'; e.currentTarget.style.color = '#E05A5A'; }}
-                                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = M.muted; }}>
-                                                        <X className="w-3.5 h-3.5" />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </>
-                                )}
-                                <button onClick={addDraftLine} disabled={!newRes.service}
-                                    className="inline-flex items-center justify-center gap-2 w-full transition-all"
-                                    style={{ height: 40, borderRadius: 10, fontSize: 12.5, fontWeight: 700, border: `1px dashed ${newRes.service ? M.orange : M.border2}`, background: 'transparent', color: newRes.service ? M.orange : M.muted2, cursor: newRes.service ? 'pointer' : 'not-allowed' }}>
-                                    <Plus className="w-4 h-4" strokeWidth={2.4} /> Başka işlem ekle
-                                </button>
-                            </div>
-
-                            {/* NOT — v9: katlanır */}
-                            <div style={{ paddingBottom: 6 }}>
-                                {(showNote || newRes.notes) ? (
-                                    <>
-                                        <MLabel optional="(opsiyonel)">Not</MLabel>
-                                        <textarea
-                                            placeholder="Örn: 25 distal — hasta soğuk hassasiyeti bildirdi" rows={2} autoFocus={showNote && !newRes.notes}
-                                            style={{ ...fieldBase, height: 60, resize: 'none', lineHeight: 1.55 }}
-                                            onFocus={onFieldFocus} onBlur={onFieldBlur}
-                                            value={newRes.notes} onChange={(e) => setNewRes(p => ({ ...p, notes: e.target.value }))}
-                                        />
-                                    </>
-                                ) : (
-                                    <button onClick={() => setShowNote(true)} className="inline-flex items-center transition-colors" style={{ gap: 7, fontSize: 12.5, fontWeight: 700, color: M.muted, height: 40, padding: '0 4px' }}
-                                        onMouseEnter={(e) => e.currentTarget.style.color = M.ink}
-                                        onMouseLeave={(e) => e.currentTarget.style.color = M.muted}>
-                                        <Plus className="w-4 h-4" strokeWidth={2.2} /> Tedavi notu ekle
-                                    </button>
-                                )}
-                            </div>
-
-                            {/* TEKRAR */}
-                            <div style={{ paddingBottom: 6 }}>
-                                <MLabel optional="(opsiyonel)">Tekrar</MLabel>
-                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                    {([['', 'Yok'], ['weekly', 'Her hafta'], ['monthly', 'Her ay']] as const).map(([val, lbl]) => {
-                                        const sel = recurrence.rule === val;
-                                        return (
-                                            <button key={val} onClick={() => setRecurrence(p => ({ ...p, rule: val }))}
-                                                className="inline-flex items-center transition-all whitespace-nowrap"
-                                                style={{ padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, lineHeight: 1.2,
-                                                    border: `1px solid ${sel ? M.ink : M.border2}`, background: sel ? M.ink : M.surface2,
-                                                    color: sel ? M.cream : M.muted, boxShadow: sel ? '0 2px 10px rgba(14,14,14,.14)' : 'none' }}>
-                                                {lbl}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                {recurrence.rule && (
-                                    <div style={{ marginTop: 8 }}>
-                                        <MLabel optional="(opsiyonel)">Bitiş tarihi</MLabel>
-                                        <input type="date" min={selectedDate || undefined} value={recurrence.until}
-                                            onChange={(e) => setRecurrence(p => ({ ...p, until: e.target.value }))}
-                                            style={{ ...fieldBase }} onFocus={onFieldFocus} onBlur={onFieldBlur} />
-                                        <div style={{ fontSize: 10.5, color: M.muted, marginTop: 4 }}>Boş bırakılırsa 8 hafta/ay boyunca tekrarlanır.</div>
                                     </div>
                                 )}
                             </div>
-                        </div>
-                        )}
-
-                        {/* FOOTER */}
-                        {!successData && (
-                        <div className="flex-shrink-0 flex flex-col" style={{ padding: '10px 18px 15px', borderTop: `1px solid ${M.border}`, gap: 4 }}>
-                            {draftSummary && (
-                                <div style={{ fontFamily: MONO, fontSize: 11.5, color: M.muted, background: M.surface2, borderRadius: 9, padding: '10px 13px', marginBottom: 6, lineHeight: 1.5 }}>
-                                    {draftSummary}
-                                </div>
-                            )}
-                            <button
-                                onClick={handleCreateReservation}
-                                disabled={!newRes.customerName || !newRes.customerPhone || creatingReservation}
-                                className="inline-flex items-center justify-center gap-2 w-full transition-all"
-                                style={{
-                                    height: 46, borderRadius: 999, fontWeight: 700, fontSize: 14.5, letterSpacing: '-0.01em',
-                                    background: M.orange, color: M.ink,
-                                    opacity: (!newRes.customerName || !newRes.customerPhone || creatingReservation) ? .42 : 1,
-                                    cursor: (!newRes.customerName || !newRes.customerPhone || creatingReservation) ? 'not-allowed' : 'pointer',
-                                }}
-                                onMouseEnter={(e) => { if (newRes.customerName && newRes.customerPhone && !creatingReservation) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(255,90,31,.32)'; } }}
-                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
-                            >
-                                {creatingReservation ? 'Oluşturuluyor…' : (() => {
-                                    // v9: eksik zorunlu alanı butonda göster
-                                    const miss = !newRes.customerName ? `${t('customer')} seçin` : !newRes.customerPhone ? 'Telefon girin' : !newRes.service && resLines.length === 0 ? `${t('service')} seçin` : '';
-                                    const n = resLines.length + (newRes.service ? 1 : 0);
-                                    const label = n > 1 ? `${t('newReservation')} · ${n} işlem` : t('newReservation');
-                                    return <>{label}{miss && <span style={{ fontSize: 12, fontWeight: 600, opacity: .85, marginLeft: 6 }}>· {miss}</span>}</>;
-                                })()}
-                                {!creatingReservation && <span style={{ fontSize: 16, lineHeight: 1 }}>→</span>}
-                            </button>
-                            <button onClick={closeDialog} className="w-full transition-colors" style={{ height: 36, fontSize: 12.5, fontWeight: 600, color: M.muted, background: 'transparent' }}
-                                onMouseEnter={(e) => e.currentTarget.style.color = M.ink}
-                                onMouseLeave={(e) => e.currentTarget.style.color = M.muted}>
-                                Vazgeç
-                            </button>
-                        </div>
-                        )}
+                            <footer className="nb-full-f">
+                                {summary}
+                                <button type="button" className="nb-btn" disabled={!canSave} onClick={handleCreateReservation}>{saveLabel}</button>
+                            </footer>
+                        </section>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* Adisyon + Müşteri detayı (randevu kartından açılır) */}
             {adisyonRes && (
