@@ -894,6 +894,12 @@ function useReservationsState() {
         if (becameClosed && !(serverRow as any).rebook_sent
             && settings.rebookEnabled && updated.customerPhone) {
             (async () => {
+                // Zamanlayıcı açık işletmede davet sunucudan, ödemeden 1,5 saat
+                // sonra gider (132): kasada, müşteri karşıdayken telefonuna
+                // düşüyordu. Okunamazsa göndermek yerine susmak: çift davet olmasın.
+                const { data: wa, error: waErr } = await supabase.from('org_whatsapp')
+                    .select('features').eq('organization_id', (serverRow as { organization_id?: string }).organization_id ?? '').maybeSingle();
+                if (waErr || (wa?.features as Record<string, unknown> | null)?.scheduler_v2 === true) return;
                 let bookingUrl = '';
                 const { data: org } = await supabase.from('organizations')
                     .select('slug').eq('id', (serverRow as any).organization_id).maybeSingle();

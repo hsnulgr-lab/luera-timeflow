@@ -539,3 +539,16 @@ export function slotOfferExpired(): string {
     return 'Bu teklifin süresi doldu. Bekleme listesinde kalmaya devam ediyorsunuz; '
         + 'yeni bir yer açılınca haber vereceğim.';
 }
+
+/**
+ * Sıradaki randevu daveti (132): ödemeden 1,5 saat sonra, zamanlayıcıdan.
+ * Teşekkür yok — memnuniyet sorusu bitişten 30 dk sonra zaten teşekkür etti;
+ * iki mesajda iki kez teşekkür şablon kokar. İşletme adı da yok: hattın kendisi
+ * işletme, adın "'daki/'deki" eki ise ada göre değişir.
+ */
+export function rebookInvite(c: Ctx, o: { service: string; note?: string | null; bookingUrl?: string | null }): string {
+    const note = o.note?.trim() ? `\n\n🎁 ${o.note.trim()}` : '';
+    const link = o.bookingUrl ? `\n\n👉 ${o.bookingUrl}` : '';
+    const how = o.bookingUrl ? 'Uygun gününüzü yazmanız ya da bağlantıdan seçmeniz yeterli.' : 'Uygun gününüzü yazmanız yeterli.';
+    return `${helloLine(c)}\nBir sonraki *${o.service}* randevunuzu şimdiden ayırtmak ister misiniz?\n\n${how}${note}${link}`;
+}

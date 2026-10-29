@@ -146,6 +146,22 @@ export function buildQueueReadyMessage(params: { customerName: string; businessN
     );
 }
 
+// Zamanlayıcı açık işletmede davet (132): ödemeden 1,5 saat sonra, sunucudan.
+// Sunucudaki rebookInvite'ın (supabase/functions/_shared/booking/messages.ts)
+// Ayarlar önizlemesi için kopyası; ikisi aynı metni üretmeli (testte eşlenir).
+export function buildRebookInvite(params: {
+    customerName: string;
+    service: string;
+    note?: string;
+    bookingUrl?: string;
+}): string {
+    const note = params.note?.trim() ? `\n\n🎁 ${params.note.trim()}` : '';
+    const link = params.bookingUrl ? `\n\n👉 ${params.bookingUrl}` : '';
+    const how = params.bookingUrl ? 'Uygun gününüzü yazmanız ya da bağlantıdan seçmeniz yeterli.' : 'Uygun gününüzü yazmanız yeterli.';
+    const hello = params.customerName ? `Merhaba ${params.customerName} 👋` : 'Merhaba 👋';
+    return `${hello}\nBir sonraki *${params.service}* randevunuzu şimdiden ayırtmak ister misiniz?\n\n${how}${note}${link}`;
+}
+
 // Randevu tamamlandıktan sonra "tekrar randevu al" daveti (Sıradaki Randevu Otomasyonu)
 export function buildRebookMessage(params: {
     customerName: string;
@@ -158,7 +174,7 @@ export function buildRebookMessage(params: {
     const linkLine = params.bookingUrl ? `\n\n👉 ${params.bookingUrl}` : '';
     return (
         `Merhaba ${params.customerName} 👋\n\n` +
-        `*${params.businessName}*'daki *${params.service}* hizmetiniz tamamlandı, teşekkür ederiz! 🙏\n\n` +
+        `*${params.businessName}* olarak *${params.service}* hizmetiniz için teşekkür ederiz! 🙏\n\n` +
         `Bir sonraki randevunuzu şimdiden ayırtmak ister misiniz?${noteLine}${linkLine}`
     );
 }

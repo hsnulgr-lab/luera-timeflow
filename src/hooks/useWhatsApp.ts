@@ -27,11 +27,14 @@ export interface WaConnection {
     connectedAt: string | null;
     lastError: string | null;
     features: WaFeatures;
+    /** features.scheduler_v2 (131): hatırlatma, memnuniyet ve davet zamanlayıcıdan. Ayarlardan açılmaz. */
+    schedulerOn: boolean;
 }
 
 const EMPTY: WaConnection = {
     instance: null, status: 'disconnected', connectedAt: null, lastError: null,
     features: { winback: true, renewal: true, recall: true, assistant: false, confirmation: true, review: true },
+    schedulerOn: false,
 };
 
 function mapRow(row: Record<string, unknown>): WaConnection {
@@ -49,6 +52,7 @@ function mapRow(row: Record<string, unknown>): WaConnection {
             confirmation: f.confirmation ?? true,
             review: f.review ?? true,
         },
+        schedulerOn: (row.features as Record<string, unknown> | null)?.scheduler_v2 === true,
     };
 }
 

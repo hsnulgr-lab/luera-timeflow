@@ -14,6 +14,7 @@ import {
 import { isUnhappy, parseRating, shouldSendReviewLink } from '../supabase/functions/_shared/scheduler/feedback.ts';
 import { relativeDayLabel, timeLocative, timeLocativeKi } from '../supabase/functions/_shared/booking/tr.ts';
 import * as MSG from '../supabase/functions/_shared/booking/messages.ts';
+import { buildRebookInvite, buildRebookMessage } from '../src/services/waTemplates.ts';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const at = (date, time) => istanbulMs(date, time);
@@ -182,6 +183,54 @@ test('hatırlatmaya Evet/Hayır: kod okur, yalnız son giden mesaj hatırlatmays
     const ctx = { comms: MSG.NEUTRAL_COMMS, businessName: 'Test Salon 2', firstName: 'Nisa' };
     assert.match(MSG.reminderConfirmed(ctx, { dateLabel: '31 Ekim Cumartesi', time: '10:00' }), /saat 10:00'da bekliyoruz/);
     assert.match(MSG.reminderConfirmed(ctx, { dateLabel: '31 Ekim Cumartesi', time: '12:00' }), /saat 12:00'de bekliyoruz/);
+});
+
+// ── Sıradaki randevu daveti (132) ────────────────────────────────────────────
+
+test('davet: akşam kapanan hesabın daveti ertesi sabah 10:00\'a, iki günden eski ziyarete gitmez', () => {
+    const s = at('2026-10-29', '19:00'); const e = at('2026-10-29', '20:00');
+    assert.deepEqual(sendDecision('rebook', at('2026-10-29', '15:00'), s, e), { action: 'send' });
+    assert.deepEqual(sendDecision('rebook', at('2026-10-29', '21:30'), s, e), { action: 'postpone', dueMs: at('2026-10-30', '10:00') });
+    assert.deepEqual(sendDecision('rebook', at('2026-10-30', '09:15'), s, e), { action: 'postpone', dueMs: at('2026-10-30', '10:00') });
+    assert.equal(sendDecision('rebook', e + 49 * H, s, e).action, 'skip');
+});
+
+test('davet metni: teşekkür tekrarı ve işletme adı eki yok; önizleme sunucuyla aynı', () => {
+    const server = MSG.rebookInvite(CTX, { service: 'cilt bakımı', note: '%10 erken rezervasyon', bookingUrl: 'https://x/book/s' });
+    assert.equal(server, 'Merhaba Nisanur 👋\nBir sonraki *cilt bakımı* randevunuzu şimdiden ayırtmak ister misiniz?\n\n'
+        + 'Uygun gününüzü yazmanız ya da bağlantıdan seçmeniz yeterli.\n\n🎁 %10 erken rezervasyon\n\n👉 https://x/book/s');
+    assert.doesNotMatch(server, /teşekkür|Test Salon 2/);
+    assert.equal(buildRebookInvite({ customerName: 'Nisanur', service: 'cilt bakımı', note: '%10 erken rezervasyon', bookingUrl: 'https://x/book/s' }), server);
+    assert.equal(MSG.rebookInvite({ ...CTX, firstName: null }, { service: 'ağda' }),
+        buildRebookInvite({ customerName: '', service: 'ağda' }));
+    // Eski (bayrak kapalı) davette elle yazılmış "'daki" eki gitti.
+    assert.doesNotMatch(buildRebookMessage({ customerName: 'A', service: 'ağda', businessName: 'Test Salon 2' }), /\*'d[ae]ki/);
+});
+
+test('davet: zamanlayıcı açıkken kasada gitmez; gönderirken kapanış, ileri randevu ve memnuniyet sorulur', () => {
+    const client = read('src/hooks/useReservations.ts');
+    assert.match(client, /if \(waErr \|\| \(wa\?\.features as Record<string, unknown> \| null\)\?\.scheduler_v2 === true\) return;/);
+    const src = read('supabase/functions/wa-scheduler/index.ts');
+    const fn = src.slice(src.indexOf('async function runRebook'), src.indexOf('// ── Boşalan saat'));
+    assert.match(src, /if \(r\.status !== 'completed' \|\| !r\.is_paid\) \{ await setJob\(admin, job, 'cancelled', 'kapanış geri alındı'\)/);
+    assert.match(fn, /if \(!org\.rebook\.enabled\)/);
+    assert.match(fn, /if \(r\.rebook_sent\)/);
+    assert.match(fn, /isUnhappy\(fb\.rating\)/);
+    assert.match(fn, /'ileri randevusu var'/);
+    assert.match(fn, /update\(\{ rebook_sent: true \}\)/);
+    // Ayar sahibin satırından okunur (settings kullanıcı başına).
+    assert.match(src, /\.eq\('user_id', ownerId\)/);
+});
+
+test('göç 132: kapanış (tamamlandı + ödendi) erken çıkıştan önce yakalanır, 1,5 saat sonra', () => {
+    const sql = read('supabase/132_wa_davet.sql');
+    const rebook = sql.indexOf("'rebook', now() + interval '90 minutes'");
+    const early = sql.indexOf('RETURN NEW; -- not, ödeme, hatırlatma bayrağı');
+    assert.ok(rebook > 0 && early > rebook, 'davet planı erken çıkıştan sonra kalırsa yalnız ödeme gelen kapanış kaçar');
+    assert.match(sql, /NOT \(OLD\.status = 'completed' AND COALESCE\(OLD\.is_paid, false\)\)/);
+    assert.match(sql, /AND NOT COALESCE\(NEW\.rebook_sent, false\)/);
+    assert.match(sql, /CHECK \(kind IN \('reminder_24h', 'reminder_2h', 'nudge', 'satisfaction', 'slot_offer', 'rebook'\)\)/);
+    assert.match(sql, /RAISE WARNING 'wa_plan_jobs rebook: %'/);
 });
 
 test('wa-scheduler: yalnız zamanlayıcı çağırır, bayat işi göndermez, tek gönderim kapısı', () => {

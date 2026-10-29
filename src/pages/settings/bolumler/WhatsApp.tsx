@@ -20,7 +20,7 @@ import { useOrgProfile } from '@/hooks/useOrgProfile';
 import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { useSectorComms } from '@/hooks/useSectorComms';
 import {
-    build24hMessage, build2hMessage, buildConfirmationMessage, buildDiscountLine, buildRebookMessage,
+    build24hMessage, build2hMessage, buildConfirmationMessage, buildDiscountLine, buildRebookInvite, buildRebookMessage,
     buildRecallMessage, buildRenewalMessage, buildReviewMessage, buildWinbackMessage,
 } from '@/services/waTemplates';
 import { WA_FAIL_TEXT, lastProxyError, sendWhatsApp, waConnect, waDisconnect, waHealth, waSetFeatures, waState, type WaHealth } from '@/services/whatsapp';
@@ -203,6 +203,8 @@ export function WhatsApp() {
     const pct = Math.min(100, Number(d.discPct) || 0);
 
     const f = connection.features;
+    // Zamanlayıcı açık işletmede memnuniyet ve davet sunucudan, başka zamanda gider (131/132).
+    const sched = connection.schedulerOn;
     const cards: {
         key: string; title: string; when: string; feature?: FeatureKey; always?: boolean; text: string; time: string;
         dim?: boolean; extra?: ReactNode; on?: boolean; onToggle?: (v: boolean) => Promise<boolean>; anchor?: string;
@@ -213,8 +215,10 @@ export function WhatsApp() {
             text: build2hMessage({ comms: previewComms, customerName: sample, startTime: '10:00', service, businessName: biz, mapsUrl: maps }) },
         { key: 'confirmation', title: 'Randevu onayı', when: 'Randevu oluşur oluşmaz; panelden, online randevudan ve WhatsApp botundan.', feature: 'confirmation', time: '09:12',
             text: buildConfirmationMessage({ comms: previewComms, customerName: sample, date: PREVIEW_TOMORROW_ISO, startTime: '10:00', service, businessName: biz, mapsUrl: maps }) },
-        { key: 'review', title: 'Google değerlendirme', when: 'Hesap kapandıktan ~3 saat sonra, randevu başına bir kez.', feature: 'review', time: '13:40', anchor: 'ay-google',
-            dim: !d.google.trim(),
+        { key: 'review', title: 'Google değerlendirme',
+            when: sched ? 'Randevu bitiminden 30 dk sonra memnuniyet sorulur; puan verene Google linki gider.' : 'Hesap kapandıktan ~3 saat sonra, randevu başına bir kez.',
+            feature: 'review', time: '13:40', anchor: 'ay-google',
+            dim: !d.google.trim() && !sched,
             text: buildReviewMessage({ comms: previewComms, customerName: sample, businessName: biz, reviewUrl: d.google.trim() || '— link yok' }),
             extra: (
                 <div className="ay-msg-ctrl" style={{ position: 'relative' }}>
@@ -222,7 +226,7 @@ export function WhatsApp() {
                     <label className="ay-lbl sm" htmlFor="ay-google-in">Google değerlendirme linki</label>
                     <input id="ay-google-in" className="ay-input sm mono" value={d.google} placeholder="g.page/r/…/review" onChange={(e) => t.set({ google: e.target.value })} />
                     <span className="ay-help sm">Google işletme profilinizde <b>Yorum iste → bağlantıyı kopyala</b>.</span>
-                    {!d.google.trim() && <span role="status" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14.5, fontWeight: 700 }}><span className="ay-dot s8 warn" />Link yok — bu mesaj gitmiyor.</span>}
+                    {!d.google.trim() && <span role="status" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14.5, fontWeight: 700 }}><span className="ay-dot s8 warn" />{sched ? 'Link yok — puan sorulur ama link gitmez.' : 'Link yok — bu mesaj gitmiyor.'}</span>}
                 </div>
             ) },
         ...(comms.recall ? [{ key: 'recall', title: `Dönüş hatırlatması · ${d.recallConcept || comms.recall.concept}`,
@@ -249,10 +253,14 @@ export function WhatsApp() {
             ) },
         { key: 'renewal', title: 'Paket yenileme', when: 'Tüm seansları biten paketin sahibine paket başına bir kez.', feature: 'renewal', time: '16:05',
             text: buildRenewalMessage({ customerName: sample, packageTitle: '10 Seans Lazer', businessName: biz, comms: previewComms }) },
-        { key: 'rebook', title: 'Sıradaki randevu daveti', when: 'Randevu tamamlanınca tekrar randevu daveti.', time: '11:05',
+        { key: 'rebook', title: 'Sıradaki randevu daveti',
+            when: sched ? 'Ödemeden 1,5 saat sonra; ileri randevusu olana ve memnun kalmayana gitmez.' : 'Randevu tamamlanınca tekrar randevu daveti.',
+            time: sched ? '14:35' : '11:05',
             on: Boolean(settings.rebookEnabled),
             onToggle: (v) => updateSettings({ ...settings, rebookEnabled: v }),
-            text: buildRebookMessage({ customerName: sample.split(' ')[0], service, businessName: biz, note: d.rebookNote, bookingUrl }),
+            text: sched
+                ? buildRebookInvite({ customerName: sample.split(' ')[0], service, note: d.rebookNote, bookingUrl })
+                : buildRebookMessage({ customerName: sample.split(' ')[0], service, businessName: biz, note: d.rebookNote, bookingUrl }),
             extra: (
                 <div className="ay-msg-ctrl" style={{ position: 'relative' }}>
                     {t.isChanged('rebookNote') && <span aria-hidden="true" className="ay-changed" style={{ left: -40, top: 0, bottom: 0 }} />}

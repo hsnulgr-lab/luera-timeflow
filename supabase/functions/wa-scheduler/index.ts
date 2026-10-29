@@ -8,8 +8,9 @@ import { greetingName } from '../_shared/booking/identity.ts';
 import { formatDateTr } from '../_shared/booking/slots.ts';
 import { relativeDayLabel, timeLocativeKi } from '../_shared/booking/tr.ts';
 import {
-    istanbulMs, nudgeDueMs, OFFER_TTL_MIN, sendDecision, todayIstanbul, type JobKind,
+    istanbulMinute, istanbulMs, nudgeDueMs, OFFER_TTL_MIN, sendDecision, todayIstanbul, type JobKind,
 } from '../_shared/scheduler/timing.ts';
+import { isUnhappy } from '../_shared/scheduler/feedback.ts';
 
 // ============================================================
 // wa-scheduler — WhatsApp Sekreter v2 · P1: zamanlayıcı
@@ -23,7 +24,8 @@ import {
 //   3. Şablonla gönderir (sendWA: opt-out, kota, log tek kapıda).
 //
 // Yalnız features.scheduler_v2 açık işletmede iş olur (131'in tetikleyicisi);
-// diğerlerinde remind eskisi gibi sürer.
+// diğerlerinde remind eskisi gibi sürer. 132: sıradaki randevu daveti de
+// buradan, ödemeden 1,5 saat sonra (eskiden kasada, müşteri karşıdayken).
 // ============================================================
 
 const corsHeaders = {
@@ -36,6 +38,7 @@ const corsHeaders = {
 const RETRY_MS = 30 * 60_000;
 /** Çalışan 60 sn'de kesiliyor; bu süreden sonra yeni iş alınmaz. */
 const RUN_BUDGET_MS = 40_000;
+const APP_ORIGIN = 'https://timeflow.lueratech.com';
 
 function json(body: unknown, status = 200): Response {
     return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -64,6 +67,8 @@ interface Reservation {
     customer_id: string | null;
     customer_confirm: string | null;
     review_sent: boolean | null;
+    is_paid: boolean | null;
+    rebook_sent: boolean | null;
     staff_id: string | null;
     resource_id: string | null;
 }
@@ -74,6 +79,9 @@ interface OrgCtx {
     businessName: string;
     comms: M.Comms;
     mapsUrl: string | null;
+    /** Ayarlar → WhatsApp → "Sıradaki randevu daveti" (settings.rebook_*). */
+    rebook: { enabled: boolean; note: string | null };
+    bookingUrl: string | null;
 }
 
 type Outcome = 'sent' | 'skipped' | 'cancelled' | 'postponed' | 'failed';
@@ -132,22 +140,39 @@ async function setJob(
 }
 
 async function loadOrg(admin: Admin, orgId: string): Promise<OrgCtx | null> {
-    const [{ data: orgWa }, { data: settings }, { data: org }] = await Promise.all([
+    const [{ data: orgWa }, { data: org }] = await Promise.all([
         admin.from('org_whatsapp')
             .select('organization_id, instance, status, webhook_secret, features, schedule_config')
             .eq('organization_id', orgId).maybeSingle(),
-        admin.from('settings').select('business_name, comms').eq('organization_id', orgId).limit(1).maybeSingle(),
-        admin.from('organizations').select('name, maps_url').eq('id', orgId).maybeSingle(),
+        admin.from('organizations').select('name, maps_url, owner_id, slug').eq('id', orgId).maybeSingle(),
     ]);
     if (!orgWa) return null;
-    const access = await checkAccess(admin, orgId);
+    const [settings, access] = await Promise.all([ownerSettings(admin, orgId, org?.owner_id ?? null), checkAccess(admin, orgId)]);
     return {
         orgWa: orgWa as OrgWa,
         accessOk: access.ok,
         businessName: settings?.business_name || org?.name || 'İşletme',
         comms: M.resolveComms(settings?.comms),
         mapsUrl: org?.maps_url ?? null,
+        rebook: { enabled: Boolean(settings?.rebook_enabled), note: settings?.rebook_note ?? null },
+        bookingUrl: org?.slug ? `${APP_ORIGIN}/book/${org.slug}` : null,
     };
+}
+
+/**
+ * settings satırı kullanıcı başına: çok üyeli org'da birden çok satır olur,
+ * doğrusu SAHİBİNİNKİ (staff-api, send-push ve mobil de böyle okur). Sahibin
+ * satırı yoksa en eskisi — yanlış olabilir ama kararlı.
+ */
+async function ownerSettings(admin: Admin, orgId: string, ownerId: string | null) {
+    const cols = 'business_name, comms, rebook_enabled, rebook_note';
+    if (ownerId) {
+        const { data } = await admin.from('settings').select(cols).eq('user_id', ownerId).maybeSingle();
+        if (data) return data;
+    }
+    const { data } = await admin.from('settings').select(cols)
+        .eq('organization_id', orgId).order('created_at', { ascending: true }).limit(1).maybeSingle();
+    return data;
 }
 
 /** "Yarın, 30 Ekim Cuma" · hafta içi/uzak tarihte yalnız tarih. */
@@ -179,7 +204,7 @@ async function runJob(admin: Admin, job: Job, org: OrgCtx | null): Promise<Outco
 
     const { data } = await admin.from('reservations')
         .select('id, status, date, start_time, end_time, service, service_color, customer_name, customer_phone, '
-            + 'customer_id, customer_confirm, review_sent, staff_id, resource_id')
+            + 'customer_id, customer_confirm, review_sent, is_paid, rebook_sent, staff_id, resource_id')
         .eq('id', job.reservation_id).maybeSingle();
     const r = data as Reservation | null;
     if (!r) { await setJob(admin, job, 'cancelled', 'randevu silindi'); return 'cancelled'; }
@@ -201,6 +226,9 @@ async function runJob(admin: Admin, job: Job, org: OrgCtx | null): Promise<Outco
 
     if (job.kind === 'satisfaction') {
         if (r.status !== 'confirmed' && r.status !== 'completed') { await setJob(admin, job, 'cancelled', r.status); return 'cancelled'; }
+    } else if (job.kind === 'rebook') {
+        // Kapanış geri alındıysa (Kasa'da "Geri al") davet de gider.
+        if (r.status !== 'completed' || !r.is_paid) { await setJob(admin, job, 'cancelled', 'kapanış geri alındı'); return 'cancelled'; }
     } else if (r.status !== 'pending' && r.status !== 'confirmed') {
         await setJob(admin, job, 'cancelled', r.status); return 'cancelled';
     }
@@ -212,6 +240,8 @@ async function runJob(admin: Admin, job: Job, org: OrgCtx | null): Promise<Outco
     const send = (text: string, kind: WaKind) => sendWA(admin, {
         org: org.orgWa, phone: r.customer_phone!, text, kind, customerId: r.customer_id,
     });
+
+    if (job.kind === 'rebook') return runRebook(admin, job, org, r, ctx, today, send);
 
     if (job.kind === 'reminder_24h') {
         // Soru yalnız cevabı okuyan biri varken: asistan kapalıyken "Evet"e kimse bakmaz.
@@ -271,6 +301,40 @@ async function runJob(admin: Admin, job: Job, org: OrgCtx | null): Promise<Outco
     } else {
         await admin.from('wa_feedback').update({ status: 'expired' }).eq('reservation_id', r.id);
     }
+    return outcome;
+}
+
+// ── Sıradaki randevu daveti (132) ───────────────────────────────────────────
+// Gönderim anında yeniden bakılır: kasada bir sonraki randevusunu almış
+// olana ya da memnuniyet sorusuna 3 ve altı verene "yeniden gelir misiniz"
+// diye sorulmaz.
+
+async function runRebook(
+    admin: Admin, job: Job, org: OrgCtx, r: Reservation, ctx: M.Ctx, today: string,
+    send: (text: string, kind: WaKind) => Promise<SendResult>,
+): Promise<Outcome> {
+    if (!org.rebook.enabled) { await setJob(admin, job, 'skipped', 'kapalı'); return 'skipped'; }
+    if (r.rebook_sent) { await setJob(admin, job, 'skipped', 'daha önce gönderildi'); return 'skipped'; }
+
+    const { data: fb } = await admin.from('wa_feedback').select('rating').eq('reservation_id', r.id).maybeSingle();
+    if (typeof fb?.rating === 'number' && isUnhappy(fb.rating)) {
+        await setJob(admin, job, 'skipped', 'memnun kalmadı'); return 'skipped';
+    }
+
+    let upcoming = admin.from('reservations').select('date, start_time')
+        .eq('organization_id', job.organization_id).neq('id', r.id)
+        .in('status', ['pending', 'confirmed']).gte('date', today);
+    upcoming = r.customer_id ? upcoming.eq('customer_id', r.customer_id) : upcoming.eq('customer_phone', r.customer_phone!);
+    const { data: next } = await upcoming.limit(20);
+    const nowMin = istanbulMinute(Date.now());
+    const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+    if ((next ?? []).some((n: { date: string; start_time: string }) => n.date > today || toMin(hhmm(n.start_time)) > nowMin)) {
+        await setJob(admin, job, 'skipped', 'ileri randevusu var'); return 'skipped';
+    }
+
+    const res = await send(M.rebookInvite(ctx, { service: r.service, note: org.rebook.note, bookingUrl: org.bookingUrl }), 'rebook');
+    const outcome = await settle(admin, job, res);
+    if (outcome === 'sent') await admin.from('reservations').update({ rebook_sent: true }).eq('id', r.id);
     return outcome;
 }
 

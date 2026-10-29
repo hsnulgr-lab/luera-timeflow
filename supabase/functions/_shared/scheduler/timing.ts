@@ -7,7 +7,7 @@
 //
 // Saf modül: tests/wa-scheduler.test.mjs doğrudan import eder.
 
-export type JobKind = 'reminder_24h' | 'reminder_2h' | 'nudge' | 'satisfaction' | 'slot_offer';
+export type JobKind = 'reminder_24h' | 'reminder_2h' | 'nudge' | 'satisfaction' | 'slot_offer' | 'rebook';
 
 export type SendDecision =
     | { action: 'send' }
@@ -52,12 +52,15 @@ const H = 3600_000;
 
 // İşletme adına mesaj 09–21 arası. 2 saat hatırlatması randevuya bağlı:
 // sabah 07'den önce gitmez (08:00 randevusuna 06:00'da mesaj atılmaz).
+// Sıradaki randevu daveti acil değil: akşam kapanan hesabın daveti ertesi
+// sabah 10:00'a kayar, iki günden eski ziyarete hiç gitmez.
 const WINDOWS: Record<JobKind, Window> = {
     reminder_24h: { from: 9 * 60, to: 21 * 60, deadline: (s) => s - 3 * H },
     nudge: { from: 9 * 60, to: 21 * 60, deadline: (s) => s - 3 * H },
     reminder_2h: { from: 7 * 60, to: 22 * 60, deadline: (s) => s - 30 * 60_000 },
     satisfaction: { from: 9 * 60, to: 21 * 60, deadline: (_s, e) => e + 26 * H },
     slot_offer: { from: 9 * 60, to: 21 * 60, deadline: (s) => s - 1 * H },
+    rebook: { from: 10 * 60, to: 21 * 60, deadline: (_s, e) => e + 48 * H },
 };
 
 export function sendDecision(kind: JobKind, nowMs: number, startMs: number, endMs: number): SendDecision {
