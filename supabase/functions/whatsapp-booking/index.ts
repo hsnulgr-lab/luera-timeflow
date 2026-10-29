@@ -12,7 +12,7 @@ import {
     availabilityFor, availableDays, formatDateTr as fmtDate, minToTime, timeToMin, weekdayOf,
     type WorkingHour as WH,
 } from '../_shared/booking/slots.ts';
-import { detectConfirm, detectIntent, detectListChoice, inboundKind, senderJid, unwrapMessage, type WaMessage } from '../_shared/booking/intent.ts';
+import { detectConfirm, detectIntent, detectListChoice, inboundKind, senderJid } from '../_shared/booking/intent.ts';
 import { assignResources } from '../_shared/booking/resources.ts';
 import { parseReceiptEvent, receiptPatch } from '../_shared/booking/receipts.ts';
 import { EMPTY_EXTRACTION, extractWithAi, type Extraction, type Turn } from '../_shared/booking/ai.ts';
@@ -87,7 +87,7 @@ function isDirectChat(jid: string): boolean {
     return jid.endsWith('@s.whatsapp.net') || jid.endsWith('@lid');
 }
 
-function mediaLabel(m: WaMessage | undefined): string {
+function mediaLabel(m: Record<string, unknown> | undefined): string {
     return m?.documentMessage ? '[dosya]' : '[görsel]';
 }
 
@@ -140,21 +140,16 @@ Deno.serve(async (req: Request) => {
         const fromMe = d.key?.fromMe === true;
         const remoteJid: string = d.key?.remoteJid || '';
         const providerMsgId: string = d.key?.id || '';
-        // Kaybolan/düzenlenmiş mesaj zarfı açılır; metin içeride (intent.ts).
-        const msg = unwrapMessage(d.message);
-        const text: string = (msg?.conversation || msg?.extendedTextMessage?.text || '').trim();
+        const text: string = (d.message?.conversation || d.message?.extendedTextMessage?.text || '').trim();
         // Sesli mesaj Türkiye'de çok yaygın; okuyamıyoruz ama sessiz kalmak
         // müşteriyi cevapsız bırakıyordu.
         const hasMedia = Boolean(
-            msg?.audioMessage || msg?.imageMessage
-            || msg?.videoMessage || msg?.documentMessage
-            || msg?.stickerMessage,
+            d.message?.audioMessage || d.message?.imageMessage
+            || d.message?.videoMessage || d.message?.documentMessage
+            || d.message?.stickerMessage,
         );
 
-        if (!instance) {
-            console.log('whatsapp-booking okunamadı', JSON.stringify({ event: payload.event ?? '-', instance: 'yok', top: Object.keys(payload).slice(0, 12) }));
-            return ok({ skipped: true });
-        }
+        if (!instance) return ok({ skipped: true });
 
         // Teslimat makbuzu mu? Kendi gönderdiğimiz mesajın durumu olduğu için
         // fromMe=true gelir ve aşağıdaki eleme onu düşürürdü. Ayrıştırma saf ve
@@ -165,17 +160,7 @@ Deno.serve(async (req: Request) => {
         // işletmede botu o müşteri için susturur (130). Org ve sır çözüldükten
         // sonra işlenir; eski botta hiçbir etkisi yok.
         const ownerTyped = fromMe && receipts.length === 0 && isDirectChat(remoteJid) && Boolean(text || hasMedia);
-        if (receipts.length === 0 && msgKind === 'skip' && !ownerTyped) {
-            // Atlanan olayın biçimi iz bırakır (içerik değil): yeniden bağlanan
-            // hatta müşteri mesajı "metin yok" sayılıp kayboluyordu.
-            if (!remoteJid.includes('@g.us')) {
-                console.log('whatsapp-booking okunamadı', JSON.stringify({
-                    event: payload.event ?? '-', fromMe, jid: remoteJid.replace(/^\d+/, '#'),
-                    type: d.messageType ?? '-', keys: Object.keys(d.message ?? {}), data: Object.keys(d).slice(0, 12),
-                }));
-            }
-            return ok({ skipped: true });
-        }
+        if (receipts.length === 0 && msgKind === 'skip' && !ownerTyped) return ok({ skipped: true });
         // Numarayı tek biçime çevir — log, kota ve müşteri eşleşmesi buna dayanır.
         // LID'li gönderende numara ayrı alanda gelir (senderJid); numarasız
         // mesaja cevap verilemez, sessizce geçilir.
@@ -364,14 +349,14 @@ Deno.serve(async (req: Request) => {
             if (route === 'silent') return ok({ skipped: 'agent_test_only' });
             if (route === 'agent') {
                 if ((lastHour ?? 0) > AGENT_FLOOD_PER_HOUR) return ok({ skipped: 'agent_flood' });
-                const audio = msg?.audioMessage;
+                const audio = d.message?.audioMessage;
                 const { error: inboxErr } = await admin.from('wa_inbox').insert({
                     organization_id: orgId,
                     phone,
                     remote_jid: remoteJid || null,
                     provider_msg_id: providerMsgId || null,
                     kind: msgKind === 'text' ? 'text' : audio ? 'audio' : 'media',
-                    body: msgKind === 'text' ? text : audio ? null : mediaLabel(msg),
+                    body: msgKind === 'text' ? text : audio ? null : mediaLabel(d.message),
                     // Sesin indirme anahtarları; wa-agent döküm için Evolution'dan ister.
                     media: audio ? { key: d.key, message: { audioMessage: audio } } : null,
                     push_name: String(d.pushName || '').trim() || null,

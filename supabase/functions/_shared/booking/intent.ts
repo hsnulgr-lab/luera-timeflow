@@ -143,40 +143,6 @@ export function inboundKind(payload: {
 }
 
 /**
- * Mesajın asıl gövdesi. WhatsApp metni zarfla da gönderebiliyor: kaybolan
- * mesaj (`ephemeralMessage`), tek görümlük, düzenlenmiş, açıklamalı belge,
- * kendi cihazından giden. Zarf açılmazsa metin bulunamıyor ve mesaj sessizce
- * atlanıyordu (hat yeniden bağlandıktan sonra canlıda görüldü, 2026-10-30).
- */
-export interface WaMessage {
-    conversation?: string;
-    extendedTextMessage?: { text?: string };
-    audioMessage?: unknown;
-    imageMessage?: unknown;
-    videoMessage?: unknown;
-    documentMessage?: unknown;
-    stickerMessage?: unknown;
-    ephemeralMessage?: { message?: WaMessage };
-    viewOnceMessage?: { message?: WaMessage };
-    viewOnceMessageV2?: { message?: WaMessage };
-    documentWithCaptionMessage?: { message?: WaMessage };
-    editedMessage?: { message?: WaMessage };
-    deviceSentMessage?: { message?: WaMessage };
-}
-
-export function unwrapMessage(m: WaMessage | null | undefined): WaMessage | undefined {
-    let cur = m ?? undefined;
-    for (let i = 0; i < 4 && cur; i++) {
-        const inner = cur.ephemeralMessage?.message || cur.viewOnceMessage?.message
-            || cur.viewOnceMessageV2?.message || cur.documentWithCaptionMessage?.message
-            || cur.editedMessage?.message || cur.deviceSentMessage?.message;
-        if (!inner) break;
-        cur = inner;
-    }
-    return cur;
-}
-
-/**
  * Gönderenin numaralı JID'i. Yeni WhatsApp sürümleri numarayı gizleyen bir
  * kimlikle (`…@lid`) gönderebiliyor; numara o zaman `remoteJidAlt` /
  * `senderPn`'de gelir. Eskiden `remoteJid` doğrudan numara sanılıyordu: LID'li

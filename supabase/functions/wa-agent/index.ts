@@ -18,7 +18,6 @@ import {
     costUsd, needsNewEpisode, sanitizeForWhatsApp, shortRef, supportsMidSystem,
     type AgentConfig, type UsageTotals,
 } from '../_shared/agent/guard.ts';
-import { buildChain, callOpenAICompat, ProviderError, type Msg, type Provider } from '../_shared/agent/fallback.ts';
 import { loadUpcoming, openProposal, runTool, type TurnCtx } from './handlers.ts';
 
 // ============================================================
@@ -38,9 +37,6 @@ import { loadUpcoming, openProposal, runTool, type TurnCtx } from './handlers.ts
 //   4. Claude: sabit kurallar + işletme profili (önbellekli) + geçmiş + tur
 //      bağlamı → araçlar → cevap. En çok 6 çağrı, ~40 sn.
 //   5. Cevabı sendWA ile yolla, geçmişi olduğu gibi sakla, maliyeti yaz.
-//
-// Yedek kulübesi (fallback.ts): Claude cevap veremezse tur OpenRouter'daki
-// bedava modelle, o da düşerse Groq'la sürer; anahtarı olmayan atlanır.
 //
 // Randevuyu model yazmaz: araçlar öneri açar, müşteri sonraki mesajında
 // onaylarsa kod uygular ve onay mesajını şablondan yollar (handlers.ts).
@@ -77,13 +73,6 @@ const RUN_BUDGET_MS = 40_000;
 const workerLeftMs = () => WORKER_BORN + WORKER_LIFETIME_MS - Date.now();
 const MAX_CALLS = 6;
 const MAX_TOKENS = 4096;
-/**
- * Claude'un tek çağrısına tanınan süre. Takılırsa yedeğe zaman kalsın: tur
- * bütçesi ~40 sn, normal çağrı 5–10 sn.
- */
-const CLAUDE_CALL_MS = 25_000;
-/** Yedeğin tek çağrısı; bedava katmanlar yoğunlukta yavaşlıyor. */
-const FALLBACK_CALL_MS = 20_000;
 // Sonnet 5.5: Opus'a yakın kalite, yarı fiyat (2026-10-29 kararı: maliyet).
 // İşletme bazında agent_config.model, genelde WA_MODEL_CUSTOMER ile değişir.
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
@@ -364,22 +353,15 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
         firstContact = true;
     }
 
-    const model = cfg.model || (await getSecret(admin, 'WA_MODEL_CUSTOMER')) || DEFAULT_MODEL;
-    const effort = cfg.effort || (await getSecret(admin, 'WA_EFFORT_CUSTOMER')) || DEFAULT_EFFORT;
-    const [claudeKey, openrouterKey, openrouterModel, groqKey, groqModel] = await Promise.all([
-        getSecret(admin, 'ANTHROPIC_API_KEY'),
-        getSecret(admin, 'OPENROUTER_API_KEY'),
-        getSecret(admin, 'WA_FALLBACK_MODEL'),
-        getSecret(admin, 'GROQ_API_KEY'),
-        getSecret(admin, 'WA_GROQ_MODEL'),
-    ]);
-    const chain = buildChain({ claudeModel: model, claudeKey, openrouterKey, openrouterModel, groqKey, groqModel });
-    if (chain.length === 0) {
-        console.error('wa-agent: hiçbir model anahtarı tanımlı değil');
+    const apiKey = await getSecret(admin, 'ANTHROPIC_API_KEY');
+    if (!apiKey) {
+        console.error('wa-agent: ANTHROPIC_API_KEY tanımlı değil');
         await send(agentFallback());
         await markProcessed();
         return;
     }
+    const model = cfg.model || (await getSecret(admin, 'WA_MODEL_CUSTOMER')) || DEFAULT_MODEL;
+    const effort = cfg.effort || (await getSecret(admin, 'WA_EFFORT_CUSTOMER')) || DEFAULT_EFFORT;
 
     // ── İstem ───────────────────────────────────────────────────────────────
     const orgHours: WorkingHour[] = settings?.working_hours || [];
@@ -464,72 +446,40 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
     markReadAndType(admin, orgWa, rows, phone);
 
     // ── Model döngüsü ───────────────────────────────────────────────────────
-    // Claude yeniden denenmez: düşen sağlayıcıda beklemek yerine yedeğe geçilir.
-    const client = claudeKey ? new Anthropic({ apiKey: claudeKey, maxRetries: 0 }) : null;
+    const client = new Anthropic({ apiKey, maxRetries: 1 });
     const system = [
         { type: 'text', text: RULES },
         { type: 'text', text: profile.text, cache_control: { type: 'ephemeral' } },
     ];
-    const fallbackSystem = `${RULES}\n\n${profile.text}`;
     const usage: UsageTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-    const fallbackUsage = { input: 0, output: 0 };
     let calls = 0;
     let finalText = '';
     let stopReason: string | null = null;
     let error: string | null = null;
-    let slot = 0;
-    let answeredBy: Provider | null = null;
-    const failures: string[] = [];
     const deadline = Math.min(t0 + RUN_BUDGET_MS, WORKER_BORN + WORKER_LIFETIME_MS - SAFETY_MS);
-
-    const callClaude = (remaining: number) => client!.beta.messages.create({
-        model,
-        max_tokens: MAX_TOKENS,
-        betas: ['thinking-binding-controls-2026-08-01'],
-        // Geçmiş bayt bayt korunuyor; yine de önek bir gün kayarsa istek
-        // 400 olmasın, eski düşünce blokları düşürülsün.
-        thinking: { type: 'adaptive', block_binding: { prefix_mismatch_behavior: 'drop_block' } },
-        output_config: { effort },
-        cache_control: { type: 'ephemeral' },
-        system,
-        tools: TOOLS,
-        messages,
-    } as never, { timeout: Math.min(remaining, CLAUDE_CALL_MS) }) as unknown as Promise<AgentResponse>;
 
     try {
         while (calls < MAX_CALLS) {
             const remaining = deadline - Date.now();
             if (remaining < 4000) { error = 'deadline'; break; }
-            const provider = chain[slot];
-            let resp: AgentResponse;
-            try {
-                if (provider.kind === 'claude') {
-                    resp = await callClaude(remaining);
-                    usage.input += resp.usage?.input_tokens ?? 0;
-                    usage.output += resp.usage?.output_tokens ?? 0;
-                    usage.cacheRead += resp.usage?.cache_read_input_tokens ?? 0;
-                    usage.cacheWrite += resp.usage?.cache_creation_input_tokens ?? 0;
-                } else {
-                    const reply = await callOpenAICompat(provider, {
-                        system: fallbackSystem, history: messages as Msg[], tools: TOOLS,
-                    }, Math.min(remaining, FALLBACK_CALL_MS));
-                    fallbackUsage.input += reply.usage.input;
-                    fallbackUsage.output += reply.usage.output;
-                    resp = { content: reply.content as AgentBlock[], stop_reason: reply.stop_reason };
-                }
-            } catch (e) {
-                // Kredi bitti, kesinti, yoğunluk, zaman aşımı: sıradaki oyuncu.
-                const code = e instanceof ProviderError ? e.code
-                    : e instanceof Anthropic.APIError ? `claude_api_${(e as { status?: number }).status ?? 'error'}`
-                    : `${provider.kind}_exception`;
-                failures.push(code);
-                console.error('wa-agent model düştü', code, e);
-                if (slot + 1 < chain.length) { slot++; continue; }
-                error = code.startsWith('claude_api_') ? code.slice('claude_'.length) : code;
-                break;
-            }
+            const resp = await client.beta.messages.create({
+                model,
+                max_tokens: MAX_TOKENS,
+                betas: ['thinking-binding-controls-2026-08-01'],
+                // Geçmiş bayt bayt korunuyor; yine de önek bir gün kayarsa istek
+                // 400 olmasın, eski düşünce blokları düşürülsün.
+                thinking: { type: 'adaptive', block_binding: { prefix_mismatch_behavior: 'drop_block' } },
+                output_config: { effort },
+                cache_control: { type: 'ephemeral' },
+                system,
+                tools: TOOLS,
+                messages,
+            } as never, { timeout: remaining }) as unknown as AgentResponse;
             calls++;
-            answeredBy = provider;
+            usage.input += resp.usage?.input_tokens ?? 0;
+            usage.output += resp.usage?.output_tokens ?? 0;
+            usage.cacheRead += resp.usage?.cache_read_input_tokens ?? 0;
+            usage.cacheWrite += resp.usage?.cache_creation_input_tokens ?? 0;
             stopReason = resp.stop_reason;
             messages.push({ role: 'assistant', content: resp.content });
 
@@ -550,7 +500,6 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
                 continue;
             }
             if (resp.stop_reason === 'pause_turn') continue;
-            // Reddi yedeğe devretmek reddi delmek olur: salona devredilir.
             if (resp.stop_reason === 'refusal') { error = 'refusal'; break; }
             finalText = resp.content
                 .filter((b) => b.type === 'text')
@@ -560,8 +509,9 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
         }
         if (calls >= MAX_CALLS && !finalText && !error) error = 'max_calls';
     } catch (e) {
-        error = 'exception';
-        console.error('wa-agent döngü hatası', e);
+        const status = e instanceof Anthropic.APIError ? (e as { status?: number }).status : undefined;
+        error = e instanceof Anthropic.APIError ? `api_${status ?? 'error'}` : 'exception';
+        console.error('wa-agent model error', e);
     }
 
     // ── Cevap ───────────────────────────────────────────────────────────────
@@ -591,13 +541,10 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
     // İstek reddedildiyse (4xx) geçmiş sıfırlanır: bozuk bir geçmişi her turda
     // yeniden göndermek aynı hatayı sonsuza kadar tekrarlatır. Zaman aşımı ve
     // 5xx geçicidir; geçmiş korunur, müşteri derdini baştan anlatmaz.
-    // Yedek cevap verdiyse geçmiş sağlam demektir; korunur.
-    const apiFailed = !answeredBy && Boolean(error && /^api_4\d\d$/.test(error));
+    const apiFailed = Boolean(error && /^api_4\d\d$/.test(error));
     const at = nowIso();
     await admin.from('wa_conversations').update({
         customer_id: ctx.customer?.id ?? conv.customer_id,
-        // Asıl model yazılır: yedeğin adı yazılsaydı Claude dönünce "model
-        // değişti" sayılıp geçmiş sıfırlanırdı.
         model,
         prefix_hash: apiFailed ? null : prefixHash,
         messages_json: apiFailed ? '[]' : JSON.stringify(messages),
@@ -611,19 +558,17 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
     await admin.from('wa_agent_runs').insert({
         organization_id: orgId,
         conversation_id: conv.id,
-        // Cevabı kim verdi; yedeğe düşüldüyse sebep error'da ("yedek: claude_api_400").
-        model: answeredBy?.model ?? model,
+        model,
         calls,
-        input_tokens: usage.input + fallbackUsage.input,
-        output_tokens: usage.output + fallbackUsage.output,
+        input_tokens: usage.input,
+        output_tokens: usage.output,
         cache_read_tokens: usage.cacheRead,
         cache_write_tokens: usage.cacheWrite,
-        // Yalnız Claude ücretli; yedekler bedava katman.
         cost_usd: costUsd(model, usage),
         tools: ctx.toolsUsed,
         stop_reason: stopReason,
         duration_ms: Date.now() - t0,
-        error: error ?? (failures.length ? `yedek: ${failures.join(' > ')}` : null),
+        error,
     });
 }
 
