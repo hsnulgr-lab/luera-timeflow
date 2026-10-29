@@ -22,6 +22,8 @@
 //
 // Saf modül: tests/wa-booking.test.mjs doğrudan import eder.
 
+import { timeLocative } from './tr.ts';
+
 export interface Comms {
     persona: string;
     audience: string;
@@ -412,7 +414,7 @@ export function tooLateToChange(c: Ctx, phone?: string | null): string {
 
 /** Müşteri hatırlatmaya "Evet" dedi. Tek satır — konuşmayı uzatmaz. */
 export function reminderConfirmed(c: Ctx, o: { dateLabel: string; time: string }): string {
-    return `Harika, sizi ${o.dateLabel} saat ${o.time}'de bekliyoruz. ${c.comms.emoji}`;
+    return `Harika, sizi ${o.dateLabel} saat ${o.time}${timeLocative(o.time)} bekliyoruz. ${c.comms.emoji}`;
 }
 
 /** Müşteri "Hayır" dedi → randevu iptal edildi ve yeri serbest bırakıldı. */

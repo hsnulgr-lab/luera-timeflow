@@ -8,7 +8,7 @@ import { greetingName } from '../_shared/booking/identity.ts';
 import { formatDateTr } from '../_shared/booking/slots.ts';
 import { relativeDayLabel, timeLocativeKi } from '../_shared/booking/tr.ts';
 import {
-    istanbulMs, nudgeDueMs, OFFER_TTL_MIN, sendDecision, type JobKind,
+    istanbulMs, nudgeDueMs, OFFER_TTL_MIN, sendDecision, todayIstanbul, type JobKind,
 } from '../_shared/scheduler/timing.ts';
 
 // ============================================================
@@ -154,10 +154,6 @@ async function loadOrg(admin: Admin, orgId: string): Promise<OrgCtx | null> {
 function dateLabel(date: string, todayISO: string): string {
     const rel = relativeDayLabel(date, todayISO);
     return rel === 'Bugün' || rel === 'Yarın' ? `${rel}, ${formatDateTr(date)}` : formatDateTr(date);
-}
-
-function todayIstanbul(): string {
-    return new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
 }
 
 /** Gönderim sonucunu işe yansıtır. Kuyruğa alınan (079) gönderilmiş sayılır. */

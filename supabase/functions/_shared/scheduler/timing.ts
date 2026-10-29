@@ -30,6 +30,11 @@ export function nextIstanbulHour(ms: number, hour: number): number {
     return target > ms ? target : target + 86_400_000;
 }
 
+/** İstanbul'da bugünün tarihi (YYYY-MM-DD). */
+export function todayIstanbul(nowMs = Date.now()): string {
+    return new Date(nowMs + TR_OFFSET_MS).toISOString().slice(0, 10);
+}
+
 /** "2026-10-31" + "12:00" → İstanbul saatiyle o an (ms). */
 export function istanbulMs(date: string, time: string): number {
     return Date.parse(`${date}T${String(time).slice(0, 5)}:00+03:00`);

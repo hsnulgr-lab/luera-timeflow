@@ -307,15 +307,18 @@ Deno.serve(async (req: Request) => {
         // vermez — DUR/BAŞLAT yukarıda işlendiği için opt-out hakkı korunur.
         // Varsayılan false: istemcideki useWhatsApp ile aynı (bilinçli açılmalı).
         // ── Zamanlayıcının sorularına cevap (131) ────────────────────────────
-        // Bekleme listesi teklifine "Evet", memnuniyet sorusuna "5": cevabı kod
-        // okur, bota gitmez. Asistan anahtarından ÖNCE: memnuniyet ve teklif
-        // yapay zekâ değil, asistan kapalı işletmede de çalışır.
+        // Bekleme listesi teklifine "Evet", hatırlatmaya "Hayır", memnuniyet
+        // sorusuna "5": cevabı kod okur, bota gitmez — ajanın test listesi ya da
+        // kredisi bu cevapları kaybettirmez. Asistan anahtarından ÖNCE:
+        // memnuniyet ve teklif yapay zekâ değil, asistan kapalı işletmede de
+        // çalışır.
         if (msgKind === 'text' && featureOn(orgWa, 'scheduler_v2', false)) {
             const handled = await handleScheduledReply(admin, {
                 orgId, phone, text, msgCtx: msgCtx(),
                 ownerId: org?.owner_id ?? null,
                 autoConfirm: Boolean(org?.booking_auto_confirm),
                 reviewUrl: org?.google_review_url ?? null,
+                assistantOn: featureOn(orgWa, 'assistant', false),
             });
             if (handled) return reply(handled.text, handled.kind);
         }

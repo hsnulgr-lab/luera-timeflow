@@ -1,7 +1,8 @@
 // Zamanlayıcının sorduğu sorulara gelen cevaplar (131).
 //
-// Bekleme listesi teklifine "Evet" ve memnuniyet sorusuna "5" botun (eski ya
-// da Claude) işi değil: cevabı kod yorumlar, kaydı kod yazar. whatsapp-booking
+// Bekleme listesi teklifine "Evet", hatırlatmaya "Hayır" ve memnuniyet
+// sorusuna "5" botun (eski ya da Claude) işi değil: cevabı kod yorumlar, kaydı
+// kod yazar. whatsapp-booking
 // bunu bota göndermeden ÖNCE çağırır; tanınmayan mesaj null döner ve normal
 // akışa gider ("saat 5te gelebilir miyim" puan sanılmaz, feedback.ts).
 //
@@ -17,12 +18,15 @@ import { isReservationConflict } from '../booking/reservationErrors.ts';
 import { firstNameOf, notifyOwner } from '../notify.ts';
 import { findCustomerByPhone } from '../wa.ts';
 import { isUnhappy, parseRating, shouldSendReviewLink } from './feedback.ts';
+import { todayIstanbul } from './timing.ts';
 
 const APP_ORIGIN = 'https://timeflow.lueratech.com';
 /** Süresi dolmuş teklife bu kadar içinde gelen "evet"e "süresi doldu" denir. */
 const LATE_REPLY_MS = 2 * 3600_000;
 /** Memnuniyet sorusu bu kadar süre cevap bekler. */
 const FEEDBACK_OPEN_MS = 48 * 3600_000;
+/** Kuru "Evet/Hayır" yalnız son giden mesajımız bunlardan biriyse hatırlatmanın cevabıdır. */
+export const REMINDER_REPLY_KINDS = ['reminder_24h', 'nudge', 'reminder_2h'];
 
 export interface ReplyContext {
     orgId: string;
@@ -32,6 +36,8 @@ export interface ReplyContext {
     ownerId: string | null;
     autoConfirm: boolean;
     reviewUrl: string | null;
+    /** Hatırlatma yalnız asistan açıkken "Gelebilecek misiniz?" diye sorar. */
+    assistantOn: boolean;
 }
 
 export interface ScheduledReply {
@@ -53,7 +59,9 @@ interface OfferRow {
 
 export async function handleScheduledReply(admin: Admin, o: ReplyContext): Promise<ScheduledReply | null> {
     const phone = normalizePhone(o.phone) ?? o.phone;
-    return (await handleOfferReply(admin, o, phone)) ?? (await handleFeedbackReply(admin, o, phone));
+    return (await handleOfferReply(admin, o, phone))
+        ?? (await handleReminderReply(admin, o, phone))
+        ?? (await handleFeedbackReply(admin, o, phone));
 }
 
 // ── Bekleme listesi teklifi ─────────────────────────────────────────────────
@@ -131,6 +139,52 @@ async function handleOfferReply(admin: Admin, o: ReplyContext, phone: string): P
         }),
         kind: 'booking',
     };
+}
+
+// ── Hatırlatmaya cevap ──────────────────────────────────────────────────────
+// 24 saat hatırlatması "Gelebilecek misiniz?" diye soruyor. Cevap bota
+// bırakılınca kayboluyordu: ajan test listesindeki numarayla sınırlıyken öteki
+// müşteriler susturuluyor, kredisi biten model de "aksaklık" diyor. Yalnız son
+// giden mesajımız hatırlatma ya da dürtmeyse — arada bot başka bir soru
+// sorduysa ("Onaylıyor musunuz?") "evet" ona aittir.
+
+async function handleReminderReply(admin: Admin, o: ReplyContext, phone: string): Promise<ScheduledReply | null> {
+    if (!o.assistantOn) return null;
+    const answer = detectConfirm(o.text);
+    if (!answer) return null;
+    const { data: last } = await admin.from('wa_message_log')
+        .select('kind')
+        .eq('organization_id', o.orgId).eq('phone', phone)
+        .eq('direction', 'out').eq('status', 'sent')
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (!last || !REMINDER_REPLY_KINDS.includes(String(last.kind))) return null;
+
+    // Telefon randevuda her biçimde yazılmış olabilir ("0552 …", "+90…");
+    // hatırlatılmış, cevaplanmamış ileri randevular az olduğu için kodda eşlenir.
+    const { data: rows } = await admin.from('reservations')
+        .select('id, date, start_time, customer_phone')
+        .eq('organization_id', o.orgId).is('customer_confirm', null)
+        .or('reminder_24h_sent.eq.true,reminder_2h_sent.eq.true')
+        .gte('date', todayIstanbul()).in('status', ['pending', 'confirmed'])
+        .order('date', { ascending: true }).order('start_time', { ascending: true }).limit(50);
+    const r = (rows ?? []).find((x) => normalizePhone(String(x.customer_phone ?? '')) === phone);
+    if (!r) return null;
+
+    const at = new Date().toISOString();
+    if (answer === 'yes') {
+        await admin.from('reservations').update({ customer_confirm: 'yes', customer_confirm_at: at }).eq('id', r.id);
+        return {
+            text: M.reminderConfirmed(o.msgCtx, { dateLabel: formatDateTr(r.date), time: String(r.start_time).slice(0, 5) }),
+            kind: 'booking',
+        };
+    }
+    // "Hayır" = gelmeyecek, yer boşalır. Gerisi tetikleyicilerde: 131 bekleyen
+    // hatırlatmaları iptal eder ve bekleme listesine sırayla teklif işini
+    // yazar, işletmeye haber 118'den gider.
+    await admin.from('reservations')
+        .update({ status: 'cancelled', customer_confirm: 'no', customer_confirm_at: at })
+        .eq('id', r.id).in('status', ['pending', 'confirmed']);
+    return { text: M.reminderDeclined(o.msgCtx), kind: 'booking' };
 }
 
 // ── Memnuniyet ──────────────────────────────────────────────────────────────

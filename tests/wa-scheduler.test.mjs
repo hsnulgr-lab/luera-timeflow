@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
-    istanbulMinute, istanbulMs, nextIstanbulHour, nudgeDueMs, sendDecision,
+    istanbulMinute, istanbulMs, nextIstanbulHour, nudgeDueMs, sendDecision, todayIstanbul,
 } from '../supabase/functions/_shared/scheduler/timing.ts';
 import { isUnhappy, parseRating, shouldSendReviewLink } from '../supabase/functions/_shared/scheduler/feedback.ts';
 import { relativeDayLabel, timeLocative, timeLocativeKi } from '../supabase/functions/_shared/booking/tr.ts';
@@ -25,6 +25,8 @@ test('istanbul saati: UTC+3, sıradaki saat bugün geçtiyse yarın', () => {
     assert.equal(istanbulMinute(Date.parse('2026-10-29T00:15:00Z')), 3 * 60 + 15);
     assert.equal(nextIstanbulHour(at('2026-10-29', '03:00'), 9), at('2026-10-29', '09:00'));
     assert.equal(nextIstanbulHour(at('2026-10-29', '22:00'), 9), at('2026-10-30', '09:00'));
+    // UTC'de hâlâ dün, İstanbul'da bugün.
+    assert.equal(todayIstanbul(Date.parse('2026-10-29T22:30:00Z')), '2026-10-30');
 });
 
 test('24 saat: gece zamanı gelen sabaha kayar, randevuya 3 saatten az kaldıysa gitmez', () => {
@@ -159,6 +161,27 @@ test('cevap işleyicisi bottan ve asistan anahtarından önce', () => {
     const access = src.indexOf("if (!access.ok) return ok({ skipped: 'no_subscription' });");
     assert.ok(access > 0 && handler > access && assistant > handler);
     assert.match(src, /if \(msgKind === 'text' && featureOn\(orgWa, 'scheduler_v2', false\)\) \{/);
+});
+
+test('hatırlatmaya Evet/Hayır: kod okur, yalnız son giden mesaj hatırlatmaysa ve asistan açıkken', () => {
+    const src = read('supabase/functions/_shared/scheduler/replies.ts');
+    // Sıra: teklif → hatırlatma → memnuniyet.
+    const offer = src.indexOf('(await handleOfferReply(admin, o, phone))');
+    const reminder = src.indexOf('?? (await handleReminderReply(admin, o, phone))');
+    const feedback = src.indexOf('?? (await handleFeedbackReply(admin, o, phone))');
+    assert.ok(offer > 0 && reminder > offer && feedback > reminder);
+    const fn = src.slice(src.indexOf('async function handleReminderReply'), src.indexOf('// ── Memnuniyet'));
+    assert.match(fn, /if \(!o\.assistantOn\) return null;/);
+    assert.match(fn, /\.eq\('direction', 'out'\)\.eq\('status', 'sent'\)/);
+    assert.match(fn, /REMINDER_REPLY_KINDS\.includes\(String\(last\.kind\)\)/);
+    assert.match(fn, /\.is\('customer_confirm', null\)/);
+    assert.match(fn, /\.update\(\{ status: 'cancelled', customer_confirm: 'no', customer_confirm_at: at \}\)/);
+    assert.match(src, /REMINDER_REPLY_KINDS = \['reminder_24h', 'nudge', 'reminder_2h'\]/);
+    const booking = read('supabase/functions/whatsapp-booking/index.ts');
+    assert.match(booking, /assistantOn: featureOn\(orgWa, 'assistant', false\),/);
+    const ctx = { comms: MSG.NEUTRAL_COMMS, businessName: 'Test Salon 2', firstName: 'Nisa' };
+    assert.match(MSG.reminderConfirmed(ctx, { dateLabel: '31 Ekim Cumartesi', time: '10:00' }), /saat 10:00'da bekliyoruz/);
+    assert.match(MSG.reminderConfirmed(ctx, { dateLabel: '31 Ekim Cumartesi', time: '12:00' }), /saat 12:00'de bekliyoruz/);
 });
 
 test('wa-scheduler: yalnız zamanlayıcı çağırır, bayat işi göndermez, tek gönderim kapısı', () => {
