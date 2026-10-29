@@ -182,7 +182,15 @@ test('/kurulum ulaşılabilir', () => {
     assert.match(layout, /<SetupBanner \/>/);
 });
 
-test('şerit sihirbazı KALDIĞI EKRANDAN açar, tek sayaçtan okur', () => {
+test('kurulum balonu yüzer: sayfanın akışına girmez, telefonda kenarlardan 16 px', () => {
+    // Tam genişlik şerit her sayfanın tepesinde yer açıp düzeni bozuyordu (2026-10-29).
+    const css = readFileSync(new URL('../src/pages/setupWizard.css', import.meta.url), 'utf8');
+    assert.match(css, /\.kv-strip-w \{ position: fixed; right: 24px; bottom: 24px; z-index: 30;/);
+    assert.match(css, /\.kv-strip \{[^}]*border-radius: 999px;/);
+    assert.match(css, /@media \(max-width: 560px\) \{\s*\.kv-strip-w \{ left: 16px; right: 16px; bottom: 16px;/);
+});
+
+test('balon sihirbazı KALDIĞI EKRANDAN açar, tek sayaçtan okur', () => {
     assert.match(banner, /\/kurulum\?adim=\$\{progress\.next\}/);
     assert.match(banner, /screenProgress\(/);
     assert.doesNotMatch(banner, /percent|%\{/, 'v1 yüzdesi geri geldi');

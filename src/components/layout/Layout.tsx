@@ -120,12 +120,11 @@ export const Layout = () => {
                         </button>
                     </div>
                 )}
-                {/* Kurulum yarıda kaldıysa: /kurulum sayfası VARDI ama hiçbir
-                    yerden ulaşılmıyordu. Yeni org bomboş uygulamaya düşüyordu. */}
-                {/* Deneme bitiyor / ödeme alınamadı. Kurulum şeridinin
-                    ÜSTÜNDE: parası kesilmek üzere olan bir işletme için
-                    kurulumun %60'ı ikinci derece bilgidir. */}
+                {/* Deneme bitiyor / ödeme alınamadı: sayfanın tepesinde, akışın
+                    içinde — parası kesilmek üzere olan işletme bunu kaçırmamalı. */}
                 <SubscriptionBanner />
+                {/* Kurulum yarıda kaldıysa: /kurulum sayfası VARDI ama hiçbir
+                    yerden ulaşılmıyordu. Sağ altta yüzen balon; yer kaplamaz. */}
                 <SetupBanner />
                 <ErrorBoundary>
                     <Outlet />

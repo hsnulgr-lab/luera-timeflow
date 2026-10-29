@@ -3,7 +3,7 @@
 
    Belirteçler tasarımın kendi değerleri (Ayarlar v1 ile aynı aile); .kv-t
    kökünün data-theme'ine bağlı. Uygulamanın başka sayfasına sızmasın diye
-   her şey .kv (sihirbaz) ya da .kv-strip-w (uygulama içi şerit · Ş1) altında.
+   her şey .kv (sihirbaz) ya da .kv-strip-w (uygulama içi balon · Ş1) altında.
 
    Kırılımlar KAP sorgusuyla, tasarımdaki gibi: ≤1100 px etiket sütunu
    daralır, ≤800 px sorular ve sütunlar alt alta iner, ilerleme ikinci satıra
@@ -303,16 +303,33 @@
 
 /* ── Ş1 · uygulama içi şerit ──────────────────────────────────────────────── */
 
-.kv-strip-w { padding: 20px 32px 0; font-family: 'Hanken Grotesk', system-ui, -apple-system, sans-serif; color: var(--tx); font-variant-numeric: tabular-nums; line-height: normal; }
-.kv-strip { display: flex; align-items: center; gap: 18px; min-height: 68px; padding: 10px 10px 10px 20px; border-radius: 16px; background: var(--card); border: 1px solid var(--bd2); box-shadow: var(--sh); animation: kv-open 200ms cubic-bezier(.2,.8,.2,1) both; }
-.kv-strip .mp { display: flex; gap: 5px; }
-.kv-strip .mp i { width: 28px; height: 4px; border-radius: 9px; background: var(--bd2); }
+/* Sağ altta yüzen balon: sayfanın akışına girmez. Önceki tam genişlik şerit
+   her sayfanın tepesinde ~90 px yer açıyor, başlıkları aşağı itiyordu.
+   z-index 30: modallar (50+) ve telefondaki menü örtüsü (40) üstüne biner;
+   bildirim hapı üstte ortada, çakışmaz. */
+.kv-strip-w { position: fixed; right: 24px; bottom: 24px; z-index: 30; max-width: calc(100vw - 48px); font-family: 'Hanken Grotesk', system-ui, -apple-system, sans-serif; color: var(--tx); font-variant-numeric: tabular-nums; line-height: normal; }
+.kv-strip { display: flex; align-items: center; gap: 14px; padding: 6px 6px 6px 18px; border-radius: 999px; background: var(--card); border: 1px solid var(--bd2); box-shadow: var(--sh); animation: kv-rise 220ms cubic-bezier(.2,.8,.2,1) both; }
+.kv-strip .mp { display: flex; gap: 4px; flex: none; }
+.kv-strip .mp i { width: 14px; height: 4px; border-radius: 9px; background: var(--bd2); }
 .kv-strip .mp i.on { background: var(--tx); }
-.kv-strip .t { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.kv-strip .t b { font-size: 16px; font-weight: 800; }
-.kv-strip .t span { font-size: 15px; color: var(--tx2); font-weight: 600; }
-.kv-strip .ix { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--tx2); flex: none; }
+.kv-strip .t { min-width: 0; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+.kv-strip .t b { font-size: 15px; font-weight: 800; }
+.kv-strip .t span { font-size: 14.5px; color: var(--tx2); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.kv-strip .sm.btn { height: 40px; padding: 0 16px; border-radius: 999px; font-size: 14.5px; gap: 8px; }
+.kv-strip .sm.btn .i { width: 16px; height: 16px; }
+.kv-strip .ix { width: 36px; height: 36px; margin-left: -6px; border-radius: 999px; display: flex; align-items: center; justify-content: center; color: var(--tx2); flex: none; }
+.kv-strip .ix .i { width: 18px; height: 18px; }
 .kv-strip .ix:hover { background: var(--hov); color: var(--tx); }
+@keyframes kv-rise { from { opacity: 0; transform: translateY(8px); } }
+/* Telefon genişliği: kenarlardan 16 px, alt ortada. Çizgiler ve "Sırada: …"
+   sığmıyor (yarım kesik "Sıra…" kalıyordu); düğme sihirbazı zaten kalınan
+   ekranda açar. */
+@media (max-width: 560px) {
+  .kv-strip-w { left: 16px; right: 16px; bottom: 16px; max-width: none; }
+  .kv-strip { padding-left: 18px; }
+  .kv-strip .mp, .kv-strip .t span { display: none; }
+  .kv-strip .t { flex: 1; }
+}
 
 /* ── Kırılımlar ───────────────────────────────────────────────────────────── */
 

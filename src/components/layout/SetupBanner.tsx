@@ -8,13 +8,15 @@ import { SETUP_SCREENS, isSavedServiceId, screenProgress } from '@/lib/setupProg
 import { KurulumIkon, KurulumIkonlar } from '@/pages/kurulumIkonlar';
 import '@/pages/setupWizard.css';
 
-// Kurulum yarıda kaldıysa uygulamanın üstünde duran şerit (Kurulum v2 · Ş1).
+// Kurulum yarıda kaldıysa sağ altta yüzen balon (Kurulum v2 · Ş1). Önce
+// sayfanın tepesinde tam genişlik bir şeritti; her sayfada yer açıp düzeni
+// bozuyordu (kullanıcı, 2026-10-29). Balon sayfanın akışına girmez.
 //
 // Bunun olmaması bir zamanlar en somut boşluktu: /kurulum sayfası VARDI ama
 // hiçbir yerden ulaşılmıyordu. Yeni bir org bomboş uygulamaya düşüyor ve
 // kurulumun varlığından haberi olmuyordu.
 //
-// Tek sayaç: şeritteki üç parça, sihirbazın göstergesi ve bitiş aynı hesaptan
+// Tek sayaç: balondaki üç parça, sihirbazın göstergesi ve bitiş aynı hesaptan
 // (`screenProgress`) okur. "Devam et" kaldığı EKRANI açar, baştan başlatmaz.
 //
 // Kapatılabilir ama KALICI DEĞİL: gizleme bir güne yazılır, ertesi gün geri
@@ -31,7 +33,7 @@ export function SetupBanner() {
     const { orgId } = useAuth();
     const { settings, isSettingsLoading } = useReservations();
     const { connection, loading: waLoading } = useWhatsApp();
-    // İlk render'da okunur: efektle okumak şeridi bir kare için gösterip
+    // İlk render'da okunur: efektle okumak balonu bir kare için gösterip
     // gizliyor, kullanıcı her sayfa geçişinde bir titreme görüyordu.
     const [hidden, setHidden] = useState(() => localStorage.getItem(HIDE_KEY) === todayKey());
 
