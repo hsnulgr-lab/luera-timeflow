@@ -55,6 +55,18 @@ const defaultServices: Service[] = [
     { id: '5', name: 'Toplantı', duration: 90, color: '#CB5E84' },     // gül
 ];
 
+/**
+ * Dokunulmamış yer tutucu mu? Hizmeti olmayan işletmede ayarlar
+ * `defaultServices`'i taşır; Ayarlar'ın HERHANGİ bir bölümü kaydedince
+ * `updateSettings` onları yeni hizmet sanıp veritabanına yazıyordu
+ * (Kurulum v2 bulgusu, 2026-10-30). Kullanıcı birini düzenlediyse artık
+ * onun hizmetidir — yazılır.
+ */
+export function isUntouchedPlaceholder(s: Service): boolean {
+    const d = defaultServices.find((x) => x.id === s.id);
+    return !!d && s.name === d.name && s.duration === d.duration && s.color === d.color && !s.price;
+}
+
 const defaultSettings: Settings = {
     businessName: 'Luera TimeFlow',
     workingHours: [
@@ -1059,7 +1071,7 @@ function useReservationsState() {
         // dolayısıyla onlar otomatik olarak "yeni satır" (insert) sayılır.
         const existingIds = new Set((existingRows || []).map((r: any) => r.id as string));
         const toUpdate = newSettings.services.filter(s => existingIds.has(s.id));
-        const toInsert = newSettings.services.filter(s => !existingIds.has(s.id));
+        const toInsert = newSettings.services.filter(s => !existingIds.has(s.id) && !isUntouchedPlaceholder(s));
         const keepIds = new Set(toUpdate.map(s => s.id));
         const toDelete = [...existingIds].filter(id => !keepIds.has(id));
 
