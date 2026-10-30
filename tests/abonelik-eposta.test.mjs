@@ -374,7 +374,7 @@ test('paket ekranı ek süredeki salonu ana sayfaya ATMAZ (Durum 3 görünür)',
 test('girişten sonra paket ekranı: yalnız beyaz listedeki "sonra=abonelik", kayıtta değil', () => {
     const lp = code('src/pages/LoginPage.tsx');
     assert.match(lp, /const afterDest = planDest \?\? \(params\.get\('sonra'\) === 'abonelik' \? '\/abonelik\?kaynak=eposta' : null\);/);
-    assert.match(lp, /const dest = planDest \?\? \(kind === 'signup' \? '\/kurulum' : afterDest \?\? '\/'\);/);
+    assert.match(lp, /const dest = planDest \?\? to \?\? \(kind === 'signup' \? '\/kurulum' : afterDest \?\? '\/'\);/);
     assert.match(lp, /navigate\(afterDest \?\? '\/', \{ replace: true \}\);/, 'açık oturumla gelen de paket ekranına');
     assert.doesNotMatch(lp, /navigate\(params\.get\('sonra'\)/, 'parametre adres olarak kullanılmaz (açık yönlendirme)');
 });

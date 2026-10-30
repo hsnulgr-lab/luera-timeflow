@@ -94,7 +94,10 @@ test('hiçbir metin hesabın var olup olmadığını söylemiyor', () => {
 
 test('kayıtta kayıtlı e-posta: şifre uyarsa içeri + not, uymazsa kod ekranı', () => {
     assert.match(page, /identities\?\.length \?\? 0\) === 0/, 'otomatik onay kapalıyken gelen sahte kullanıcı tanınmıyor');
-    assert.match(page, /if \(!again\.error\) \{ enter\('existing'\); return; \}/);
+    assert.match(page, /if \(!again\.error\) \{ enter\('existing', to\); return; \}/);
+    // Kurulumu bitmemiş hesap ödeme duvarına değil kuruluma (2026-10-30).
+    assert.match(page, /const to = again\.error \? undefined : await setupDest\(again\.data\.user\?\.id\);/);
+    assert.match(page, /return path\.startsWith\('\/kurulum'\) \? path : undefined;/);
     assert.match(page, /Kod gelmediyse bu adresle zaten hesabınız olabilir/);
     assert.equal(METIN.existingAccount, 'Bu e-postayla zaten hesabınız var — giriş yaptınız.');
 });

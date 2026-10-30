@@ -59,6 +59,8 @@ export function BookingPage() {
 
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  // 403: işletme var ama aboneliği yok/bitmiş (public-booking · checkAccess).
+  const [closed, setClosed] = useState(false);
   const [biz, setBiz] = useState<Biz | null>(null);
   const [services, setServices] = useState<Svc[]>([]);
   const [staff, setStaff] = useState<Stf[]>([]);
@@ -96,8 +98,8 @@ export function BookingPage() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { ok, json } = await callFn({ action: 'profile', slug });
-      if (!ok || !json.business) { setNotFound(true); setLoading(false); return; }
+      const { ok, status, json } = await callFn({ action: 'profile', slug });
+      if (!ok || !json.business) { setClosed(status === 403); setNotFound(true); setLoading(false); return; }
       setBiz(json.business); setServices(json.services || []); setStaff(json.staff || []);
       setLoading(false);
     })();
@@ -206,8 +208,10 @@ export function BookingPage() {
   if (loading) return <div className={pageCls}><div className="tf-shell" style={{ minHeight: 400, display: 'grid', placeItems: 'center' }}><div className="tf-spin" /></div><BookingCSS /></div>;
   if (notFound || !biz) return (
     <div className={pageCls}><div className="tf-shell" style={{ padding: 40, textAlign: 'center' }}>
-      <div style={{ fontSize: 17, fontWeight: 800, color: '#F3EDE3' }}>İşletme bulunamadı</div>
-      <div style={{ fontSize: 13, marginTop: 8, color: 'rgba(243,237,227,.48)' }}>Bu randevu bağlantısı geçersiz veya kaldırılmış olabilir.</div>
+      <div style={{ fontSize: 17, fontWeight: 800, color: '#F3EDE3' }}>{closed ? 'Online randevu şu anda kapalı' : 'İşletme bulunamadı'}</div>
+      <div style={{ fontSize: 13, marginTop: 8, color: 'rgba(243,237,227,.48)' }}>
+        {closed ? 'Bu işletme şu anda online randevu almıyor. Randevu için işletmeyle doğrudan iletişime geçebilirsiniz.' : 'Bu randevu bağlantısı geçersiz veya kaldırılmış olabilir.'}
+      </div>
     </div><BookingCSS /></div>
   );
 

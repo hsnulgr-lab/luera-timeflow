@@ -36,7 +36,18 @@ import {
     SOCIAL_ENABLED, businessCount, createOwnBusiness, prepareApple, signInWithApple, startGoogle, takeIntent,
     type Intent, type Provider,
 } from './login/sosyalGiris';
+import { afterPaymentPath } from '@/lib/odemeSonrasi';
 import './login/giris.css';
+
+/** Kurulumu bitmemiş hesabın kurulum adresi; bitmişse ya da okunamazsa yok. */
+async function setupDest(userId: string | undefined): Promise<string | undefined> {
+    if (!userId) return undefined;
+    const { data } = await supabase.from('organization_members').select('org_id')
+        .eq('user_id', userId).limit(1).maybeSingle();
+    if (!data?.org_id) return undefined;
+    const path = await afterPaymentPath(data.org_id as string);
+    return path.startsWith('/kurulum') ? path : undefined;
+}
 
 type Screen =
     | { name: 'login' }
@@ -194,8 +205,8 @@ export const LoginPage = () => {
     };
 
     /** İçeri: açılış animasyonu, sonra hedef. Plan seçildiyse önce abonelik. */
-    const enter = (kind: Entry) => {
-        const dest = planDest ?? (kind === 'signup' ? '/kurulum' : afterDest ?? '/');
+    const enter = (kind: Entry, to?: string) => {
+        const dest = planDest ?? to ?? (kind === 'signup' ? '/kurulum' : afterDest ?? '/');
         setSplash({ dest, notice: kind === 'existing' ? METIN.existingAccount : undefined });
     };
 
@@ -397,8 +408,11 @@ export const LoginPage = () => {
         const existing = failure === 'exists' || (!error && !data.session && (data.user?.identities?.length ?? 0) === 0);
         if (existing) {
             const again = await supabase.auth.signInWithPassword({ email: address, password });
+            // Kayıt formundan giren kurulumu bitirmediyse kuruluma — ana sayfa
+            // kilitliyken ödeme duvarına düşüp kurulumu atlıyordu (2026-10-30).
+            const to = again.error ? undefined : await setupDest(again.data.user?.id);
             setBusy(false);
-            if (!again.error) { enter('existing'); return; }
+            if (!again.error) { enter('existing', to); return; }
             openCode(address, 'code');
             return;
         }
