@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { normalizePhone, hasWa } from '@/lib/phone';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-    AlertTriangle, Calendar, CalendarPlus, Check, ChevronDown, ChevronLeft,
+    AlertTriangle, Banknote, Calendar, CalendarPlus, Check, ChevronDown, ChevronLeft, CreditCard, Landmark,
     ChevronRight, Clock, History, Layers, MessageCircle, MoreHorizontal, Package,
     Pencil, Plus, RefreshCw, Search, ShieldCheck, Trash2, Wallet, X,
 } from 'lucide-react';
@@ -26,7 +26,7 @@ import { useInstallmentSchedules } from '@/hooks/useInstallmentSchedules';
 import { useCashEnabled } from '@/hooks/useModules';
 import { todayISO } from '@/utils/date';
 import { packageRights } from '@/lib/packageRights';
-import type { Customer, Reservation, Service } from '@/types';
+import type { Customer, PaymentMethod, Reservation, Service } from '@/types';
 import './beautyPackages.css';
 
 // ── Güzellik "Paketler" merkezi ──────────────────────────────────────────────
@@ -67,6 +67,11 @@ interface Pkg {
     next: Reservation | null;
     todayUse: number;   // bugüne planlı rezerve seans sayısı
     soldOn: string;
+    validUntil?: string;
+    /** Geçerlilik doldu ve kullanılabilir hak var. */
+    expired: boolean;
+    /** 14 gün içinde dolacak ve kullanılabilir hak var. */
+    expiringSoon: boolean;
     code: string;
     subtitle: string;
 }
@@ -230,6 +235,10 @@ export function BeautyPackages() {
             total, used, reserved, available, price, paid, balance,
             state, overdue, silentDays, needsRenewal, unplanned,
             next: resList[0] || null, todayUse, soldOn: raw.createdAt,
+            validUntil: raw.validUntil,
+            expired: Boolean(raw.validUntil) && !cancelled && !finished && available > 0 && raw.validUntil! < today,
+            expiringSoon: Boolean(raw.validUntil) && !cancelled && !finished && available > 0 && raw.validUntil! >= today
+                && raw.validUntil! <= new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10),
             code: pkgCode(raw.id),
             subtitle: raw.notes?.trim() || (svc ? `${svc.name} · ${svc.duration} dk` : `${total} seanslık paket`),
         };
@@ -625,13 +634,30 @@ export function BeautyPackages() {
                             )}
 
                             <div className="detail-tabs" role="tablist">
-                                {([['rights', 'Haklar'], ['finance', 'Finans'], ['history', 'Geçmiş']] as [typeof detailTab, string][]).map(([k, label]) => (
-                                    <button key={k} role="tab" aria-selected={detailTab === k} onClick={() => setDetailTab(k)}>{label}</button>
+                                {/* Sekme altında tek bakışlık özet: hangisine bakmak gerektiği açmadan
+                                    okunur (2026-10-31). */}
+                                {([
+                                    ['rights', 'Haklar', `${selected.available} boş`, ''],
+                                    ['finance', 'Ödeme', selected.balance > 0 ? `${fmtTL(selected.balance)} açık` : 'Ödendi', selected.balance > 0 ? 'is-open' : 'is-done'],
+                                    ['history', 'Geçmiş', `${history.length} kayıt`, ''],
+                                ] as [typeof detailTab, string, string, string][]).map(([k, label, hint, tone]) => (
+                                    <button key={k} role="tab" aria-selected={detailTab === k} onClick={() => setDetailTab(k)}>
+                                        {label}<small className={tone}>{hint}</small>
+                                    </button>
                                 ))}
                             </div>
 
                             <div className="detail-body">
                                 {detailTab === 'rights' && (<>
+                                    {(selected.expired || selected.expiringSoon) && (
+                                        <div className={`validity-note${selected.expired ? ' is-expired' : ''}`}>
+                                            <Clock size={15} />
+                                            <span>
+                                                <strong>{selected.expired ? 'Geçerlilik süresi doldu' : 'Geçerlilik süresi dolmak üzere'}</strong>
+                                                {`Son gün ${selected.validUntil!.split('-').reverse().join('.')} · ${selected.available} hak kullanılmadı. Haklar kapanmaz; karar sizin.`}
+                                            </span>
+                                        </div>
+                                    )}
                                     <div className="detail-section">
                                         <div className="section-title">
                                             <span><Calendar size={14} />Sonraki seans</span>
@@ -656,16 +682,23 @@ export function BeautyPackages() {
                                             </div>
                                         )}
                                     </div>
-                                    <div className="detail-section compact">
-                                        <div className="section-title"><span><Package size={14} />Hak özeti</span><small>{t('reservation')} tamamlanınca düşer</small></div>
-                                        <div className="rights-cards">
-                                            <div><small>KULLANILDI</small><strong>{selected.used}</strong><span>Tamamlanan seans</span></div>
-                                            <div><small>REZERVE</small><strong>{selected.reserved}</strong><span>Yaklaşan {t('reservation').toLocaleLowerCase('tr')}</span></div>
-                                            <div><small>KULLANILABİLİR</small><strong>{selected.available}</strong><span>Planlanabilir hak</span></div>
+                                    {/* Hak çizelgesi: üstteki üç sayının tekrarı ("Hak özeti") yerine her
+                                        hak tek kutu — hangi seansın kullanıldığı, hangisinin randevulu,
+                                        kaçının boş olduğu bir bakışta (2026-10-31). */}
+                                    <div className="detail-section">
+                                        <div className="section-title"><span><Package size={14} />Seans hakları</span><small>{t('reservation')} tamamlanınca düşer</small></div>
+                                        <div className="rights-map" aria-label={`${selected.used} kullanıldı, ${selected.reserved} rezerve, ${selected.available} boş`}>
+                                            {Array.from({ length: selected.total }, (_, i) => {
+                                                const kind = i < selected.used ? 'used' : i < selected.used + selected.reserved ? 'reserved' : 'free';
+                                                return <span key={i} className={`is-${kind}`} title={kind === 'used' ? 'Kullanıldı' : kind === 'reserved' ? 'Randevulu' : 'Boş'}>
+                                                    {kind === 'used' ? <Check size={13} /> : kind === 'reserved' ? <Clock size={12} /> : i + 1}
+                                                </span>;
+                                            })}
                                         </div>
-                                        <div className="integrity-line">
-                                            <ShieldCheck size={12} />
-                                            {selected.used} + {selected.reserved} + {selected.available} = {selected.total} hak · Tutarlı
+                                        <div className="rights-legend">
+                                            <span><i className="is-used" />Kullanıldı</span>
+                                            <span><i className="is-reserved" />Randevulu</span>
+                                            <span><i className="is-free" />Boş</span>
                                         </div>
                                     </div>
                                 </>)}
@@ -681,7 +714,7 @@ export function BeautyPackages() {
                                         <div style={{ marginTop: 9, display: 'flex', alignItems: 'center', gap: 8 }}>
                                             {/* Hiç tahsilat yokken "Kısmi ödeme" demek yanlıştı. */}
                                             {selected.balance > 0
-                                                ? <span className="mini-danger">{selected.paid > 0 ? 'Kısmi ödeme' : 'Ödeme yok'}</span>
+                                                ? <span className="mini-warn">{selected.paid > 0 && selected.price > 0 ? `%${Math.round((selected.paid / selected.price) * 100)} ödendi` : 'Ödeme yok'}</span>
                                                 : <span className="mini-success">Tam ödendi</span>}
                                             {selected.balance > 0 && cashOn && (
                                                 <button className="button primary" style={{ marginLeft: 'auto', minHeight: 34, fontSize: 12 }}
@@ -695,6 +728,7 @@ export function BeautyPackages() {
                                     <div className="detail-section">
                                         <div className="section-title"><span><Wallet size={14} />Bilgiler</span></div>
                                         <div className="info-line"><span>Satış tarihi</span><strong>{selected.soldOn.slice(0, 10).split('-').reverse().join('.')}</strong></div>
+                                        <div className="info-line"><span>Geçerlilik</span><strong>{selected.validUntil ? selected.validUntil.split('-').reverse().join('.') : 'Süresiz'}</strong></div>
                                         <div className="info-line"><span>Seans başı</span><strong>{fmtTL(selected.price / selected.total)}</strong></div>
                                         <div className="info-line"><span>Durum</span><strong>{STATE_TR[selected.state]}</strong></div>
                                     </div>
@@ -815,6 +849,17 @@ function SaleDrawer({ customers, services, templates, packages, isArchived, addP
     const [countLocked, setCountLocked] = useState(false);   // şablon seçildiyse seans sabit
     const [price, setPrice] = useState(0);
     const [deposit, setDeposit] = useState(0);
+    // Peşinat hep 'cash' yazılıyordu: kartla alınan peşinat Kasa'nın gün sonunda
+    // nakit görünüyordu (2026-10-31). Yöntem artık satışta seçilir.
+    const [depositMethod, setDepositMethod] = useState<PaymentMethod>('cash');
+    // Geçerlilik (134): 0 = süresiz. Süre dolunca yalnız uyarı — hak kapanmaz.
+    const [validMonths, setValidMonths] = useState<0 | 3 | 6 | 12>(0);
+    const validUntil = useMemo(() => {
+        if (!validMonths) return undefined;
+        const d = new Date(`${todayISO()}T12:00:00`);
+        d.setMonth(d.getMonth() + validMonths);
+        return d.toISOString().slice(0, 10);
+    }, [validMonths]);
     const [confirmed, setConfirmed] = useState(false);
     const [saving, setSaving] = useState(false);
     const [discardOpen, setDiscardOpen] = useState(false);
@@ -903,12 +948,12 @@ function SaleDrawer({ customers, services, templates, packages, isArchived, addP
             customerId: customer.id,
             // Ad sayıyı zaten söylüyorsa tekrar eklenmez (telefonla aynı kural).
             title: planTitle(service.name, count),
-            sessionCount: count, totalAmount: clampPrice, staffId: undefined,
+            sessionCount: count, totalAmount: clampPrice, staffId: undefined, validUntil,
         });
         if (!created) { setSaving(false); toast.error('Paket oluşturulamadı'); return; }
         savedRef.current = true;
         if (clampDeposit > 0) {
-            await addPayment({ customerId: customer.id, treatmentPlanId: created.id, type: 'service', method: 'cash', amount: clampDeposit, description: `${created.title} · peşinat` });
+            await addPayment({ customerId: customer.id, treatmentPlanId: created.id, type: 'service', method: depositMethod, amount: clampDeposit, description: `${created.title} · peşinat` });
         }
         
         const balance = clampPrice - clampDeposit;
@@ -1061,31 +1106,57 @@ function SaleDrawer({ customers, services, templates, packages, isArchived, addP
                                 <span>3</span>
                                 <div><h3>Bedel ve tahsilat</h3><p>Paket bedelini girin. Peşinat, bedelden yüksek olamaz.</p></div>
                             </div>
+                            {/* Ödeme adımı (2026-10-31): pasif "Geçerlilik · Yakında" kutusu kalktı;
+                                yerine peşinatın YÖNTEMİ ve hızlı tutar seçimi geldi. Kırmızı "Kısmi
+                                ödeme" rozeti yerine bedel / bugün / kalan özeti — kısmi ödeme hata değil. */}
                             <div className="form-grid">
                                 <label>
                                     <span>Paket bedeli</span>
                                     <div className="money-input"><b>₺</b><input type="number" min={0} value={price || ''} onChange={(e) => setPrice(Number(e.target.value))} placeholder="0" /></div>
                                 </label>
                                 <label>
-                                    <span>Hak sayısı <small>Tanımdan gelir; burada değiştirilmez</small></span>
-                                    <div className="locked-input"><Layers size={14} /><strong>{count} seans</strong></div>
-                                </label>
-                                <label>
-                                    <span>Peşinat / tahsilat</span>
-                                    <div className="money-input"><b>₺</b><input type="number" min={0} value={deposit || ''} onChange={(e) => setDeposit(Number(e.target.value))} placeholder="0" /></div>
-                                </label>
-                                <label>
-                                    <span>Geçerlilik <small>Yakında</small></span>
-                                    <div className="select-input"><select disabled><option>Süresiz</option></select><ChevronDown size={15} /></div>
+                                    <span>Hak sayısı <small>Tanımdan gelir</small></span>
+                                    <div className="locked-input"><Layers size={14} /><strong>{count} seans</strong>{count > 0 && clampPrice > 0 && <em>seans başı {fmtTL(clampPrice / count)}</em>}</div>
                                 </label>
                             </div>
-                            {depositTooHigh && <div className="field-error"><AlertTriangle size={13} />Tahsilat satış bedelinden yüksek olamaz.</div>}
-                            <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-                                {balance <= 0 && clampPrice > 0 ? <span className="mini-success">Tam ödendi · bakiye oluşmaz</span>
-                                    : clampDeposit > 0 ? <span className="mini-danger">Kısmi ödeme · {fmtTL(balance)} bakiye</span>
-                                        : <span className="mini-danger">Peşinatsız · {fmtTL(balance)} bakiye</span>}
+
+                            <div className="validity-row">
+                                <span><strong>Geçerlilik</strong><small>{validUntil ? `Son gün ${validUntil.split('-').reverse().join('.')} · süre dolunca uyarır, hak kapanmaz` : 'Süre sınırı yok'}</small></span>
+                                <div className="pay-quick" role="group" aria-label="Geçerlilik süresi">
+                                    {([0, 3, 6, 12] as const).map((m) => (
+                                        <button key={m} type="button" aria-pressed={validMonths === m} onClick={() => setValidMonths(m)}>{m === 0 ? 'Süresiz' : `${m} ay`}</button>
+                                    ))}
+                                </div>
                             </div>
-                            
+
+                            <div className="pay-block">
+                                <div className="pay-block-head">
+                                    <strong>Bugün alınan</strong>
+                                    <div className="pay-quick" role="group" aria-label="Hızlı tutar">
+                                        <button type="button" aria-pressed={clampPrice > 0 && clampDeposit === clampPrice} disabled={clampPrice <= 0} onClick={() => setDeposit(clampPrice)}>Tamamı</button>
+                                        <button type="button" aria-pressed={clampPrice > 0 && clampDeposit === Math.round(clampPrice / 2)} disabled={clampPrice <= 0} onClick={() => setDeposit(Math.round(clampPrice / 2))}>Yarısı</button>
+                                        <button type="button" aria-pressed={clampDeposit === 0} onClick={() => setDeposit(0)}>Sonra</button>
+                                    </div>
+                                </div>
+                                <div className="money-input"><b>₺</b><input type="number" min={0} value={deposit || ''} onChange={(e) => setDeposit(Number(e.target.value))} placeholder="0" aria-label="Bugün alınan tutar" /></div>
+                                {clampDeposit > 0 && (
+                                    <div className="pay-methods" role="radiogroup" aria-label="Ödeme yöntemi">
+                                        {([['cash', 'Nakit', Banknote], ['card', 'Kart', CreditCard], ['transfer', 'Havale', Landmark]] as const).map(([m, label, Icon]) => (
+                                            <button key={m} type="button" role="radio" aria-checked={depositMethod === m} onClick={() => setDepositMethod(m)}>
+                                                <Icon size={15} />{label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            {depositTooHigh && <div className="field-error"><AlertTriangle size={13} />Bugün alınan tutar paket bedelinden yüksek olamaz.</div>}
+
+                            <div className="pay-summary">
+                                <span><small>Bedel</small><strong>{fmtTL(clampPrice)}</strong></span>
+                                <span><small>Bugün</small><strong>{fmtTL(clampDeposit)}</strong></span>
+                                <span className={balance > 0 ? 'is-open' : 'is-done'}><small>Kalan</small><strong>{balance > 0 ? fmtTL(balance) : 'Ödendi'}</strong></span>
+                            </div>
+
                             {balance > 0 && installmentEngineAvailable && (
                                 <div className="installments-section" style={{ marginTop: 16, padding: 12, background: 'var(--dc-surface2)', borderRadius: 12, border: '1px solid var(--dc-border2)' }}>
                                     <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--dc-ink)', margin: 0, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1139,9 +1210,9 @@ function SaleDrawer({ customers, services, templates, packages, isArchived, addP
                             </div>
                             <div className="review-grid">
                                 <div><small>MÜŞTERİ</small><strong>{customer.name}</strong><span>{customer.phone}</span></div>
-                                <div><small>PAKET</small><strong>{service.name}</strong><span>{count} hak</span></div>
+                                <div><small>PAKET</small><strong>{service.name}</strong><span>{count} hak · {validUntil ? `son gün ${validUntil.split('-').reverse().join('.')}` : 'süresiz'}</span></div>
                                 <div><small>BEDEL</small><strong>{fmtTL(clampPrice)}</strong><span>seans başı {count > 0 ? fmtTL(clampPrice / count) : '—'}</span></div>
-                                <div><small>TAHSİLAT</small><strong>{fmtTL(clampDeposit)}</strong><span>bakiye {fmtTL(balance)}</span></div>
+                                <div><small>TAHSİLAT</small><strong>{fmtTL(clampDeposit)}{clampDeposit > 0 && ` · ${depositMethod === 'card' ? 'Kart' : depositMethod === 'transfer' ? 'Havale' : 'Nakit'}`}</strong><span>bakiye {fmtTL(balance)}</span></div>
                                 {installmentCount > 0 && (
                                     <div style={{ gridColumn: 'span 2' }}>
                                         <small>TAKSİTLENDİRME</small>
@@ -1320,23 +1391,28 @@ function DefinitionsModal({ templates, onClose, addTemplate, updateTemplate, rem
                     <div className="definition-list">
                         {templates.length === 0 && <div className="choice-empty"><span><strong>Henüz tanım yok</strong>Aşağıdan ilk şablonu ekleyin.</span></div>}
                         {templates.map((t) => (
-                            <article key={t.id} onClick={() => load(t)} style={{ cursor: 'pointer', borderColor: editing === t.id ? 'var(--ink)' : undefined }}>
+                            <article key={t.id} className={editing === t.id ? 'is-editing' : undefined} onClick={() => load(t)} style={{ cursor: 'pointer', borderColor: editing === t.id ? 'var(--orange)' : undefined }}>
                                 <i style={{ background: t.color || 'var(--purple)' }} />
                                 <span><strong>{t.name}</strong><small>{t.sessionCount} seans · seans başı {fmtTL(t.price / Math.max(1, t.sessionCount))}</small></span>
-                                <span style={{ fontFamily: MONO, fontWeight: 750 }}>{fmtTL(t.price)}</span>
-                                <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{editing === t.id ? 'düzenleniyor' : 'düzenle'}</span>
+                                <span className="def-price">{fmtTL(t.price)}</span>
+                                <span className="def-edit"><Pencil size={13} />{editing === t.id ? 'Düzenleniyor' : 'Düzenle'}</span>
                                 <button onClick={(e) => { e.stopPropagation(); void del(t.id); }} aria-label="Kaldır"><Trash2 size={14} /></button>
                             </article>
                         ))}
                     </div>
                     <div style={{ padding: '4px 12px 12px' }}>
-                        <div style={{ padding: 12, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', display: 'grid', gap: 10 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800 }}>
-                                {editing ? <Pencil size={13} /> : <Plus size={13} />}{editing ? 'Şablonu düzenle' : 'Yeni tanım'}
-                                {editing && <button onClick={reset} style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 800, color: 'var(--orange-dark)' }}>iptal</button>}
+                        <div style={{ padding: 14, border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)', display: 'grid', gap: 10 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 14, fontWeight: 800 }}>
+                                {editing ? <Pencil size={14} /> : <Plus size={14} />}{editing ? 'Şablonu düzenle' : 'Yeni paket tanımı'}
+                                {editing && <button onClick={reset} style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 800, color: 'var(--orange-dark)' }}>Vazgeç</button>}
                             </div>
-                            <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Tanım adı — örn. 8 Seans Cilt Bakımı" maxLength={80} />
-                            <div style={{ display: 'grid', gridTemplateColumns: '135px 1fr', gap: 10 }}>
+                            <label style={{ display: 'grid', gap: 5, fontSize: 12.5, fontWeight: 750, color: 'var(--muted)' }}>Tanım adı
+                                <input className={inputCls} style={{ fontSize: 14 }} value={name} onChange={(e) => setName(e.target.value)} placeholder="örn. 8 Seans Cilt Bakımı" maxLength={80} />
+                            </label>
+                            <div style={{ display: 'grid', gridTemplateColumns: '135px 1fr', gap: 10, fontSize: 12.5, fontWeight: 750, color: 'var(--muted)' }}>
+                                <span>Seans sayısı</span><span>Paket bedeli</span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '135px 1fr', gap: 10, marginTop: -5 }}>
                                 <div className="step-input">
                                     <button type="button" onClick={() => setSeans((s) => Math.max(1, s - 1))} aria-label="Azalt">−</button>
                                     <strong>{seans}</strong>

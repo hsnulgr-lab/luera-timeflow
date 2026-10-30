@@ -25,6 +25,7 @@ import { PKG_TICKET, isPkgTicket, planIdOf, readPkgQueue, writePkgQueue } from '
 import type { PaymentMethod, Reservation } from '@/types';
 import { buildSalonCashTickets, ticketContaining } from '@/lib/salonCashTickets';
 import { todayISO, toISODate } from '@/utils/date';
+import { KasaGunSonu, KasaHareketleri } from '@/components/kasa/KasaDefteri';
 import './beautyCash.css';
 import { adisyonExtras, reservationServiceLines, reservationPrice } from '@/utils/reservationServices';
 import { lookupDiscountCode, redeemDiscountCode, DISCOUNT_CODE_ERROR_TEXT, type DiscountCode } from '@/services/discountCodes';
@@ -140,6 +141,7 @@ export function BeautyCashRegister({
     const { reservations, settings, updateReservation } = useReservations();
     const { packages } = useOrgPackages({ enabled: profile.packagesEnabled });
     const { customerById, updateCustomer } = useCustomers();
+    const customerNameOf = useCallback((id?: string) => (id ? customerById.get(id)?.name : undefined), [customerById]);
     const { orgId } = useAuth();
     const [params] = useSearchParams();
 
@@ -432,11 +434,6 @@ export function BeautyCashRegister({
         });
     }, [planBalance, profile.packagesEnabled, record, recordMembers, settings.services, t]);
 
-    const dayEnd = useMemo(() => {
-        const m: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0, other: 0 };
-        for (const p of todayPayments) m[p.method] = (m[p.method] || 0) + p.amount;
-        return { m, count: todayPayments.length, total: m.cash + m.card + m.transfer + m.other };
-    }, [todayPayments]);
     // Bu hesaba önceden alınan tahsilat (kapora) — kapanışta çift tahsilatı önler
     // Paket biletinde bakiye zaten ödenenler düşülerek hesaplandı — tekrar düşme.
     const recordReservationIds = useMemo(
@@ -1309,56 +1306,16 @@ export function BeautyCashRegister({
                 </aside>
             </main>
 
-            {/* Hareketler — bugünkü tahsilat listesi */}
+            {/* Hareketler + Gün sonu — kasa defteri (2026-10-31): tarih aralığı,
+                iptal izleri, giderler, kasa sayımı/kapanışı ve A4 baskı. */}
             {showMoves && (
-                <div style={DLG_OVERLAY} onClick={() => setShowMoves(false)}>
-                    <div role="dialog" aria-modal="true" aria-label="Kasa hareketleri" style={DLG_CARD} onClick={(e) => e.stopPropagation()}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 18px', borderBottom: '1px solid var(--dc-border)' }}>
-                            <ReceiptText size={18} />
-                            <div style={{ flex: 1 }}><strong style={{ fontSize: 15, fontWeight: 800 }}>Kasa hareketleri</strong><div style={{ fontSize: 12, color: 'var(--dc-muted)' }}>Bugün · {dayEnd.count} işlem · {tl(dayEnd.total)}</div></div>
-                            <button type="button" style={{ ...DLG_GHOST, padding: '6px 10px' }} onClick={() => setShowMoves(false)}>Kapat</button>
-                        </div>
-                        <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            {todayPayments.length === 0 && <div style={{ padding: 28, textAlign: 'center', color: 'var(--dc-muted)', fontSize: 13 }}>Bugün henüz tahsilat yok.</div>}
-                            {todayPayments.map((p) => (
-                                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 11, background: 'var(--dc-surface2)', border: '1px solid var(--dc-border)' }}>
-                                    <span style={{ width: 32, height: 32, borderRadius: 9, display: 'grid', placeItems: 'center', background: 'var(--dc-page)', flexShrink: 0 }}>{p.method === 'cash' ? <Banknote size={16} /> : p.method === 'transfer' ? <Landmark size={16} /> : <CreditCard size={16} />}</span>
-                                    <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.description || 'Tahsilat'}</div><div style={{ fontSize: 12.5, color: 'var(--dc-muted)' }}>{methodLabel(p.method)} · {new Date(p.paidAt).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })}</div></div>
-                                    <strong style={{ fontSize: 13.5, fontWeight: 800 }}>{tl(p.amount)}</strong>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                <KasaHareketleri payments={payments} customerName={customerNameOf}
+                    business={settings.businessName || 'Kasa'} onClose={() => setShowMoves(false)} />
             )}
-
-            {/* Gün sonu — özet rapor */}
             {showDayEnd && (
-                <div style={DLG_OVERLAY} onClick={() => setShowDayEnd(false)}>
-                    <div role="dialog" aria-modal="true" aria-label="Gün sonu özeti" style={DLG_CARD} onClick={(e) => e.stopPropagation()}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 18px', borderBottom: '1px solid var(--dc-border)' }}>
-                            <ShieldCheck size={18} />
-                            <div style={{ flex: 1 }}><strong style={{ fontSize: 15, fontWeight: 800 }}>Gün sonu özeti</strong><div style={{ fontSize: 12, color: 'var(--dc-muted)' }}>{new Date().toLocaleDateString('tr')} · {settings.businessName || 'Kasa'}</div></div>
-                            <button type="button" style={{ ...DLG_GHOST, padding: '6px 10px' }} onClick={() => setShowDayEnd(false)}>Kapat</button>
-                        </div>
-                        <div style={{ padding: 18 }}>
-                            <div style={{ textAlign: 'center', marginBottom: 16 }}><div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '.14em', color: 'var(--dc-muted)' }}>BUGÜN TAHSİL EDİLEN</div><div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-.02em' }}>{tl(dayEnd.total)}</div><div style={{ fontSize: 12, color: 'var(--dc-muted)' }}>{dayEnd.count} işlem</div></div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                                {(['cash', 'card', 'transfer', 'other'] as PaymentMethod[]).filter((m) => dayEnd.m[m] > 0).map((m) => (
-                                    <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', borderRadius: 11, background: 'var(--dc-surface2)', border: '1px solid var(--dc-border)' }}>
-                                        <span style={{ display: 'grid', placeItems: 'center' }}>{m === 'cash' ? <Banknote size={16} /> : m === 'transfer' ? <Landmark size={16} /> : m === 'card' ? <CreditCard size={16} /> : <WalletCards size={16} />}</span>
-                                        <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{methodLabel(m)}</span>
-                                        <strong style={{ fontSize: 13.5, fontWeight: 800 }}>{tl(dayEnd.m[m])}</strong>
-                                    </div>
-                                ))}
-                                {dayEnd.count === 0 && <div style={{ padding: 18, textAlign: 'center', color: 'var(--dc-muted)', fontSize: 13 }}>Bugün tahsilat yok.</div>}
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-                                <button type="button" style={DLG_GHOST} onClick={() => window.print()}><Printer size={15} style={{ verticalAlign: -3, marginRight: 5 }} />Yazdır</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <KasaGunSonu payments={payments} customerName={customerNameOf}
+                    business={settings.businessName || 'Kasa'} onClose={() => setShowDayEnd(false)}
+                    onOpenMoves={() => { setShowDayEnd(false); setShowMoves(true); }} />
             )}
 
             {/* Not / belge */}

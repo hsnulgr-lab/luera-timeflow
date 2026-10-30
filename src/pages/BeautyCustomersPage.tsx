@@ -12,7 +12,7 @@ import { cn } from '@/utils/cn';
 import { computePatientFinance, planRemaining, type PatientFinance } from '@/lib/patientBalance';
 import { evaluateEligibility } from '@/lib/serviceEligibility';
 import { normalizePhone, waLink } from '@/lib/phone';
-import { profileForSector } from '@/lib/sectorProfiles';
+import { profileForSector, type FieldDef } from '@/lib/sectorProfiles';
 import { reservationPrice } from '@/utils/reservationServices';
 import { BeautySessionModal } from '@/components/beauty/BeautySessionModal';
 import { TfIcon, TfIconSprite } from '@/components/beauty/TfIcons';
@@ -71,11 +71,12 @@ interface Flag { label: string; tone: 'violet' | 'amber' | 'green' | 'orange' | 
 interface Priority { icon: string; tone: Tone; title: string; subtitle: string }
 interface TimelineEvent { when: string; title: string; detail: string; amount: string }
 
-const FILTERS: { key: FilterKey; label: string }[] = [
-    { key: 'all', label: 'Tümü' },
-    { key: 'today', label: 'Bugün' },
-    { key: 'action', label: 'İşlem gereken' },
-    { key: 'dormant', label: 'Geri kazan' },
+// Kısa adlar tek satıra sığsın diye; tam anlam title'da (2026-10-31).
+const FILTERS: { key: FilterKey; label: string; title: string }[] = [
+    { key: 'all', label: 'Tümü', title: 'Tüm müşteriler' },
+    { key: 'today', label: 'Bugün', title: 'Bugün randevusu olanlar' },
+    { key: 'action', label: 'Bekleyen', title: 'İşlem gereken: borç, onay, planlanmamış hak' },
+    { key: 'dormant', label: 'Uzaklaşan', title: 'Geri kazanılacak: uzun süredir gelmeyenler' },
 ];
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -91,7 +92,7 @@ interface WaRow { id: number; kind: string; status: string; created_at: string }
 export function BeautyCustomersPage() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const { allCustomers, addCustomer, redeemLoyalty } = useCustomers();
+    const { allCustomers, addCustomer, updateCustomer, redeemLoyalty } = useCustomers();
     const { reservations, settings } = useReservations();
     const { payments } = usePayments();
     const { packages, refresh: refreshPackages } = useOrgPackages();
@@ -128,6 +129,10 @@ export function BeautyCustomersPage() {
     // ── Türetilmiş sözlükler ────────────────────────────────────────────────
     const today = todayISO();
     const riskFlags = useMemo(() => profileForSector(settings.sector).riskFlags || [], [settings.sector]);
+    const customerFields = useMemo(
+        () => (profileForSector(settings.sector).customFieldTemplates || []).filter((f) => f.entity === 'customer'),
+        [settings.sector],
+    );
 
     const resByCustomer = useMemo(() => {
         const m = new Map<string, Reservation[]>();
@@ -427,7 +432,7 @@ export function BeautyCustomersPage() {
                         </label>
                         <div className="tfv2-filters" aria-label="Müşteri filtreleri">
                             {FILTERS.map((f) => (
-                                <button key={f.key} className="tfv2-filter" aria-pressed={filter === f.key}
+                                <button key={f.key} className="tfv2-filter" title={f.title} aria-pressed={filter === f.key}
                                     onClick={() => setFilter(f.key)}>{f.label}</button>
                             ))}
                         </div>
@@ -481,28 +486,26 @@ export function BeautyCustomersPage() {
                             <div className="tfv2-profile-head">
                                 <div className="tfv2-profile-emblem">{initialsOf(selected.name)}</div>
                                 <div className="tfv2-profile-copy">
-                                    <p className="tfv2-profile-kicker">Müşteri profili · {codeOf(selected.id)}</p>
+                                    {/* Künye sıkı tutulur (2026-10-31): ad tek başına, telefon / kayıt
+                                        yılı / tercih edilen uzman / kod tek bilgi satırında. Ayrı "Müşteri
+                                        profili" başlığı ve üç ayrı satır künyeyi yaygın gösteriyordu. */}
                                     <h2>{maskName(selected.name, privacy)}</h2>
-                                    {/* İki ayrı satır: kimlik bilgisi üstte, tercih altta.
-                                        Üçü tek sarmalayan satırdayken dar sütunda üç ayrı
-                                        satıra bölünüp künyeyi sıkışık gösteriyordu. */}
                                     <div className="tfv2-profile-meta">
                                         <span><TfIcon name="phone" className="tfv2-icon-sm" />{maskPhone(selected.phone, privacy)}</span>
-                                        <span>{new Date(selected.createdAt).getFullYear()}'ten beri müşteri</span>
+                                        {Number.isFinite(new Date(selected.createdAt).getFullYear()) && (
+                                            <span>Kayıt {new Date(selected.createdAt).getFullYear()}</span>
+                                        )}
+                                        {dossier.favStaff && <span>Uzmanı <b>{dossier.favStaff}</b></span>}
+                                        <span className="tfv2-profile-code">{codeOf(selected.id)}</span>
                                     </div>
-                                    {dossier.favStaff && (
-                                        <div className="tfv2-profile-meta is-secondary">
-                                            <span>Tercihi: <b>{dossier.favStaff}</b></span>
-                                        </div>
-                                    )}
                                 </div>
                                 <div className="tfv2-profile-actions">
                                     <button className="tfv2-button" onClick={() => openWa()}>
                                         <TfIcon name="message" /><span>WhatsApp</span>
                                     </button>
                                     {selected.phone && (
-                                        <a className="tfv2-icon-button" href={`tel:${selected.phone.replace(/\s+/g, '')}`} aria-label="Telefonla ara" title="Telefonla ara">
-                                            <TfIcon name="phone" />
+                                        <a className="tfv2-button" href={`tel:${selected.phone.replace(/\s+/g, '')}`} title="Telefonla ara">
+                                            <TfIcon name="phone" /><span>Ara</span>
                                         </a>
                                     )}
                                     <button className="tfv2-button" onClick={sellPackage}>
@@ -523,25 +526,28 @@ export function BeautyCustomersPage() {
                             {/* Dört kutuluk özet şerit */}
                             <div className="tfv2-glance">
                                 <div className="tfv2-glance-item">
-                                    <small>Sıradaki randevu</small>
+                                    <small>Randevu</small>
                                     <strong>{dossier.next ? `${fmtShort(dossier.next.date)} · ${dossier.next.startTime}` : 'Randevu yok'}</strong>
-                                    <span>{dossier.next
-                                        ? [dossier.next.service, dossier.next.staffId ? staffName.get(dossier.next.staffId) : null].filter(Boolean).join(' · ')
-                                        : 'Yeniden planlama bekliyor'}</span>
+                                    {(() => {
+                                        const sub = dossier.next
+                                            ? [dossier.next.service, dossier.next.staffId ? staffName.get(dossier.next.staffId) : null].filter(Boolean).join(' · ')
+                                            : 'Planlanmadı';
+                                        return <span title={sub}>{sub}</span>;
+                                    })()}
                                 </div>
                                 <div className="tfv2-glance-item">
-                                    <small>Paket durumu</small>
-                                    <strong>{dossier.rights > 0 ? `${dossier.rights} hak kullanılabilir` : 'Aktif paket yok'}</strong>
-                                    <span>{dossier.activePkgs.length > 0 ? `${dossier.activePkgs.length} aktif paket` : 'Tekil hizmet müşterisi'}</span>
+                                    <small>Paket</small>
+                                    <strong>{dossier.rights > 0 ? `${dossier.rights} seans hakkı` : 'Aktif paket yok'}</strong>
+                                    <span>{dossier.activePkgs.length > 0 ? `${dossier.activePkgs.length} aktif paket` : 'Tekil hizmet'}</span>
                                 </div>
                                 <div className="tfv2-glance-item">
                                     <small>Finans</small>
-                                    <strong>{dossier.bal > 0 ? `${fmtTL(dossier.bal)} bakiye` : 'Borç yok'}</strong>
+                                    <strong>{dossier.bal > 0 ? `${fmtTL(dossier.bal)} borç` : 'Borç yok'}</strong>
                                     <span>{selected.lastVisit ? `Son ziyaret ${fmtShort(selected.lastVisit)}` : 'Ziyaret yok'}</span>
                                 </div>
                                 <div className={`tfv2-glance-item ${dossier.risks.length > 0 ? 'is-alert' : 'is-safe'}`}>
-                                    <small>İşleme uygunluk</small>
-                                    <strong>{dossier.risks.length > 0 ? 'Kontrol gerekli' : 'Hazır'}</strong>
+                                    <small>Uygunluk</small>
+                                    <strong>{dossier.risks.length > 0 ? 'Dikkat' : 'Hazır'}</strong>
                                     <span>{dossier.risks.length > 0 ? dossier.risks.map((r) => r.label).join(', ') : 'Bilinen kısıt yok'}</span>
                                 </div>
                             </div>
@@ -628,7 +634,7 @@ export function BeautyCustomersPage() {
                                 )}
 
                                 {tab === 'packages' && (
-                                    <div className="tfv2-summary-layout">
+                                    <div className="tfv2-summary-layout is-finance">
                                         <section className="tfv2-section">
                                             <div className="tfv2-section-head">
                                                 <h3>Paket ve seans hakları</h3>
@@ -674,9 +680,9 @@ export function BeautyCustomersPage() {
                                             <button className="tfv2-button is-small" onClick={() => openWa()}>Yeni mesaj</button>
                                         </div>
                                         {waRows === null ? (
-                                            <p style={{ color: 'var(--tfv2-muted)', fontSize: 12 }}>Yükleniyor…</p>
+                                            <p style={{ color: 'var(--tfv2-muted)', fontSize: 13 }}>Yükleniyor…</p>
                                         ) : waRows.length === 0 ? (
-                                            <p style={{ color: 'var(--tfv2-muted)', fontSize: 12 }}>Bu müşteriye henüz mesaj gönderilmedi.</p>
+                                            <p style={{ color: 'var(--tfv2-muted)', fontSize: 13 }}>Bu müşteriye henüz mesaj gönderilmedi.</p>
                                         ) : (
                                             <div className="tfv2-detail-list">
                                                 {waRows.map((m) => (
@@ -694,31 +700,9 @@ export function BeautyCustomersPage() {
                                 )}
 
                                 {tab === 'forms' && (
-                                    <section className="tfv2-section">
-                                        <div className="tfv2-section-head">
-                                            <h3>Formlar, onamlar ve izinler</h3>
-                                            <small>Aydınlatma ve açık rıza ayrı tutulur</small>
-                                        </div>
-                                        <div className="tfv2-detail-list">
-                                            <FormRow
-                                                label="KVKK açık rızası"
-                                                when={typeof selected.customFields?.kvkk_onay === 'string' ? String(selected.customFields.kvkk_onay).slice(0, 10) : undefined}
-                                                state={selected.customFields?.kvkk_onay ? 'Alındı' : 'Kayıt yok'}
-                                                tone={selected.customFields?.kvkk_onay ? 'green' : 'amber'}
-                                                note="Booking sayfasından randevu alındıysa zaman damgasıyla kaydedilir"
-                                            />
-                                            {riskFlags.map((f) => (
-                                                <FormRow key={f.key} label={f.label}
-                                                    state={selected.customFields?.[f.key] ? 'Bildirildi' : 'Bildirim yok'}
-                                                    tone={selected.customFields?.[f.key] ? 'amber' : 'green'}
-                                                    note="Müşteri kaydındaki risk bayrağı" />
-                                            ))}
-                                            <FormRow label="WhatsApp iletişimi"
-                                                state={normalizePhone(selected.phone) ? 'Uygun numara' : 'Numara yazılamıyor'}
-                                                tone={normalizePhone(selected.phone) ? 'green' : 'amber'}
-                                                note="Gönderim opt-out ve kota kapısından geçer" />
-                                        </div>
-                                    </section>
+                                    <CustomerFormsTab key={selected.id} customer={selected}
+                                        history={resByCustomer.get(selected.id) || []}
+                                        fields={customerFields} onSave={updateCustomer} />
                                 )}
                             </div>
                         </>
@@ -991,7 +975,7 @@ function LoyaltyCard({ customer, loyaltyThreshold, reward, redeemLoyalty }: {
 
 function Timeline({ events }: { events: TimelineEvent[] }) {
     if (events.length === 0) {
-        return <p style={{ color: 'var(--tfv2-muted)', fontSize: 12, margin: 0 }}>Henüz kayıtlı hareket yok.</p>;
+        return <p style={{ color: 'var(--tfv2-muted)', fontSize: 13, margin: 0 }}>Henüz kayıtlı hareket yok.</p>;
     }
     return (
         <div className="tfv2-timeline">
@@ -1007,13 +991,123 @@ function Timeline({ events }: { events: TimelineEvent[] }) {
     );
 }
 
-function FormRow({ label, when, state, tone, note }: { label: string; when?: string; state: string; tone: string; note: string }) {
+const fmtLong = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getDate()} ${MONTHS_TR[d.getMonth()]} ${d.getFullYear()} · ${d.toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })}`;
+};
+
+type FieldValue = string | number | boolean;
+
+/**
+ * Formlar ve izinler — durum + düzenleme bir arada.
+ *
+ * KVKK onayı public-booking'de RANDEVUNUN custom_fields'ına yazılıyor
+ * (rızanın kanıtı kaydın kendisinde dursun diye). Bu sekme yalnız müşteri
+ * kaydına baktığı için online randevu almış müşteride bile "Kayıt yok"
+ * diyordu (2026-10-30). Artık önce müşteri kaydına (salonda elle işaretlenen
+ * onay), sonra randevulara bakılır; en yeni onay gösterilir.
+ *
+ * Sağlık/tercih alanları (hamilelik, alerji, cilt tipi) ve telefon bu ekranda
+ * hiç düzenlenemiyordu; işaretlenemeyen risk bayrağı hep "Bildirim yok"
+ * görünüyordu. Alanlar sektör profilinden gelir (customFieldTemplates).
+ */
+function CustomerFormsTab({ customer, history, fields, onSave }: {
+    customer: Customer;
+    history: Reservation[];
+    fields: FieldDef[];
+    onSave: (id: string, updates: Partial<Customer>) => Promise<boolean>;
+}) {
+    const [phone, setPhone] = useState(customer.phone || '');
+    const [values, setValues] = useState<Record<string, FieldValue>>(() => ({ ...(customer.customFields || {}) }));
+    const [busy, setBusy] = useState(false);
+
+    const consent = useMemo(() => {
+        const own = customer.customFields?.kvkk_onay;
+        if (typeof own === 'string' && own) return { at: own, source: 'Salonda işaretlendi' };
+        const fromBooking = history
+            .map((r) => r.customFields?.kvkk_onay)
+            .filter((v): v is string => typeof v === 'string' && v.length > 0)
+            .sort()
+            .pop();
+        return fromBooking ? { at: fromBooking, source: 'Online randevuda onaylandı' } : null;
+    }, [customer.customFields, history]);
+
+    const phoneOk = Boolean(normalizePhone(phone));
+    const dirty = phone.trim() !== (customer.phone || '').trim()
+        || fields.some((f) => (values[f.key] ?? '') !== (customer.customFields?.[f.key] ?? ''));
+
+    const save = async (extra?: Record<string, FieldValue>) => {
+        setBusy(true);
+        const customFields = { ...(customer.customFields || {}), ...values, ...extra };
+        const ok = await onSave(customer.id, { phone: phone.trim(), customFields });
+        setBusy(false);
+        if (ok) toast.success('Müşteri bilgileri kaydedildi');
+    };
+
     return (
-        <div className="tfv2-detail-row">
-            <small>{when ? fmtShort(when) : '—'}</small>
-            <div><strong>{label}</strong><span>{note}</span></div>
-            <span className={`tfv2-state tfv2-tone-${tone}`}>{state}</span>
-        </div>
+        <>
+            <section className="tfv2-section">
+                <div className="tfv2-section-head">
+                    <h3>Onaylar</h3>
+                    <small>Aydınlatma ve açık rıza ayrı tutulur</small>
+                </div>
+                <div className="tfv2-form-row">
+                    <div>
+                        <strong>KVKK açık rızası</strong>
+                        <span>{consent
+                            ? `${consent.source} · ${fmtLong(consent.at)}`
+                            : 'Online randevuda onay kutusu işaretlenince otomatik kaydedilir. Salonda imzalı onay aldıysanız buradan işaretleyin.'}</span>
+                    </div>
+                    {consent
+                        ? <span className="tfv2-state tfv2-tone-green">Alındı</span>
+                        : <button type="button" className="tfv2-button is-small" disabled={busy}
+                            onClick={() => save({ kvkk_onay: new Date().toISOString() })}>Onay alındı</button>}
+                </div>
+            </section>
+
+            <section className="tfv2-section">
+                <div className="tfv2-section-head">
+                    <h3>Müşteri bilgileri</h3>
+                    <small>İşlem öncesi kontrol bu bilgilere dayanır</small>
+                </div>
+                <div className="tfv2-form-grid">
+                    <label className="tfv2-field">
+                        <span>Telefon</span>
+                        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05XX XXX XX XX" />
+                        <small className={phoneOk ? 'is-ok' : 'is-warn'}>
+                            {phoneOk ? 'WhatsApp mesajı gönderilebilir' : 'Numara eksik ya da hatalı — WhatsApp mesajı gitmez'}
+                        </small>
+                    </label>
+                    {fields.map((f) => (
+                        <label key={f.key} className={`tfv2-field${f.type === 'checkbox' ? ' is-check' : ''}`}>
+                            <span>{f.label}</span>
+                            {f.type === 'checkbox' ? (
+                                <span className="tfv2-check">
+                                    <input type="checkbox" checked={Boolean(values[f.key])}
+                                        onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.checked }))} />
+                                    <em>{values[f.key] ? 'Var — uygun olmayan hizmetler uyarı verir' : 'Yok'}</em>
+                                </span>
+                            ) : f.type === 'select' ? (
+                                <select value={String(values[f.key] ?? '')} onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}>
+                                    <option value="">Seçilmedi</option>
+                                    {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+                                </select>
+                            ) : (
+                                <input type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}
+                                    value={String(values[f.key] ?? '')}
+                                    onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))} />
+                            )}
+                        </label>
+                    ))}
+                </div>
+                <div className="tfv2-form-actions">
+                    <button type="button" className="tfv2-button is-quiet is-small" disabled={!dirty || busy}
+                        onClick={() => { setPhone(customer.phone || ''); setValues({ ...(customer.customFields || {}) }); }}>Vazgeç</button>
+                    <button type="button" className="tfv2-button is-primary is-small" disabled={!dirty || busy || phone.trim().length < 7}
+                        onClick={() => save()}>{busy ? 'Kaydediliyor…' : 'Kaydet'}</button>
+                </div>
+            </section>
+        </>
     );
 }
 

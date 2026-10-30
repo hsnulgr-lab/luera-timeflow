@@ -12,11 +12,15 @@ export interface NewPackageInput {
     totalAmount: number;    // en küçük birim, tamsayı
     staffId?: string;
     notes?: string;
+    /** Son geçerlilik günü (134). Boş = süresiz. */
+    validUntil?: string;
 }
 
 // Paketler sayfası satırı: plan + yenileme teklifi damgası (067)
 export interface OrgPackage extends TreatmentPlan {
     renewalOfferedAt?: string;
+    /** Son geçerlilik günü (134). Yalnız uyarı içindir, hakları kapatmaz. */
+    validUntil?: string;
 }
 
 // Güzellik "paket" motoru = treatment_plans'ın org-geneli görünümü.
@@ -68,6 +72,7 @@ export function useOrgPackages(options?: { enabled?: boolean }) {
             sessionCount: Math.max(1, Number(row.session_count ?? 1) || 1),
             sessionsDone: Math.max(0, Number(row.sessions_done ?? 0) || 0),
             renewalOfferedAt: row.renewal_offered_at || undefined,
+            validUntil: row.valid_until ? String(row.valid_until).slice(0, 10) : undefined,
         }));
         setPackages(rows);
         writeCache(`packages:${orgId}`, rows);
@@ -111,11 +116,17 @@ export function useOrgPackages(options?: { enabled?: boolean }) {
                 // Bu yüzeyden satılan her plan ticari pakettir; sektöre bakmaya
                 // gerek yok. Trigger yalnız damga boş gelirse devreye girer.
                 plan_kind: 'paket',
+                ...(input.validUntil ? { valid_until: input.validUntil } : {}),
             };
             let { data, error } = await supabase.from('treatment_plans').insert(payload).select('*').single();
             // 077 uygulanmamışsa kolonsuz yeniden dene (bkz. refresh'teki aynı düşüş).
             if (error && `${error.message || ''} ${error.details || ''}`.includes('plan_kind')) {
                 delete payload.plan_kind;
+                ({ data, error } = await supabase.from('treatment_plans').insert(payload).select('*').single());
+            }
+            // 134 uygulanmamışsa geçerliliksiz yeniden dene — satış süre yüzünden düşmesin.
+            if (error && `${error.message || ''} ${error.details || ''}`.includes('valid_until')) {
+                delete payload.valid_until;
                 ({ data, error } = await supabase.from('treatment_plans').insert(payload).select('*').single());
             }
             if (error || !data) { console.error('Paket oluşturulamadı:', error); return null; }
@@ -127,6 +138,7 @@ export function useOrgPackages(options?: { enabled?: boolean }) {
                 notes: data.notes || undefined, createdAt: data.created_at,
                 sessionCount: count, sessionsDone: 0,
                 renewalOfferedAt: data.renewal_offered_at || undefined,
+                validUntil: data.valid_until ? String(data.valid_until).slice(0, 10) : undefined,
             };
         } finally {
             creatingRef.current = false;
