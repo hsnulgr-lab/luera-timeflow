@@ -13,9 +13,14 @@
 # iyi bir dosyanın üstüne yazılmıyor.
 #
 # ── Kapsamı ────────────────────────────────────────────────────────────────
-# Yedek VPS'İN KENDİSİNDE duruyor. Sunucu tamamen giderse yedek de gider.
-# Bu, hiç yedek olmamasından çok daha iyi ama tam bir felaket kurtarma
-# değil; dışarı kopyalama ayrı bir iş (bkz. README notu).
+# Yedek önce VPS'in kendisinde tutulur (30 gün). 2026-10-30'dan beri her
+# yedeğin ŞİFRELİ bir kopyası Cloudflare R2'ye de gider (`luera-yedek`
+# kovası, `timeflow/` öneki): sunucu tamamen giderse yedek gitmesin.
+#   · Şifreleme `age` ile, ALICI anahtarıyla: sunucu yalnız şifreleyebilir,
+#     açamaz. Gizli anahtar kullanıcıda (Mac ~/LueraYedek + Şifreler).
+#   · R2 bilgileri /root/.r2-yedek.env (600, kullanıcı yazdı); bu betikte
+#     ve depoda sır yok. Anahtar yalnız bu kovaya ve bu sunucunun IP'sine.
+#   · R2 yüklemesi başarısız olursa yerel yedek KORUNUR, betik 2 ile çıkar.
 #
 # Kurulum ve geri yükleme: docs/devir/05-KOMUTLAR.md
 set -euo pipefail
@@ -85,3 +90,31 @@ fi
 find "$DEST" -name '.gecici_*' -mtime +1 -delete 2>/dev/null || true
 
 log "toplam: $(find "$DEST" -name 'timeflow_*.sql.gz' | wc -l) yedek · $(du -sh "$DEST" | cut -f1)"
+
+# ── Dış kopya: şifrele → R2 ─────────────────────────────────────────────────
+R2_ENV="/root/.r2-yedek.env"
+AGE_RECIPIENT="/root/.yedek-age.pub"
+if [ ! -f "$R2_ENV" ] || [ ! -f "$AGE_RECIPIENT" ] || ! command -v age >/dev/null; then
+    log "UYARI: dış kopya kurulu değil (R2 bilgisi, age ya da alıcı anahtarı yok) — yalnız yerel yedek"
+    exit 0
+fi
+set -a; . "$R2_ENV"; set +a
+ENC="${OUT}.age"
+if ! age -R "$AGE_RECIPIENT" -o "$ENC" "$OUT"; then
+    log "HATA: şifreleme başarısız; yerel yedek duruyor"
+    rm -f "$ENC"
+    exit 2
+fi
+KEY="timeflow/$(basename "$ENC")"
+# -4: R2 anahtarı yalnız sunucunun IPv4'üne izinli; IPv6'dan giden istek 403 alır.
+CODE="$(curl -4 -sS -o /dev/null -w '%{http_code}' --max-time 300 \
+    --aws-sigv4 "aws:amz:auto:s3" --user "${R2_ACCESS_KEY_ID}:${R2_SECRET_ACCESS_KEY}" \
+    -H "x-amz-content-sha256: UNSIGNED-PAYLOAD" \
+    -T "$ENC" "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET}/${KEY}" || echo 000)"
+rm -f "$ENC"
+if [ "$CODE" != "200" ]; then
+    log "HATA: R2 yüklemesi başarısız (HTTP $CODE); yerel yedek duruyor"
+    exit 2
+fi
+date '+%F %T' > "${DEST}/r2-son-yukleme.txt"
+log "dış kopya tamam → r2://${R2_BUCKET}/${KEY}"
