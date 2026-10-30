@@ -22,7 +22,8 @@
 #     ve depoda sır yok. Anahtar yalnız bu kovaya ve bu sunucunun IP'sine.
 #   · R2 yüklemesi başarısız olursa yerel yedek KORUNUR, betik 2 ile çıkar.
 #
-# Kurulum ve geri yükleme: docs/devir/05-KOMUTLAR.md
+# Cron yedeklerini görmek: docs/devir/07-GERI-ALMA.md. Geri yükleme yolu ve provası:
+# scripts/vps-yedek-prova.sh (geçici, ağsız kapta; canlıya dokunmaz).
 set -euo pipefail
 
 DB_CONTAINER="supabase-db-t6yi63jbebvj6c7oo7yjofnt"
@@ -48,8 +49,14 @@ fi
 
 log "yedek alınıyor → $OUT"
 # `--no-owner`: geri yüklerken rol adları tutmayabilir; veri ve şema önemli.
-if ! docker exec -u postgres "$DB_CONTAINER" \
-        pg_dump -U supabase_admin -d postgres --no-owner 2>/dev/null | gzip > "$TMP"; then
+# Roller pg_dump'a GİRMEZ (küme düzeyinde): kendi rolümüz `staff_rt` yoksa
+# ona bağlı izinler kurulamıyordu (geri yükleme provası, 2026-10-30). Bu
+# yüzden dosyanın başına CREATE ROLE satırları eklenir — parolasız; Supabase
+# rollerinin parolasını yeni kurulum kendisi verir.
+if ! { docker exec -u postgres "$DB_CONTAINER" \
+          pg_dumpall -U supabase_admin --roles-only --no-role-passwords 2>/dev/null | grep '^CREATE ROLE' \
+       && docker exec -u postgres "$DB_CONTAINER" \
+          pg_dump -U supabase_admin -d postgres --no-owner 2>/dev/null; } | gzip > "$TMP"; then
     log "HATA: pg_dump başarısız; eski yedekler korundu"
     rm -f "$TMP"
     exit 1
