@@ -29,3 +29,8 @@ DODO_API_BASE = "https://live.dodopayments.com"
 [[kv_namespaces]]
 binding = "DURUM"
 id = "a45f9862ed07418997fac6c9380d027a"
+
+# Dış yedek kovası (2026-10-30): yedek kontrolü yalnız LİSTELER, okumaz/yazmaz.
+[[r2_buckets]]
+binding = "YEDEK"
+bucket_name = "luera-yedek"

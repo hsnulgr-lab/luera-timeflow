@@ -85,7 +85,49 @@ export function kontroller(env) {
         },
         // Anahtar yoksa kontrol hiç yok: kurulum bitene kadar alarm üretmesin.
         ...(env.DODO_READONLY_KEY ? [dodoKontrolu(env, sb)] : []),
+        ...(env.YEDEK ? [yedekKontrolu(env)] : []),
     ];
+}
+
+/** Gece yedeği 04:00 UTC'de; bir günlük gecikme + pay. */
+export const YEDEK_TAZE_MS = 26 * 3600_000;
+
+/**
+ * Dış yedek R2'ye geldi mi? (2026-10-30)
+ *
+ * VPS her gece yedeği şifreleyip R2 `luera-yedek/timeflow/` altına yükler
+ * (scripts/vps-backup.sh). Yükleme düşerse bunu yalnız sunucudaki günlük
+ * bilir; sunucu giderse tek dış kopya bayatlamış olur. Worker kovaya
+ * bağlı (wrangler.toml `YEDEK`): anahtar yok, ağ isteği yok. Saatte bir.
+ */
+function yedekKontrolu(env) {
+    return {
+        id: 'yedek', ad: 'Dış yedek', grup: 'yedek', onem: 'yuksek', aralikDk: 60,
+        baslik: "Gece yedeği R2'ye gelmedi",
+        etki: 'Müşteriler etkilenmiyor. Ama sunucu giderse en yeni dış yedek eski kalır; arada girilen veri kaybolur.',
+        yap: "Claude'a \"yedek alarmı\" yaz; sunucuda /root/yedek/timeflow.log okunur.",
+        ozel: async (zaman) => yedekTazeligi(await sonYedekler(env.YEDEK, zaman), zaman),
+    };
+}
+
+/** Bugünün ve dünün (UTC) yedekleri: liste 1000'le sınırlı, önek dar tutulur. */
+async function sonYedekler(kova, zaman) {
+    const gun = (ms) => new Date(ms).toISOString().slice(0, 10);
+    const sonuc = [];
+    for (const g of new Set([gun(zaman), gun(zaman - 24 * 3600_000), gun(zaman - 48 * 3600_000)])) {
+        const l = await kova.list({ prefix: `timeflow/timeflow_${g}` });
+        sonuc.push(...l.objects);
+    }
+    return sonuc;
+}
+
+/** Nesneler ({ key, uploaded, size }) → { ok, ayrinti }. */
+export function yedekTazeligi(nesneler, zaman) {
+    const yedekler = nesneler.filter((n) => n.key.endsWith('.sql.gz.age') && n.size > 0);
+    if (!yedekler.length) return { ok: false, ayrinti: 'son iki günde R2\'ye hiç yedek yüklenmemiş' };
+    const son = Math.max(...yedekler.map((n) => new Date(n.uploaded).getTime()));
+    if (zaman - son > YEDEK_TAZE_MS) return { ok: false, ayrinti: `son dış yedek ${sure(zaman - son)} önce (${saat(son)})` };
+    return { ok: true, ayrinti: '' };
 }
 
 /** Dodo'nun abonelik olaylarını almak için şart olanlar (filtre varsa). */
@@ -159,6 +201,16 @@ export function siraGeldiMi(k, zaman) {
 export async function kontrolEt(k, fetchImpl, zamanAsimiMs = ZAMAN_ASIMI_MS) {
     const bas = Date.now();
     const sonuc = (ok, ayrinti) => ({ id: k.id, ok, ayrinti, ms: Date.now() - bas });
+    if (k.ozel) {
+        // Ağ dışı kontrol (R2 bağı). Okunamazsa bilinmiyor: Cloudflare'in
+        // kendi aksaması yedeğin gelmediği anlamına gelmez.
+        try {
+            const d = await k.ozel(bas);
+            return sonuc(d.ok, d.ayrinti ?? '');
+        } catch {
+            return { ...sonuc(false, 'R2 listesi okunamadı'), bilinmiyor: true };
+        }
+    }
     try {
         const res = await fetchImpl(k.url, {
             method: k.method ?? 'GET',
@@ -347,7 +399,8 @@ export function ozet(tur, sonuclar, kapali, simdi, liste) {
     const dusen = sonuclar.filter((s) => !s.ok)
         .map((s) => [null, `• ${ad[s.id].ad}: ${kapali[s.id] ? `kapalı (${sure(simdi - kapali[s.id].since)}, başladı ${saat(kapali[s.id].since)})` : s.ayrinti}`]);
     const hepsi = 'Giriş, veritabanı, personel servisi, masaüstü ve site ayakta.'
-        + (sonuclar.some((s) => s.id === 'dodo') ? ' Dodo bildirim ucu açık.' : '');
+        + (sonuclar.some((s) => s.id === 'dodo') ? ' Dodo bildirim ucu açık.' : '')
+        + (sonuclar.some((s) => s.id === 'yedek') ? " Gece yedeği R2'de." : '');
     const title = tur === 'basladi'
         ? `İzleme başladı · ${ayakta}/${n} ayakta`
         : dusen.length ? `Sabah durumu · ${ayakta}/${n} ayakta` : `Her şey çalışıyor · ${n}/${n}`;

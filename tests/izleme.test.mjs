@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
     kontroller, kontrolEt, denetle, karar, ozet, sure, sabahMi, calistir, HATIRLAT_MS,
     pushoverOnceligi, kanallar, saat, dodoUcuDurumu, siraGeldiMi, DODO_GEREKLI_OLAYLAR,
+    yedekTazeligi, YEDEK_TAZE_MS,
 } from '../ops/izleme/src/kontroller.js';
 
 // Dış izleme (2026-10-17). 16 Ekim'de giriş servisi ~45 dk ölü kaldı ve hiçbir
@@ -400,4 +401,50 @@ test('sabah mesajı Dodo ucunu da sayar; VPS 1 düşüşü Dodo yüzünden "sunu
     const tek = karar({ basladi: 'x', kapali: {} },
         [...D_LISTE.map((k) => (['masaustu', 'dodo', 'site'].includes(k.id) ? kapali(k.id) : ok(k.id)))], T0, D_LISTE);
     assert.equal(tek.bildirimler[0].title, '3 servis çalışmıyor');
+});
+
+// ── Dış yedek (2026-10-30) ──────────────────────────────────────────────────
+// VPS her gece yedeği şifreleyip R2'ye yükler. Yükleme düşerse bunu yalnız
+// sunucudaki günlük bilirdi; sunucu giderse tek dış kopya bayat kalırdı.
+
+const nesne = (gun, saatUtc, size = 600_000) => ({
+    key: `timeflow/timeflow_${gun}_${saatUtc}.sql.gz.age`, size,
+    uploaded: new Date(`${gun}T${saatUtc.slice(0, 2)}:${saatUtc.slice(2)}:00Z`),
+});
+
+test('dış yedek: 26 saatten tazeyse açık; değilse ya da hiç yoksa alarm', () => {
+    const simdi = Date.UTC(2026, 9, 30, 12, 0);
+    assert.equal(yedekTazeligi([nesne('2026-10-30', '0400')], simdi).ok, true);
+    assert.equal(yedekTazeligi([nesne('2026-10-29', '1300')], simdi).ok, true, '23 saat: bir gece kaçmadı');
+    assert.equal(yedekTazeligi([nesne('2026-10-29', '0400')], simdi).ok, false, '32 saat: bir gece kaçtı');
+    const bayat = yedekTazeligi([nesne('2026-10-28', '0400')], simdi);
+    assert.equal(bayat.ok, false);
+    assert.match(bayat.ayrinti, /son dış yedek 2 gün 8 sa önce/);
+    assert.match(yedekTazeligi([], simdi).ayrinti, /hiç yedek/);
+    assert.equal(yedekTazeligi([{ ...nesne('2026-10-30', '0400'), size: 0 }], simdi).ok, false, 'boş dosya yedek sayılmaz');
+    assert.equal(yedekTazeligi([{ ...nesne('2026-10-30', '0400'), key: 'timeflow/_deneme.txt' }], simdi).ok, false, 'yalnız şifreli yedek sayılır');
+    assert.equal(YEDEK_TAZE_MS, 26 * 3600_000);
+});
+
+test('dış yedek kontrolü yalnız kova bağlıysa; saatte bir; R2 okunamazsa bilinmiyor', async () => {
+    assert.equal(LISTE.some((k) => k.id === 'yedek'), false, 'bağsız kurulum alarm üretmemeli');
+    const simdi = Date.now();
+    const gun = new Date(simdi).toISOString().slice(0, 10);
+    const istenen = [];
+    const kova = { list: async ({ prefix }) => { istenen.push(prefix); return { objects: prefix.endsWith(gun) ? [{ key: `timeflow/timeflow_${gun}_0400.sql.gz.age`, size: 9, uploaded: new Date(simdi - 3600_000) }] : [] }; } };
+    const y = kontroller({ ...ENV, YEDEK: kova }).find((k) => k.id === 'yedek');
+    assert.equal(y.aralikDk, 60);
+    assert.equal(y.grup, 'yedek', 'VPS 1 grubunda değil: sunucu alarmını tetiklemez');
+    assert.equal(pushoverOnceligi(karar({ basladi: 'x', kapali: {} }, [{ id: 'yedek', ok: false, ayrinti: 'x' }], T0, [y]).bildirimler[0].priority), 1);
+    const r = await kontrolEt(y, () => { throw new Error('ağa gidilmemeli'); });
+    assert.equal(r.ok, true);
+    assert.ok(istenen.every((p) => p.startsWith('timeflow/timeflow_')), 'önek dar: liste sınırına takılmaz');
+    const bozuk = kontroller({ ...ENV, YEDEK: { list: async () => { throw new Error('R2'); } } }).find((k) => k.id === 'yedek');
+    const b = await kontrolEt(bozuk, () => {});
+    assert.equal(b.bilinmiyor, true);
+});
+
+test('wrangler.toml: yedek kovası bağlı', () => {
+    const toml = readFileSync(new URL('../ops/izleme/wrangler.toml', import.meta.url), 'utf8');
+    assert.match(toml, /\[\[r2_buckets\]\]\s*binding = "YEDEK"\s*bucket_name = "luera-yedek"/);
 });
