@@ -71,7 +71,10 @@ Deno.serve(async (req: Request) => {
         }
 
         // Org + settings
-        const { data: org } = await supabase.from('organizations').select('name, owner_id').eq('id', orgId).maybeSingle();
+        // Ayar sahibin satırından okunur (ownerSettings). Müşteri sayfası salonu
+        // tanıtabilsin (2026-10-30): logo, arama, yol tarifi, "yeni randevu al" —
+        // online randevu sayfasının açık alanları.
+        const { data: org } = await supabase.from('organizations').select('name, owner_id, slug, logo_url, public_phone, address, maps_url').eq('id', orgId).maybeSingle();
         const settings = await ownerSettings(supabase, orgId, 'business_name, working_hours, slot_duration, comms', org?.owner_id ?? null);
         const businessName = settings?.business_name || org?.name || 'İşletme';
         // Müşteriye giden mesajlar bota değil bu akışa aitti ve kendi ağzıyla
@@ -108,7 +111,14 @@ Deno.serve(async (req: Request) => {
                     time: (res.start_time || '').slice(0, 5), endTime: (res.end_time || '').slice(0, 5),
                     staffName, status: res.status,
                 },
-                business: { name: businessName },
+                business: {
+                    name: businessName,
+                    slug: org?.slug ?? null,
+                    logoUrl: org?.logo_url ?? null,
+                    phone: org?.public_phone ?? null,
+                    address: org?.address ?? null,
+                    mapsUrl: org?.maps_url ?? null,
+                },
                 canModify,
             });
         }
