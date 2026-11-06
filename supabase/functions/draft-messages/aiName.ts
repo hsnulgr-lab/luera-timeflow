@@ -11,9 +11,8 @@
  * fazlaysa (model adı uydurmuş ya da tekrarlamış olabilir) mesaj kullanılmıyor
  * ve şablona düşülüyor — şablon zaten her yolun güvenlik ağı.
  *
- * Bu dosyanın BİREBİR kopyası `draft-messages/aiName.ts`te: `_shared`e
- * konsaydı her deploy bütün fonksiyonları kapsamak zorunda kalırdı. Testler
- * iki kopyanın aynı kaldığını kilitliyor (`d5-yapay-zeka-ad.test.mjs`).
+ * Eskiden `remind/aiName.ts`te bir kopyası vardı; remind 2026-11-07'den beri
+ * yapay zekâ kullanmıyor (tek ses: metinler _shared/booking/messages.ts'ten).
  */
 
 export const NAME_TOKEN = '{AD}';

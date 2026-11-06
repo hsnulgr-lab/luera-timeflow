@@ -1373,9 +1373,8 @@ test('taşınan randevunun hatırlatmaları sıfırlanır', () => {
 test('hatırlatma yalnız asistan açıkken soru sorar', () => {
     // Kapalıyken gelen "hayır" cevaplanmaz ve müşteri cevapsız kalır —
     // soru sormanın en kötü hâli.
-    assert.match(remind, /function withConfirmAsk\(msg: string, assistantOn: boolean\)/);
-    assert.match(remind, /if \(!assistantOn\) return msg;/);
-    assert.match(remind, /withConfirmAsk\(\s*\n?\s*await aiOrTemplate/);
+    // Tek ses (2026-11-07): remind de zamanlayıcının şablonunu kullanır.
+    assert.match(remind, /M\.reminder24h\(ctxFor\(r\.customer_name\), \{[\s\S]{0,200}askConfirm: featureOn\(orgWa as OrgWa, 'assistant', false\)/);
 });
 
 test('hatırlatma yanıtı yalnız akış YOKKEN randevuya bağlanır', () => {

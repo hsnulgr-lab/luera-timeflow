@@ -922,6 +922,7 @@ function useReservationsState() {
                     businessName: settings.businessName,
                     note: settings.rebookNote,
                     bookingUrl,
+                    comms: commsForSector(settings.sector),
                 });
                 // Bağlı değilse proxy zaten reason:'not_connected' döner; ayrıca
                 // settings'te instance kontrolü yapmıyoruz (bağlantı org_whatsapp'ta).

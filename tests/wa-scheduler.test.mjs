@@ -200,7 +200,9 @@ test('davet metni: teşekkür tekrarı ve işletme adı eki yok; önizleme sunuc
     assert.equal(server, 'Merhaba Nisanur ✨\nBir sonraki *cilt bakımı* randevunuzu şimdiden ayırtmak ister misiniz?\n\n'
         + 'Uygun gününüzü yazmanız ya da bağlantıdan seçmeniz yeterli.\n\n*%10 erken rezervasyon*\n\nhttps://x/book/s');
     assert.doesNotMatch(server, /teşekkür|Test Salon 2/);
-    assert.equal(buildRebookInvite({ customerName: 'Nisanur', service: 'cilt bakımı', note: '%10 erken rezervasyon', bookingUrl: 'https://x/book/s', emoji: CTX.comms.emoji }), server);
+    // Önizleme sunucunun fonksiyonunu çağırır; ad Hanım/Bey ile gelir.
+    assert.equal(buildRebookInvite({ customerName: 'Nisanur', service: 'cilt bakımı', note: '%10 erken rezervasyon', bookingUrl: 'https://x/book/s', emoji: CTX.comms.emoji }),
+        MSG.rebookInvite({ ...CTX, firstName: 'Nisanur Hanım' }, { service: 'cilt bakımı', note: '%10 erken rezervasyon', bookingUrl: 'https://x/book/s' }));
     assert.equal(MSG.rebookInvite({ ...CTX, firstName: null }, { service: 'ağda' }),
         buildRebookInvite({ customerName: '', service: 'ağda', emoji: CTX.comms.emoji }));
     // Eski (bayrak kapalı) davette elle yazılmış "'daki" eki gitti.

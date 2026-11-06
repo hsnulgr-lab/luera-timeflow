@@ -31,7 +31,6 @@ const hooks = strip(read('mobile/src/lib/managerCreate.ts'));
 const confirm = strip(read('mobile/src/components/ConfirmScreen.tsx'));
 const pure = read('mobile/src/lib/createLive.ts');
 const desktopRes = read('src/hooks/useReservations.ts');
-const desktopTpl = read('src/services/waTemplates.ts');
 const desktopSectors = read('src/lib/sectorProfiles.ts');
 
 const SERVICE = { id: 's1', name: 'Saç boyama', minutes: 90, price: 1900, color: '#7E93A8' };
@@ -289,7 +288,10 @@ test('ön dolgu kaybolmasın: akış bağlam okunmadan kurulmuyor', () => {
 
 // ── Onay mesajı ─────────────────────────────────────────────────────────────
 
-test('onay metni masaüstünün şablonuyla BİREBİR', () => {
+// Masaüstü 2026-11-07'de tek sese geçti (_shared/booking/messages.ts →
+// bookingConfirmation). Telefonun kopyası mağaza derlemesiyle (1.0.2)
+// geçecek; o zamana kadar telefonun kendi metni kilitli.
+test('telefonun onay metni (1.0.2\'de tek sese geçecek)', () => {
     const text = confirmationText({
         customerName: 'Zeynep Kaya', dateISO: '2026-09-16', startTime: '10:30:00', service: 'Saç boyama',
         businessName: 'Luera Kuaför', staffName: 'Merve', mapsUrl: 'https://maps.example/x', sector: 'kuafor',
@@ -302,11 +304,6 @@ test('onay metni masaüstünün şablonuyla BİREBİR', () => {
         + '💠 Saç boyama\n👤 Merve'
         + '\n\nDeğişiklik gerekirse bu mesaja yanıt vermeniz yeterli. Görüşmek üzere! 💇'
         + '\n\n📍 Konum: https://maps.example/x');
-    // Masaüstünün şablonundaki parçalar hâlâ aynı.
-    for (const piece of ['Merhaba ${firstName} 👋', 'kaydınız oluşturuldu ✅', '🕐 Saat *${params.startTime}*',
-        'Değişiklik gerekirse bu mesaja yanıt vermeniz yeterli. Görüşmek üzere!', '📍 Konum: ']) {
-        assert.ok(desktopTpl.includes(piece), piece);
-    }
     assert.equal(trDate('2026-07-27'), '27 Temmuz Pazartesi');
 });
 

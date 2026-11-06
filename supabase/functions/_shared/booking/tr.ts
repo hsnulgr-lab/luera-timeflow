@@ -6,6 +6,8 @@
 //
 // Saf modül: tests/wa-agent.test.mjs ve wa-scheduler.test.mjs doğrudan import eder.
 
+import { formatDateTr } from './slots.ts';
+
 const WEEKDAYS = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 const UNITS = ['', 'bir', 'iki', 'üç', 'dört', 'beş', 'altı', 'yedi', 'sekiz', 'dokuz'];
 const TENS = ['', 'on', 'yirmi', 'otuz', 'kırk', 'elli'];
@@ -74,4 +76,15 @@ export function genitiveSuffix(name: string): string | null {
     const harmony = 'aı'.includes(v) ? 'ı' : 'ei'.includes(v) ? 'i' : 'ou'.includes(v) ? 'u' : 'ü';
     const endsVowel = 'aeıioöuü'.includes(word[word.length - 1]);
     return `'${endsVowel ? 'n' : ''}${harmony}n`;
+}
+
+/**
+ * Randevu künyesindeki tarih: "Yarın, 30 Ekim Cuma"; bugün/yarın değilse
+ * yalnız tarih ("2 Kasım Pazar"). Zamanlayıcı, remind ve web onayı aynı biçimi
+ * kullanır.
+ */
+export function bookingDateLabel(dateISO: string, todayISO: string): string {
+    const rel = relativeDayLabel(dateISO, todayISO);
+    const full = formatDateTr(dateISO);
+    return rel === 'Bugün' || rel === 'Yarın' ? `${rel}, ${full}` : full;
 }

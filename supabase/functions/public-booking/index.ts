@@ -14,6 +14,11 @@ import { minToTime, staffSlots, timeToMin, weekdayOf, type WorkingHour } from '.
 // Body: { action: 'profile' | 'slots' | 'book', slug, ... }
 // ============================================================
 
+// Onay mesajı asistanla aynı ağızdan (tek ses, 2026-11-07).
+import * as M from '../_shared/booking/messages.ts';
+import { greetingName } from '../_shared/booking/identity.ts';
+import { bookingDateLabel } from '../_shared/booking/tr.ts';
+
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -114,22 +119,21 @@ async function bookingAbuseCheck(
     return null;
 }
 
-function buildBookingMessage(p: { customerName: string; date: string; time: string; service: string; businessName: string; confirmed: boolean; manageUrl?: string }): string {
-    const d = new Date(p.date + 'T00:00:00Z').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long', timeZone: 'UTC' });
-    const manage = p.manageUrl ? `\n\nRandevunuzu iptal etmek veya değiştirmek için:\n${p.manageUrl}` : '';
-    if (p.confirmed) {
-        return (
-            `Merhaba ${p.customerName} 👋\n\n` +
-            `*${p.businessName}* randevunuz oluşturuldu ✅\n\n` +
-            `🗓️ ${d}\n⏰ ${p.time}\n💼 ${p.service}` +
-            `\n\nSizi bekliyoruz!${manage}`
-        );
-    }
-    return (
-        `Merhaba ${p.customerName} 👋\n\n` +
-        `*${p.businessName}* randevu talebiniz alındı 📝\n\n` +
-        `🗓️ ${d}\n⏰ ${p.time}\n💼 ${p.service}` +
-        `\n\nOnaylandığında size tekrar bilgi vereceğiz.${manage}`
+/** WhatsApp onayı: _shared/booking/messages.ts → bookingConfirmation. */
+function buildBookingMessage(p: {
+    customerName: string; businessName: string; comms: unknown; confirmed: boolean;
+    items: { date: string; time: string; service: string }[];
+    manageUrl?: string; mapsUrl?: string | null;
+}): string {
+    const today = new Date(Date.now() + TZ_OFFSET_MIN * 60_000).toISOString().slice(0, 10);
+    return M.bookingConfirmation(
+        { comms: M.resolveComms(p.comms), businessName: p.businessName, firstName: greetingName(p.customerName) },
+        {
+            items: p.items.map((it) => ({ service: it.service, dateLabel: bookingDateLabel(it.date, today), time: it.time })),
+            pending: !p.confirmed,
+            manageUrl: p.manageUrl,
+            mapsUrl: p.mapsUrl,
+        },
     );
 }
 
@@ -172,7 +176,7 @@ Deno.serve(async (req: Request) => {
         // Settings (çalışma saatleri, slot, işletme adı, whatsapp)
         const { data: settings } = await supabase
             .from('settings')
-            .select('business_name, working_hours, slot_duration, webhook_url')
+            .select('business_name, working_hours, slot_duration, webhook_url, comms')
             .eq('organization_id', orgId)
             .maybeSingle();
 
@@ -384,15 +388,12 @@ Deno.serve(async (req: Request) => {
             // WhatsApp — tek birleşik mesaj
             const orgWa = await getOrgWa(supabase, orgId);
             if (orgWa?.instance && orgWa.status === 'connected') {
-                const lineTxt = prepared.map(p => {
-                    const d = new Date(p.date + 'T00:00:00Z').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long', timeZone: 'UTC' });
-                    return `💼 ${p.svcName}\n🗓️ ${d} ⏰ ${p.time}`;
-                }).join('\n\n');
-                const head = autoConfirm
-                    ? `Merhaba ${customerName} 👋\n\n*${businessName}* randevunuz oluşturuldu ✅\n\n`
-                    : `Merhaba ${customerName} 👋\n\n*${businessName}* randevu talebiniz alındı 📝\n\n`;
-                const tail = autoConfirm ? `\n\nSizi bekliyoruz!` : `\n\nOnaylandığında size tekrar bilgi vereceğiz.`;
-                sendWA(supabase, { org: orgWa, phone: customerPhone, kind: 'booking', ignoreOptOut: true, text: head + lineTxt + tail }).catch(() => {});
+                const text = buildBookingMessage({
+                    customerName, businessName, comms: settings?.comms, confirmed: autoConfirm,
+                    items: prepared.map((p) => ({ date: p.date, time: p.time, service: p.svcName })),
+                    mapsUrl: org.maps_url,
+                });
+                sendWA(supabase, { org: orgWa, phone: customerPhone, kind: 'booking', ignoreOptOut: true, text }).catch(() => {});
             }
 
             return json({
@@ -557,7 +558,10 @@ Deno.serve(async (req: Request) => {
         const orgWa = await getOrgWa(supabase, orgId);
         if (orgWa?.instance && orgWa.status === 'connected') {
             const manageUrl = reservation.customer_token ? `${APP_ORIGIN}/booking/${reservation.customer_token}` : undefined;
-            const msg = buildBookingMessage({ customerName, date, time, service: svc.name, businessName, confirmed: autoConfirm, manageUrl });
+            const msg = buildBookingMessage({
+                customerName, businessName, comms: settings?.comms, confirmed: autoConfirm,
+                items: [{ date, time, service: svc.name }], manageUrl, mapsUrl: org.maps_url,
+            });
             sendWA(supabase, { org: orgWa, phone: customerPhone, kind: 'booking', ignoreOptOut: true, text: msg }).catch(() => {});
         }
 

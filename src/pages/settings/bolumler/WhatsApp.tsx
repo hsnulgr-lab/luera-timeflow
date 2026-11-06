@@ -234,7 +234,7 @@ export function WhatsApp() {
         dim?: boolean; extra?: ReactNode; on?: boolean; onToggle?: (v: boolean) => Promise<boolean>; anchor?: string;
     }[] = [
         { key: '24h', title: '24 saat önce hatırlatma', when: 'Randevudan 24 saat önce. Anahtarı yok: WhatsApp bağlıyken her zaman gider.', always: true, time: '10:00',
-            text: build24hMessage({ comms: previewComms, customerName: sample, startTime: '10:00', service, businessName: biz, mapsUrl: maps }) },
+            text: build24hMessage({ comms: previewComms, customerName: sample, startTime: '10:00', service, businessName: biz, mapsUrl: maps, askConfirm: f.assistant }) },
         { key: '2h', title: '2 saat önce hatırlatma', when: 'Randevudan 2 saat önce. Anahtarı yok: WhatsApp bağlıyken her zaman gider.', always: true, time: '08:00',
             text: build2hMessage({ comms: previewComms, customerName: sample, startTime: '10:00', service, businessName: biz, mapsUrl: maps }) },
         { key: 'confirmation', title: 'Randevu onayı', when: 'Randevu oluşur oluşmaz; panelden, online randevudan ve WhatsApp botundan.', feature: 'confirmation', time: '09:12',
@@ -283,8 +283,8 @@ export function WhatsApp() {
             on: Boolean(settings.rebookEnabled),
             onToggle: (v) => updateSettings({ ...settings, rebookEnabled: v }),
             text: sched
-                ? buildRebookInvite({ customerName: sample.split(' ')[0], service, note: d.rebookNote, bookingUrl, emoji: comms.emoji })
-                : buildRebookMessage({ customerName: sample.split(' ')[0], service, businessName: biz, note: d.rebookNote, bookingUrl }),
+                ? buildRebookInvite({ customerName: sample, service, note: d.rebookNote, bookingUrl, emoji: previewComms.emoji })
+                : buildRebookMessage({ customerName: sample, service, businessName: biz, note: d.rebookNote, bookingUrl, comms: previewComms }),
             extra: (
                 <div className="ay-msg-ctrl" style={{ position: 'relative' }}>
                     {t.isChanged('rebookNote') && <span aria-hidden="true" className="ay-changed" style={{ left: -40, top: 0, bottom: 0 }} />}

@@ -5,6 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useQueue } from '@/hooks/useQueue';
 import { useReservations } from '@/hooks/useReservations';
 import { buildQueueJoinMessage, buildQueueReadyMessage } from '@/services/waTemplates';
+import { commsForSector } from '@/lib/sectorProfiles';
 import { sendWhatsApp, WA_FAIL_TEXT } from '@/services/whatsapp';
 import { useWhatsApp } from '@/hooks/useWhatsApp';
 import type { QueueEntry } from '@/types';
@@ -46,7 +47,7 @@ export const QueuePage = () => {
     const row = await addEntry({ customerName: name.trim(), customerPhone: phone.trim() || undefined, service: service.trim() || undefined });
     if (row) {
       if (wa && row.customerPhone) {
-        const msg = buildQueueJoinMessage({ customerName: row.customerName, businessName: settings.businessName, position: pos, etaMin: (pos - 1) * avg });
+        const msg = buildQueueJoinMessage({ customerName: row.customerName, businessName: settings.businessName, position: pos, etaMin: (pos - 1) * avg, comms: commsForSector(settings.sector) });
         notify(row.customerPhone, msg, 'queue_join');
       }
       toast.success('Sıraya eklendi');
@@ -56,7 +57,7 @@ export const QueuePage = () => {
 
   const call = (e: QueueEntry) => {
     callEntry(e.id);
-    if (wa && e.customerPhone) notify(e.customerPhone, buildQueueReadyMessage({ customerName: e.customerName, businessName: settings.businessName }), 'queue_ready');
+    if (wa && e.customerPhone) notify(e.customerPhone, buildQueueReadyMessage({ customerName: e.customerName, businessName: settings.businessName, comms: commsForSector(settings.sector) }), 'queue_ready');
     toast.success('Çağrıldı');
   };
 

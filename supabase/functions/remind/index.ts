@@ -5,7 +5,9 @@ import {
 } from '../_shared/wa.ts';
 import { identify, deny } from '../_shared/auth.ts';
 import { checkAccess } from '../_shared/entitlement.ts';
-import { NAME_RULE, NAME_TOKEN, fillName } from './aiName.ts';
+import * as M from '../_shared/booking/messages.ts';
+import { greetingName } from '../_shared/booking/identity.ts';
+import { bookingDateLabel } from '../_shared/booking/tr.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -63,8 +65,6 @@ Deno.serve(async (req: Request) => {
         let sentReview = 0;
         const errors: string[] = [];
 
-        // AI mesaj üretimi için Gemini key (env → app_secrets)
-        const geminiKey = await getGeminiKey(supabase);
 
         // ── MANUEL MOD: tek hasta kontrol hatırlatması ───────────────────────
         // "Hatırlat" butonu bu yolu tetikler; cron beklemeden anında gönderir.
@@ -114,14 +114,11 @@ Deno.serve(async (req: Request) => {
                 return new Response(JSON.stringify({ error: 'WhatsApp bağlı değil' }),
                     { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
             }
-            const { data: orgRow } = await supabase
-                .from('organizations').select('maps_url').eq('id', cust.organization_id).maybeSingle();
-            const mapsUrl = orgRow?.maps_url ?? null;
             // settings satırı yoksa (silinmiş/eksik) mesaj yine gitsin
             const bizName = orgSettings?.business_name || 'İşletme';
-            const manualComms = resolveComms(orgSettings?.comms);
-            const tmpl = () => buildRecallMessage({ customerName: cust.name, businessName: bizName, comms: manualComms });
-            const msg = withMapsUrl(await recallAiOrTemplate(geminiKey, manualComms, cust.name, bizName, tmpl), mapsUrl);
+            const msg = M.recallInvite({
+                comms: M.resolveComms(orgSettings?.comms), businessName: bizName, firstName: greetingName(cust.name),
+            });
             // Elle tetiklenen hatırlatma kotaya takılmasın (kind:'manual').
             const res = await sendWA(supabase, {
                 org: orgWa, phone: cust.phone, text: msg, kind: 'manual', customerId: cust.id,
@@ -209,7 +206,11 @@ Deno.serve(async (req: Request) => {
             const business_name = conf?.business_name ?? 'İşletme';
             // Sektörel iletişim profili — kaynak src/lib/sectorProfiles.ts, uygulama
             // settings.comms'a yazar (066). Yoksa nötr profille devam edilir.
-            const comms: Comms = resolveComms(conf?.comms);
+            const comms = M.resolveComms(conf?.comms);
+            // Tek ses (2026-11-07): metinler asistanla aynı kaynaktan
+            // (_shared/booking/messages.ts), müşterinin adı Hanım/Bey ile.
+            const ctxFor = (name: string | null | undefined): M.Ctx =>
+                ({ comms, businessName: business_name, firstName: greetingName(name) });
             const mapsUrl = mapsUrlByOrg.get(organization_id) ?? null;
             const extras = orgExtras.get(organization_id)
                 ?? { reviewUrl: null, discountPercent: 0, discountDays: 30 };
@@ -248,14 +249,12 @@ Deno.serve(async (req: Request) => {
 
             for (const r of list24h ?? []) {
                 const startTime = r.start_time.slice(0, 5);
-                const tmpl = () => build24hMessage({ customerName: r.customer_name, startTime, service: r.service, businessName: business_name, comms });
-                const msg = withMapsUrl(
-                    withConfirmAsk(
-                        await aiOrTemplate(geminiKey, comms, '24h', r.customer_name, r.service, startTime, business_name, tmpl),
-                        featureOn(orgWa as OrgWa, 'assistant', false),
-                    ),
-                    mapsUrl,
-                );
+                // "Gelebilecek misiniz?" yalnız asistan açıkken: kapalıyken
+                // "Hayır"ı okuyan olmaz, müşteri cevapsız kalır (085).
+                const msg = M.reminder24h(ctxFor(r.customer_name), {
+                    service: r.service, dateLabel: bookingDateLabel(tomorrowStr, todayStr), time: startTime,
+                    mapsUrl, askConfirm: featureOn(orgWa as OrgWa, 'assistant', false),
+                });
                 const ok = await send(r.customer_phone, msg, 'reminder_24h', r.customer_id);
                 if (ok) {
                     await supabase.from('reservations').update({ reminder_24h_sent: true }).eq('id', r.id);
@@ -281,8 +280,7 @@ Deno.serve(async (req: Request) => {
                 if (resMin < window2hStart || resMin > window2hEnd) continue;
 
                 const startTime2 = r.start_time.slice(0, 5);
-                const tmpl2 = () => build2hMessage({ customerName: r.customer_name, startTime: startTime2, service: r.service, businessName: business_name, comms });
-                const msg = withMapsUrl(await aiOrTemplate(geminiKey, comms, '2h', r.customer_name, r.service, startTime2, business_name, tmpl2), mapsUrl);
+                const msg = M.reminder2h(ctxFor(r.customer_name), { service: r.service, time: startTime2, mapsUrl });
                 const ok = await send(r.customer_phone, msg, 'reminder_2h', r.customer_id);
                 if (ok) {
                     await supabase.from('reservations').update({ reminder_2h_sent: true }).eq('id', r.id);
@@ -319,8 +317,7 @@ Deno.serve(async (req: Request) => {
                     if (!c.phone) continue;
                     // Bu kontrol tarihi için zaten hatırlatıldıysa atla
                     if (c.recall_reminded_for && c.recall_reminded_for === c.recall_date) continue;
-                    const tmpl = () => buildRecallMessage({ customerName: c.name, businessName: business_name, comms });
-                    const msg = withMapsUrl(await recallAiOrTemplate(geminiKey, comms, c.name, business_name, tmpl), mapsUrl);
+                    const msg = M.recallInvite(ctxFor(c.name));
                     const ok = await send(c.phone, msg, 'recall', c.id);
                     if (ok) {
                         await supabase.from('customers').update({ recall_reminded_for: c.recall_date }).eq('id', c.id);
@@ -356,12 +353,7 @@ Deno.serve(async (req: Request) => {
 
                 for (const r of reviewList ?? []) {
                     if (!r.customer_phone) continue;
-                    const msg = buildReviewMessage({
-                        customerName: r.customer_name,
-                        businessName: business_name,
-                        reviewUrl: extras.reviewUrl,
-                        comms,
-                    });
+                    const msg = M.reviewInvite(ctxFor(r.customer_name), { reviewUrl: extras.reviewUrl });
                     const ok = await send(r.customer_phone, msg, 'review', r.customer_id);
                     // Gönderilemese de işaretliyoruz: opt-out ya da geçersiz numara
                     // kalıcı sebepler, her turda yeniden denemek log şişirir.
@@ -415,11 +407,7 @@ Deno.serve(async (req: Request) => {
                         );
                     }
 
-                    // AI kod uydurabilir ya da düşürebilir; indirim satırı
-                    // şablondan, metnin sonuna sabit eklenir.
-                    const tmpl = () => buildWinbackMessage({ customerName: c.name, businessName: business_name, comms });
-                    const base = withMapsUrl(await winbackAiOrTemplate(geminiKey, comms, c.name, business_name, tmpl), mapsUrl);
-                    const msg = offer ? base + discountLine(offer) : base;
+                    const msg = M.winback(ctxFor(c.name)) + (offer ? discountLine(offer) : '');
                     const ok = await send(c.phone, msg, 'winback', c.id);
                     if (ok) {
                         await supabase.from('customers').update({ winback_sent_at: nowUtc.toISOString() }).eq('id', c.id);
@@ -470,8 +458,7 @@ Deno.serve(async (req: Request) => {
                         await supabase.from('treatment_plans').update({ renewal_offered_at: nowUtc.toISOString() }).eq('id', p.id);
                         continue;
                     }
-                    const tmpl = () => buildRenewalMessage({ customerName: cust.name, packageTitle: p.title, businessName: business_name, comms });
-                    const msg = withMapsUrl(await renewalAiOrTemplate(geminiKey, comms, cust.name, p.title, business_name, tmpl), mapsUrl);
+                    const msg = M.renewalInvite(ctxFor(cust.name), { packageTitle: p.title });
                     const ok = await send(cust.phone, msg, 'renewal', cust.id);
                     if (ok) {
                         await supabase.from('treatment_plans').update({ renewal_offered_at: nowUtc.toISOString() }).eq('id', p.id);
@@ -564,60 +551,6 @@ function datePart(d: Date): string {
     return d.toISOString().slice(0, 10);
 }
 
-// Konum linkini şablon/AI ayrımı olmadan tek noktadan ekler
-// (AI'ya URL verilmez — bozma riski var)
-function withMapsUrl(msg: string, mapsUrl: string | null): string {
-    return mapsUrl ? `${msg}\n\n📍 Konum: ${mapsUrl}` : msg;
-}
-
-/**
- * 24 saatlik hatırlatmaya "Evet / Hayır" sorusu ekler (085 · Dalga 3).
- *
- * Şablonun İÇİNE yazılmadı çünkü metin aiOrTemplate'ten geçiyor ve model onu
- * yeniden yazarken soruyu düşürebilir. Soruyu sonda eklemek, hangi metin
- * gitmiş olursa olsun cevabın istendiğini garanti eder.
- *
- * Yalnız AI asistan AÇIKKEN eklenir: kapalıyken bota gelen "hayır" cevaplanmaz
- * ve müşteri cevapsız kalır — soru sormanın en kötü hâli budur.
- */
-function withConfirmAsk(msg: string, assistantOn: boolean): string {
-    if (!assistantOn) return msg;
-    return `${msg}\n\nGelebilecek misiniz? *Evet* ya da *Hayır* yazmanız yeterli.`;
-}
-
-function build24hMessage(p: { customerName: string; startTime: string; service: string; businessName: string; comms?: Comms }): string {
-    const c = p.comms ?? NEUTRAL_COMMS;
-    return (
-        `Merhaba ${p.customerName} 👋\n\n` +
-        `*${p.businessName}*'daki ${p.service} ${c.servicePhrase} hatırlatmak istedik.\n\n` +
-        `📅 Yarın saat *${p.startTime}*\n\n` +
-        `Görüşmek üzere! ${c.emoji}`
-    );
-}
-
-function build2hMessage(p: { customerName: string; startTime: string; service: string; businessName: string; comms?: Comms }): string {
-    return (
-        `Merhaba ${p.customerName} 👋\n\n` +
-        `Bugün saat *${p.startTime}*'deki *${p.service}* randevunuz 2 saat sonra.\n\n` +
-        `📍 ${p.businessName}\n\n` +
-        `Görüşmek üzere! ${(p.comms ?? NEUTRAL_COMMS).emoji}`
-    );
-}
-
-// Dönüş (recall) şablonu — AI başarısız olursa güvenlik ağı. Kavram sektörden
-// gelir: diş kontrolü / dip boyası / üyelik yenileme…
-function buildRecallMessage(p: { customerName: string; businessName: string; comms?: Comms }): string {
-    const firstName = (p.customerName || '').split(' ')[0];
-    const c = p.comms ?? NEUTRAL_COMMS;
-    const concept = c.recall?.concept ?? 'dönüş';
-    return (
-        `Merhaba ${firstName} 👋\n\n` +
-        `*${p.businessName}*'den yazıyoruz. *${concept}* zamanınız geldi ${c.emoji}\n\n` +
-        `Size uygun bir güne randevu oluşturmak için bu mesaja yanıt vermeniz yeterli. İyi günler dileriz! 😊`
-    );
-}
-
-// "Sizi özledik" şablonu — 60+ gün gelmeyen müşteri için güvenlik ağı
 // ── İndirim kodu — 071 ──────────────────────────────────────────────────────
 interface DiscountOffer { code: string; percent: number; expiresAt: string | null }
 
@@ -679,204 +612,9 @@ async function issueDiscountCode(
 
 function discountLine(o: DiscountOffer): string {
     const until = o.expiresAt
-        ? ` (${new Date(o.expiresAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })} tarihine kadar)`
-        : '';
-    return `\n\n🎁 Size özel *%${o.percent} indirim*${until}\nKod: *${o.code}*\nRandevunuzda bu kodu söylemeniz yeterli.`;
-}
-
-// Google değerlendirme daveti — 071. İstemcideki eşi src/services/waTemplates.ts,
-// ikisi aynı metni üretmeli (Ayarlar'daki önizleme oradan besleniyor).
-function buildReviewMessage(p: {
-    customerName: string; businessName: string; reviewUrl: string; comms?: Comms;
-}): string {
-    const firstName = (p.customerName || '').split(' ')[0];
-    const c = p.comms ?? NEUTRAL_COMMS;
-    return (
-        `Merhaba ${firstName} ${c.emoji}\n\n` +
-        `Bugün *${p.businessName}*'i tercih ettiğiniz için teşekkür ederiz!\n\n` +
-        `Memnun kaldıysanız Google'da kısa bir değerlendirme bırakmanız bizim için çok değerli — ` +
-        `bir dakikanızı bile almaz 🙏\n\n👉 ${p.reviewUrl}`
-    );
-}
-
-function buildWinbackMessage(p: { customerName: string; businessName: string; comms?: Comms }): string {
-    const firstName = (p.customerName || '').split(' ')[0];
-    const c = p.comms ?? NEUTRAL_COMMS;
-    return (
-        `Merhaba ${firstName} ${c.emoji}\n\n` +
-        `*${p.businessName}* olarak sizi özledik! Bir süredir uğramadınız — ` +
-        `size uygun bir güne ${c.serviceWord} planlamak isterseniz bu mesaja yanıt vermeniz yeterli. 😊`
-    );
-}
-
-function buildWinbackAiPrompt(comms: Comms, businessName: string): string {
-    return (
-        `${comms.persona} İşletme adı: ${businessName}.\n` +
-        `${comms.audience} ${NAME_TOKEN}. Bu kişi 2 aydan uzun süredir gelmedi.\n` +
-        `Bu kişiye kısa (en fazla 2-3 cümle), sıcak, WhatsApp için uygun bir Türkçe "SİZİ ÖZLEDİK" mesajı yaz. ` +
-        `${NAME_RULE} Mesaja ${NAME_TOKEN} ile başla. Suçlayıcı olma; nazikçe dönüş yapmasını iste. 1 emoji kullanabilirsin (${comms.emoji}). ` +
-        (comms.guardrail ? `${comms.guardrail} ` : '') +
-        `İndirim/kampanya UYDURMA. Sadece mesaj metnini döndür; başka açıklama, tırnak veya etiket ekleme.`
-    );
-}
-
-async function winbackAiOrTemplate(
-    geminiKey: string | null, comms: Comms, customerName: string, businessName: string, fallback: () => string,
-): Promise<string> {
-    if (geminiKey) {
-        const ai = fillName(await geminiMessage(geminiKey, buildWinbackAiPrompt(comms, businessName)), customerName);
-        if (ai) return ai;
-    }
-    return fallback();
-}
-
-// Paket yenileme şablonu — biten paket için güvenlik ağı
-function buildRenewalMessage(p: { customerName: string; packageTitle: string; businessName: string; comms?: Comms }): string {
-    const firstName = (p.customerName || '').split(' ')[0];
-    const c = p.comms ?? NEUTRAL_COMMS;
-    return (
-        `Merhaba ${firstName} ${c.emoji}\n\n` +
-        `*${p.businessName}*'daki *${p.packageTitle}* paketiniz tamamlandı — emeğinize sağlık! 🎉\n\n` +
-        `Devam etmek isterseniz yenileme için bu mesaja yanıt vermeniz yeterli; size uygun bir plan hazırlayalım. 😊`
-    );
-}
-
-function buildRenewalAiPrompt(comms: Comms, packageTitle: string, businessName: string): string {
-    return (
-        `${comms.persona} İşletme adı: ${businessName}.\n` +
-        `${comms.audience} ${NAME_TOKEN}. Bu kişinin "${packageTitle}" paketindeki tüm seanslar tamamlandı.\n` +
-        `Bu kişiye kısa (en fazla 2-3 cümle), sıcak, WhatsApp için uygun bir Türkçe PAKET YENİLEME teklifi yaz. ` +
-        `${NAME_RULE} Mesaja ${NAME_TOKEN} ile başla, paketi tebrikle an, yenilemek isterse dönüş yapmasını iste. 1 emoji kullanabilirsin (${comms.emoji}). ` +
-        (comms.guardrail ? `${comms.guardrail} ` : '') +
-        `Fiyat/indirim UYDURMA. Sadece mesaj metnini döndür; başka açıklama, tırnak veya etiket ekleme.`
-    );
-}
-
-async function renewalAiOrTemplate(
-    geminiKey: string | null, comms: Comms, customerName: string, packageTitle: string, businessName: string, fallback: () => string,
-): Promise<string> {
-    if (geminiKey) {
-        const ai = fillName(await geminiMessage(geminiKey, buildRenewalAiPrompt(comms, packageTitle, businessName)), customerName);
-        if (ai) return ai;
-    }
-    return fallback();
-}
-
-// Recall için AI mesajı — gizlilik: yalnız işletme adı ve kavram gider; müşteri
-// adı, telefonu, soyadı GİTMEZ (yer tutucu, `aiName.ts`).
-function buildRecallAiPrompt(comms: Comms, businessName: string): string {
-    const concept = comms.recall?.concept ?? 'dönüş';
-    return (
-        `${comms.persona} İşletme adı: ${businessName}.\n` +
-        `${comms.audience} ${NAME_TOKEN}. Bu kişinin periyodik *${concept}* zamanı geldi.\n` +
-        `Bu kişiye kısa (en fazla 2-3 cümle), samimi, WhatsApp için uygun bir Türkçe HATIRLATMA mesajı yaz. ` +
-        `${NAME_RULE} Mesaja ${NAME_TOKEN} ile başla. Randevu için dönüş yapmasını nazikçe iste. 1 emoji kullanabilirsin (${comms.emoji}). ` +
-        (comms.guardrail ? `${comms.guardrail} ` : '') +
-        `Sadece mesaj metnini döndür; başka açıklama, tırnak veya etiket ekleme.`
-    );
-}
-
-async function recallAiOrTemplate(
-    geminiKey: string | null, comms: Comms, customerName: string, businessName: string, fallback: () => string,
-): Promise<string> {
-    if (geminiKey) {
-        const ai = fillName(await geminiMessage(geminiKey, buildRecallAiPrompt(comms, businessName)), customerName);
-        if (ai) return ai;
-    }
-    return fallback();
-}
-
-// ─── AI (Gemini) sektörel hatırlatma ─────────────────────────────────────────
-// Gizlilik (D5, 2026-10-16): Gemini'ye yalnız hizmet + saat + sektör + işletme
-// adı gider. Müşterinin ADI DA GİTMEZ: istemde `{AD}` yer tutucusu var, gerçek
-// ön ad dönen metne sunucuda konuyor (`aiName.ts`). Telefon ve soyad zaten gitmiyordu.
-// Sektörel iletişim profili — TEK KAYNAK src/lib/sectorProfiles.ts'tir.
-// Uygulama sektör seçildiğinde settings.comms'a yazar (066); burada sektör
-// tablosunun ikinci bir kopyası TUTULMAZ, aksi halde iki taraf birbirinden
-// kayar (eski SECTOR_HINTS tam olarak bu yüzden 8 sektörü ıskalıyordu).
-interface Comms {
-    persona: string;
-    audience: string;
-    serviceWord: string;
-    servicePhrase: string;
-    emoji: string;
-    recall?: { concept: string; afterDays: number };
-    guardrail?: string;
-}
-
-// comms yazılmamış org'lar için nötr profil — mesajlaşma asla kesilmez.
-const NEUTRAL_COMMS: Comms = {
-    persona: 'Randevulu hizmet veren bir işletmesin; samimi, nazik ve net ol.',
-    audience: 'müşterimiz',
-    serviceWord: 'randevu',
-    servicePhrase: 'randevunuzu',
-    emoji: '🗓️',
-};
-
-function resolveComms(raw: any): Comms {
-    if (!raw || typeof raw !== 'object' || !raw.persona) return NEUTRAL_COMMS;
-    return {
-        persona: String(raw.persona),
-        audience: String(raw.audience ?? NEUTRAL_COMMS.audience),
-        serviceWord: String(raw.serviceWord ?? NEUTRAL_COMMS.serviceWord),
-        servicePhrase: String(raw.servicePhrase ?? NEUTRAL_COMMS.servicePhrase),
-        emoji: String(raw.emoji ?? NEUTRAL_COMMS.emoji),
-        recall: raw.recall?.concept ? { concept: String(raw.recall.concept), afterDays: Number(raw.recall.afterDays) || 90 } : undefined,
-        guardrail: raw.guardrail ? String(raw.guardrail) : undefined,
-    };
-}
-
-async function getGeminiKey(supabase: any): Promise<string | null> {
-    const env = Deno.env.get('GEMINI_API_KEY');
-    if (env) return env;
-    const { data } = await supabase.from('app_secrets').select('value').eq('key', 'GEMINI_API_KEY').maybeSingle();
-    return data?.value ?? null;
-}
-
-function buildAiPrompt(type: '24h' | '2h', comms: Comms, service: string, time: string, businessName: string): string {
-    const whenLine = type === '24h'
-        ? `Randevu YARIN saat ${time}.`
-        : `Randevu BUGÜN saat ${time}'de (yaklaşık 2 saat sonra).`;
-    return (
-        `${comms.persona} İşletme adı: ${businessName}.\n` +
-        `${comms.audience} ${NAME_TOKEN}. ${comms.serviceWord}: ${service}. ${whenLine}\n` +
-        `Bu kişiye kısa (en fazla 2-3 cümle), samimi, WhatsApp için uygun bir Türkçe RANDEVU HATIRLATMA mesajı yaz. ` +
-        `${NAME_RULE} Mesaja ${NAME_TOKEN} ile başla. Saati ve hizmeti net belirt. 1 emoji kullanabilirsin (${comms.emoji}). ` +
-        (comms.guardrail ? `${comms.guardrail} ` : '') +
-        `Sadece mesaj metnini döndür; başka açıklama, tırnak veya etiket ekleme.`
-    );
-}
-
-async function geminiMessage(key: string, prompt: string): Promise<string | null> {
-    try {
-        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { maxOutputTokens: 220, temperature: 0.85, thinkingConfig: { thinkingBudget: 0 } },
-            }),
-        });
-        if (!res.ok) return null;
-        const data = await res.json();
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        return (typeof text === 'string' && text.trim()) ? text.trim() : null;
-    } catch {
-        return null;
-    }
-}
-
-// AI mesajı dener; başarısız/boşsa ya da yer tutucu tutmazsa şablona düşer (güvenlik ağı)
-async function aiOrTemplate(
-    geminiKey: string | null, comms: Comms, type: '24h' | '2h',
-    customerName: string, service: string, time: string, businessName: string,
-    fallback: () => string,
-): Promise<string> {
-    if (geminiKey) {
-        const ai = fillName(await geminiMessage(geminiKey, buildAiPrompt(type, comms, service, time, businessName)), customerName);
-        if (ai) return ai;
-    }
-    return fallback();
+        ? new Date(o.expiresAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', timeZone: 'Europe/Istanbul' })
+        : null;
+    return M.discountLine({ percent: o.percent, code: o.code, until });
 }
 
 /** Bildirim gövdesi için ilk ad. Bkz. `supabase/104_push_ilk_ad.sql`. */

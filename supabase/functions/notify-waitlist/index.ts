@@ -2,6 +2,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { checkAccess } from '../_shared/entitlement.ts';
 import { featureOn, getOrgWa, sendWA } from '../_shared/wa.ts';
 import { identify, deny } from '../_shared/auth.ts';
+import * as M from '../_shared/booking/messages.ts';
+import { greetingName } from '../_shared/booking/identity.ts';
 
 // ============================================================
 // notify-waitlist — Boşluk Doldurma
@@ -52,7 +54,7 @@ Deno.serve(async (req: Request) => {
         // için limit(1) ile tek satır alıyoruz; bağlantı bilgisi org_whatsapp'ta.
         const [{ data: org }, { data: settings }] = await Promise.all([
             supabase.from('organizations').select('slug, name').eq('id', organization_id).maybeSingle(),
-            supabase.from('settings').select('business_name').eq('organization_id', organization_id).limit(1).maybeSingle(),
+            supabase.from('settings').select('business_name, comms').eq('organization_id', organization_id).limit(1).maybeSingle(),
         ]);
         if (!org?.slug) return json({ error: 'İşletme/slug bulunamadı' }, 404);
 
@@ -84,12 +86,12 @@ Deno.serve(async (req: Request) => {
 
         let notified = 0;
         for (const w of matches) {
-            const first = (w.customer_name || '').split(' ')[0];
-            const msg =
-                `Merhaba ${first} 👋\n\n` +
-                `*${businessName}*'da bir randevu yeri açıldı! 🎉\n\n` +
-                `Hemen randevunu oluşturmak için:\n${bookingUrl}\n\n` +
-                `Yerler sınırlı, ilk gelen alır ⏳`;
+            // Eskiden "randevunu oluştur" (sen) ve dört emojiyle gidiyordu;
+            // artık asistanla aynı ağız (tek ses, 2026-11-07).
+            const msg = M.waitlistOpening(
+                { comms: M.resolveComms(settings?.comms), businessName, firstName: greetingName(w.customer_name) },
+                { bookingUrl },
+            );
             const res = await sendWA(supabase, {
                 org: orgWa, phone: w.customer_phone, text: msg, kind: 'waitlist',
             });

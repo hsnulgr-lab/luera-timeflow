@@ -552,3 +552,112 @@ export function rebookInvite(c: Ctx, o: { service: string; note?: string | null;
     const how = o.bookingUrl ? 'Uygun gününüzü yazmanız ya da bağlantıdan seçmeniz yeterli.' : 'Uygun gününüzü yazmanız yeterli.';
     return `${helloLine(c)}\nBir sonraki *${o.service}* randevunuzu şimdiden ayırtmak ister misiniz?\n\n${how}${note}${link}`;
 }
+
+// ── Tek ses: panelden, web'den ve remind'dan giden duyurular ────────────────
+//
+// Kullanıcı kararı (2026-11-07): asistanın konuşması ile işletmenin kendiliğinden
+// gönderdiği mesajlar aynı ağızdan çıkar. Eskiden bunların her biri kendi
+// dosyasında ayrı yazılmıştı (panelde, public-booking'de, remind'da) ve remind
+// metni her seferinde Gemini'ye baştan yazdırıyordu: aynı işletmeden bir gün
+// "Merhaba Nisa 👋 … 🙏 👉", ertesi gün başka bir ses geliyordu.
+//
+// Panelin Ayarlar → WhatsApp önizlemesi de BU fonksiyonları çağırır
+// (src/services/waTemplates.ts → @shared): önizleme gönderilenin ta kendisi.
+
+export interface BookingItem {
+    service: string;
+    dateLabel: string;
+    time: string;
+    staff?: string | null;
+}
+
+function bookingBlock(c: Ctx, it: BookingItem): string {
+    const staff = it.staff?.trim() ? `\n*Uzman:* ${it.staff.trim()}` : '';
+    return `${detailBlock(c, it)}${staff}`;
+}
+
+/**
+ * Randevu onayı — panelden ya da online randevu sayfasından kayıt düşünce.
+ * Birden çok hizmet tek mesajda gider. `pending`: otomatik onay kapalı, randevu
+ * işletmenin onayını bekliyor.
+ */
+export function bookingConfirmation(c: Ctx, o: {
+    items: BookingItem[];
+    pending?: boolean;
+    manageUrl?: string | null;
+    mapsUrl?: string | null;
+}): string {
+    const many = o.items.length > 1;
+    const head = o.pending
+        ? `*${c.businessName}* olarak randevu ${many ? 'taleplerinizi' : 'talebinizi'} aldık.`
+        : `*${c.businessName}* olarak ${many ? 'randevularınızı' : 'randevunuzu'} oluşturduk.`;
+    const tail = o.pending
+        ? 'Onaylanınca size haber vereceğiz.'
+        : 'Sizi bekliyoruz. Değişiklik gerekirse bu mesaja yazmanız yeterli.';
+    const manage = o.manageUrl ? `\n\nİptal veya değişiklik için:\n${o.manageUrl}` : '';
+    return withMaps(
+        `${helloLine(c)}\n${head}\n\n${o.items.map((it) => bookingBlock(c, it)).join('\n\n')}\n\n${tail}${manage}`,
+        o.mapsUrl,
+    );
+}
+
+/** Google değerlendirme daveti (zamanlayıcısız işletmede tahsilattan ~3 saat sonra). */
+export function reviewInvite(c: Ctx, o: { reviewUrl: string }): string {
+    return `${helloLine(c)}\nBugünkü ziyaretiniz için teşekkür ederiz.\n\n`
+        + `Memnun kaldıysanız Google'da kısa bir değerlendirme bırakmanız bizim için çok değerli:\n${o.reviewUrl}`;
+}
+
+/** Dönüş hatırlatması: diş kontrolü, dip boyası… Kavram sektörden. */
+export function recallInvite(c: Ctx): string {
+    const concept = c.comms.recall?.concept ?? 'kontrol';
+    return `${helloLine(c)}\n*${c.businessName}* olarak yazıyoruz: *${concept}* zamanınız geldi.\n\n`
+        + 'Size uygun bir gün için bu mesaja yazmanız yeterli.';
+}
+
+/** "Sizi özledik": 60+ gündür gelmeyen müşteri. İndirim satırı ayrı eklenir. */
+export function winback(c: Ctx): string {
+    return `${helloLine(c)}\n*${c.businessName}* olarak sizi özledik, bir süredir görüşemedik.\n\n`
+        + `Yeni bir ${c.comms.serviceWord} planlamak isterseniz bu mesaja yazmanız yeterli.`;
+}
+
+/**
+ * Winback'e eklenen müşteriye özel indirim (071). `until` çağıranın hazırladığı
+ * "20 Kasım" gibi bir tarih; süresiz kodda null.
+ */
+export function discountLine(o: { percent: number; code: string; until: string | null }): string {
+    const until = o.until ? ` (${o.until} tarihine kadar)` : '';
+    return `\n\n*Size özel %${o.percent} indirim*${until}\nKod: *${o.code}*\nRandevunuzda bu kodu söylemeniz yeterli.`;
+}
+
+/**
+ * Bütün seansları biten paket. Satış dili yok: yalnız devam etmek isterse.
+ * "Emeğinize sağlık" YOK: emeği veren işletme, müşteriye söylenmez (kullanıcı
+ * düzeltmesi, 2026-11-07).
+ */
+export function renewalInvite(c: Ctx, o: { packageTitle: string }): string {
+    return `${helloLine(c)}\n*${o.packageTitle}* paketinizdeki bütün seansları tamamladınız. Umarız sonuçtan memnunsunuzdur.\n\n`
+        + 'Devam etmek isterseniz bu mesaja yazmanız yeterli; size uygun bir plan hazırlayalım.';
+}
+
+/** Sırasız bekleme: sıraya eklendi. `position` 1 = sıradaki. */
+export function queueJoined(c: Ctx, o: { position: number; etaMin: number }): string {
+    const pos = o.position <= 1
+        ? 'Sıradaki sizsiniz, birazdan çağıracağız.'
+        : `*Sıranız:* ${o.position}\n*Tahmini bekleme:* ~${o.etaMin} dk`;
+    return `${helloLine(c)}\n*${c.businessName}* sırasına eklendiniz.\n\n${pos}\n\nSıranız gelince size haber vereceğiz.`;
+}
+
+/** Sırasız bekleme: sıra geldi. */
+export function queueReady(c: Ctx): string {
+    return `${helloLine(c)}\nSıranız geldi, sizi bekliyoruz.`;
+}
+
+/**
+ * Zamanlayıcısız işletmede iptalle boşalan yer: bekleme listesindekilere
+ * bağlantı (notify-waitlist). Zamanlayıcı açıksa yer sırayla teklif edilir
+ * (slotOffer) ve bu mesaj gitmez.
+ */
+export function waitlistOpening(c: Ctx, o: { bookingUrl: string }): string {
+    return `${helloLine(c)}\n*${c.businessName}* olarak yazıyoruz: beklediğiniz randevu için yer açıldı.\n\n`
+        + `Size uygun saati buradan seçebilirsiniz:\n${o.bookingUrl}\n\nYer sınırlı, ilk seçen alır.`;
+}

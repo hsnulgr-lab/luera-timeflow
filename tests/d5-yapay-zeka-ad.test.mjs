@@ -11,7 +11,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { NAME_RULE, NAME_TOKEN, fillName, firstNameOf } from '../supabase/functions/remind/aiName.ts';
+import { NAME_RULE, NAME_TOKEN, fillName, firstNameOf } from '../supabase/functions/draft-messages/aiName.ts';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -33,26 +33,11 @@ test('yer tutucu YOKSA ya da birden FAZLAYSA metin kullanılmıyor — şablona 
     assert.equal(NAME_TOKEN, '{AD}');
 });
 
-test('iki fonksiyonun yardımcısı BİREBİR aynı', () => {
-    // `_shared`e konsaydı her deploy bütün fonksiyonları kapsamak zorundaydı.
-    assert.equal(read('supabase/functions/draft-messages/aiName.ts'), read('supabase/functions/remind/aiName.ts'));
-});
-
-test('remind: dört istemin hiçbiri müşteri adını almıyor; dördü de dönüşte yer tutucuyu dolduruyor', () => {
+test('remind yapay zekâya hiç gitmiyor: metinler sabit şablondan (tek ses, 2026-11-07)', () => {
     const remind = read('supabase/functions/remind/index.ts');
-    for (const builder of ['buildAiPrompt', 'buildRecallAiPrompt', 'buildWinbackAiPrompt', 'buildRenewalAiPrompt']) {
-        const start = remind.indexOf(`function ${builder}(`);
-        assert.ok(start > 0, `${builder} yok`);
-        const signature = remind.slice(start, remind.indexOf('{', start));
-        assert.doesNotMatch(signature, /customerName/, `${builder} hâlâ adı alıyor`);
-        const body = remind.slice(start, remind.indexOf('\n}\n', start));
-        assert.doesNotMatch(body, /firstName|customerName/, `${builder} adı isteme koyuyor`);
-        assert.match(body, /\$\{NAME_TOKEN\}/);
-        assert.match(body, /\$\{NAME_RULE\}/);
-    }
-    // Model çağrısının TEK yolu ve dördü de doldurma kapısından geçiyor.
-    assert.equal((remind.match(/await geminiMessage\(/g) ?? []).length, 4);
-    assert.equal((remind.match(/fillName\(await geminiMessage\(/g) ?? []).length, 4);
+    assert.doesNotMatch(remind, /generativelanguage|geminiMessage|GEMINI_API_KEY/);
+    assert.doesNotMatch(remind, /aiName/);
+    assert.match(remind, /from '\.\.\/_shared\/booking\/messages\.ts'/);
 });
 
 test('draft-messages: Groq\'a giden listede ad yok; taslak tutmazsa şablon', () => {

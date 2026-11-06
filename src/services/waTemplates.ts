@@ -1,14 +1,41 @@
 import type { SectorComms } from '@/lib/sectorProfiles';
+import * as M from '../../supabase/functions/_shared/booking/messages.ts';
+import { greetingName } from '../../supabase/functions/_shared/booking/identity.ts';
+import { bookingDateLabel } from '../../supabase/functions/_shared/booking/tr.ts';
 
 // WhatsApp mesaj şablonları — SAF fonksiyonlar, ağ erişimi yok.
 //
+// Tek ses (2026-11-07): metinlerin TEK kaynağı sunucudaki
+// supabase/functions/_shared/booking/messages.ts. Burası yalnız panelin
+// elindeki parametreleri oradaki fonksiyonlara çevirir (göreli yol: node
+// testleri de bu dosyayı doğrudan import ediyor, @shared takma adını bilmez). Eskiden her şablonun
+// burada ayrı bir kopyası vardı ("sunucudaki eşi aynı metni üretir"); kopyalar
+// zamanla ayrıştı ve Ayarlar'daki önizleme gerçekte gidenden farklı bir mesaj
+// gösteriyordu. Artık önizleme gönderilenin ta kendisi.
+//
 // Gönderim src/services/whatsapp.ts üzerinden whatsapp-proxy edge function'ına
-// gider; Evolution anahtarı tarayıcıya asla girmez. Bu dosya eskiden hem şablon
-// hem de doğrudan Evolution çağrıları içeriyordu (evolutionApi.ts) — o çağrılar
-// VITE_EVOLUTION_API_URL okuyordu ve .env'de böyle bir değişken olmadığı için
-// tüm gönderim sessizce ölüydü.
+// gider; Evolution anahtarı tarayıcıya asla girmez.
 
-// ─── Randevu onayı ───────────────────────────────────────────────────────────
+/** Panelin bildiği müşteri adı + işletme → şablon bağlamı (Hanım/Bey dahil). */
+function ctx(customerName: string | null | undefined, businessName: string, comms?: SectorComms | M.Comms): M.Ctx {
+    return {
+        comms: M.resolveComms(comms),
+        businessName: businessName || 'İşletmeniz',
+        firstName: greetingName(customerName),
+    };
+}
+
+/** Tarayıcının bugünü (YYYY-MM-DD, yerel saat). */
+function todayISO(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function addDaysISO(iso: string, days: number): string {
+    const d = new Date(`${iso}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+}
 
 /** "27 Temmuz Pazartesi" — şablonlarda okunabilir tarih. */
 export function formatTrDate(iso: string): string {
@@ -17,9 +44,10 @@ export function formatTrDate(iso: string): string {
     return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' });
 }
 
+// ─── Randevu onayı ───────────────────────────────────────────────────────────
+
 // Randevu oluşturulur oluşturulmaz gider — müşteri elinde yazılı bir kayıt olsun
-// diye. 24s/2s hatırlatmalarından farkı: anlık ve tek seferlik.
-// Edge function'lardaki (public-booking, whatsapp-booking) eşi aynı metni üretir.
+// diye. Online randevu (public-booking) aynı fonksiyonu çağırır.
 export function buildConfirmationMessage(params: {
     customerName: string;
     date: string;              // ISO (YYYY-MM-DD)
@@ -30,46 +58,31 @@ export function buildConfirmationMessage(params: {
     mapsUrl?: string;
     comms?: SectorComms;
 }): string {
-    const firstName = (params.customerName || '').split(' ')[0];
-    const c = params.comms;
-    const svcWord = c?.serviceWord ?? 'randevu';
-    return (
-        `Merhaba ${firstName} 👋\n\n` +
-        `*${params.businessName}* — ${svcWord} kaydınız oluşturuldu ✅\n\n` +
-        `📅 ${formatTrDate(params.date)}\n` +
-        `🕐 Saat *${params.startTime}*\n` +
-        `💠 ${params.service}` +
-        (params.staffName ? `\n👤 ${params.staffName}` : '') +
-        `\n\nDeğişiklik gerekirse bu mesaja yanıt vermeniz yeterli. Görüşmek üzere! ${c?.emoji ?? '🗓️'}` +
-        (params.mapsUrl ? `\n\n📍 Konum: ${params.mapsUrl}` : '')
-    );
+    return M.bookingConfirmation(ctx(params.customerName, params.businessName, params.comms), {
+        items: [{
+            service: params.service,
+            dateLabel: bookingDateLabel(params.date, todayISO()),
+            time: params.startTime,
+            staff: params.staffName,
+        }],
+        mapsUrl: params.mapsUrl,
+    });
 }
 
 // ─── Google değerlendirme daveti ─────────────────────────────────────────────
 
-// Tahsilat kapandıktan ~3 saat sonra gider (remind cron). İşletme puanı
-// büyümenin en ucuz kaldıracı ama kimse elle istemiyor. Edge function'daki
-// (remind) eşi aynı metni üretir — ikisi aynı görünmeli.
 export function buildReviewMessage(params: {
     customerName: string;
     businessName: string;
     reviewUrl: string;
     comms?: SectorComms;
 }): string {
-    const firstName = (params.customerName || '').split(' ')[0];
-    return (
-        `Merhaba ${firstName} ${params.comms?.emoji ?? '😊'}\n\n` +
-        `Bugün *${params.businessName}*'i tercih ettiğiniz için teşekkür ederiz!\n\n` +
-        `Memnun kaldıysanız Google'da kısa bir değerlendirme bırakmanız bizim için çok değerli — ` +
-        `bir dakikanızı bile almaz 🙏\n\n👉 ${params.reviewUrl}`
-    );
+    return M.reviewInvite(ctx(params.customerName, params.businessName, params.comms), { reviewUrl: params.reviewUrl });
 }
 
-// ─── Hatırlatma mesajı şablonları ────────────────────────────────────────────
+// ─── Hatırlatmalar ───────────────────────────────────────────────────────────
 
-// Hatırlatma şablonları — sektörün iletişim profiline göre (bkz. sectorProfiles).
-// Edge function (supabase/functions/remind) aynı biçimi üretir; buradaki
-// sürüm Ayarlar'daki önizleme içindir, ikisi aynı görünmeli.
+/** `askConfirm`: asistan açıkken sonda "Gelebilecek misiniz?" sorulur. */
 export function build24hMessage(params: {
     customerName: string;
     startTime: string;
@@ -77,16 +90,16 @@ export function build24hMessage(params: {
     businessName: string;
     mapsUrl?: string;
     comms?: SectorComms;
+    askConfirm?: boolean;
 }): string {
-    const c = params.comms;
-    const svcWord = c?.servicePhrase ?? 'randevunuzu';
-    return (
-        `Merhaba ${params.customerName} 👋\n\n` +
-        `*${params.businessName}*'daki ${params.service} ${svcWord} hatırlatmak istedik.\n\n` +
-        `📅 Yarın saat *${params.startTime}*\n\n` +
-        `Görüşmek üzere! ${c?.emoji ?? '🗓️'}` +
-        (params.mapsUrl ? `\n\n📍 Konum: ${params.mapsUrl}` : '')
-    );
+    const today = todayISO();
+    return M.reminder24h(ctx(params.customerName, params.businessName, params.comms), {
+        service: params.service,
+        dateLabel: bookingDateLabel(addDaysISO(today, 1), today),
+        time: params.startTime,
+        mapsUrl: params.mapsUrl,
+        askConfirm: Boolean(params.askConfirm),
+    });
 }
 
 export function build2hMessage(params: {
@@ -97,131 +110,98 @@ export function build2hMessage(params: {
     mapsUrl?: string;
     comms?: SectorComms;
 }): string {
-    return (
-        `Merhaba ${params.customerName} 👋\n\n` +
-        `Bugün saat *${params.startTime}*'deki *${params.service}* randevunuz 2 saat sonra.\n\n` +
-        `📍 ${params.businessName}\n\n` +
-        `Görüşmek üzere! ${params.comms?.emoji ?? '✅'}` +
-        (params.mapsUrl ? `\n\n📍 Konum: ${params.mapsUrl}` : '')
-    );
+    return M.reminder2h(ctx(params.customerName, params.businessName, params.comms), {
+        service: params.service, time: params.startTime, mapsUrl: params.mapsUrl,
+    });
 }
 
-// Dönüş (recall) şablonu — sektörün kavramıyla: diş kontrolü / dip boyası…
+// Dönüş (recall) — sektörün kavramıyla: diş kontrolü / dip boyası…
 export function buildRecallMessage(params: {
     customerName: string;
     businessName: string;
     comms?: SectorComms;
 }): string {
-    const firstName = (params.customerName || '').split(' ')[0];
-    const concept = params.comms?.recall?.concept ?? 'dönüş';
-    return (
-        `Merhaba ${firstName} 👋\n\n` +
-        `*${params.businessName}*'den yazıyoruz. *${concept}* zamanınız geldi ${params.comms?.emoji ?? '😊'}\n\n` +
-        `Size uygun bir güne randevu oluşturmak için bu mesaja yanıt vermeniz yeterli. İyi günler dileriz! 😊`
-    );
+    return M.recallInvite(ctx(params.customerName, params.businessName, params.comms));
 }
 
-// Sırasız bekleme — sıraya eklenince konum/ETA bilgisi
+// ─── Sırasız bekleme ─────────────────────────────────────────────────────────
+
 export function buildQueueJoinMessage(params: {
     customerName: string;
     businessName: string;
     position: number;     // önünde kaç kişi + 1 (1 = sıradaki)
     etaMin: number;
+    comms?: SectorComms;
 }): string {
-    const pos = params.position <= 1
-        ? `Sıradaki sizsiniz, birazdan çağıracağız.`
-        : `Sıranız: *${params.position}.* — tahmini bekleme *~${params.etaMin} dk*`;
-    return (
-        `Merhaba ${params.customerName} 👋\n\n` +
-        `*${params.businessName}* sırasına eklendiniz.\n${pos}\n\n` +
-        `Sıranız gelince size haber vereceğiz ✅`
-    );
+    return M.queueJoined(ctx(params.customerName, params.businessName, params.comms), {
+        position: params.position, etaMin: params.etaMin,
+    });
 }
 
-// Sırasız bekleme — sıra geldiğinde çağrı
-export function buildQueueReadyMessage(params: { customerName: string; businessName: string }): string {
-    return (
-        `Merhaba ${params.customerName} 🔔\n\n` +
-        `Sıranız geldi! *${params.businessName}* sizi bekliyor, buyurun 🙌`
-    );
+export function buildQueueReadyMessage(params: { customerName: string; businessName: string; comms?: SectorComms }): string {
+    return M.queueReady(ctx(params.customerName, params.businessName, params.comms));
 }
 
-// Zamanlayıcı açık işletmede davet (132): ödemeden 1,5 saat sonra, sunucudan.
-// Sunucudaki rebookInvite'ın (supabase/functions/_shared/booking/messages.ts)
-// Ayarlar önizlemesi için kopyası; ikisi aynı metni üretmeli (testte eşlenir).
+// ─── Sıradaki randevu daveti ─────────────────────────────────────────────────
+
+// Zamanlayıcı açık işletmede sunucudan (132), kapalıysa panelden gider; ikisi
+// de aynı metin.
 export function buildRebookInvite(params: {
     customerName: string;
     service: string;
     note?: string;
     bookingUrl?: string;
-    /** Sektörün emojisi; sunucudaki messages.ts ile aynı tek emoji kuralı. */
+    /** Sektörün emojisi. */
     emoji?: string;
+    businessName?: string;
 }): string {
-    const note = params.note?.trim() ? `\n\n*${params.note.trim()}*` : '';
-    const link = params.bookingUrl ? `\n\n${params.bookingUrl}` : '';
-    const how = params.bookingUrl ? 'Uygun gününüzü yazmanız ya da bağlantıdan seçmeniz yeterli.' : 'Uygun gününüzü yazmanız yeterli.';
-    const e = params.emoji ? ` ${params.emoji}` : '';
-    const hello = params.customerName ? `Merhaba ${params.customerName}${e}` : `Merhaba${e}`;
-    return `${hello}\nBir sonraki *${params.service}* randevunuzu şimdiden ayırtmak ister misiniz?\n\n${how}${note}${link}`;
+    const comms = params.emoji ? { ...M.NEUTRAL_COMMS, emoji: params.emoji } : undefined;
+    return M.rebookInvite(ctx(params.customerName, params.businessName ?? '', comms), {
+        service: params.service, note: params.note, bookingUrl: params.bookingUrl,
+    });
 }
 
-// Randevu tamamlandıktan sonra "tekrar randevu al" daveti (Sıradaki Randevu Otomasyonu)
+/** Zamanlayıcısız işletmede randevu tamamlanınca panelden giden davet. */
 export function buildRebookMessage(params: {
     customerName: string;
     service: string;
     businessName: string;
     note?: string;        // teşvik satırı (ör. "%10 erken rezervasyon indirimi")
     bookingUrl?: string;
+    comms?: SectorComms;
 }): string {
-    const noteLine = params.note?.trim() ? `\n\n🎁 ${params.note.trim()}` : '';
-    const linkLine = params.bookingUrl ? `\n\n👉 ${params.bookingUrl}` : '';
-    return (
-        `Merhaba ${params.customerName} 👋\n\n` +
-        `*${params.businessName}* olarak *${params.service}* hizmetiniz için teşekkür ederiz! 🙏\n\n` +
-        `Bir sonraki randevunuzu şimdiden ayırtmak ister misiniz?${noteLine}${linkLine}`
-    );
+    return M.rebookInvite(ctx(params.customerName, params.businessName, params.comms), {
+        service: params.service, note: params.note, bookingUrl: params.bookingUrl,
+    });
 }
 
+// ─── Sizi özledik + indirim ──────────────────────────────────────────────────
+
 /**
- * "Sizi özledik" mesajının sonuna eklenen indirim teklifi — 071.
- * Kodu remind edge function üretir (müşteriye özel, Kasa'da tanınır); buradaki
- * sürüm Ayarlar'daki önizleme içindir, ikisi aynı görünmeli.
+ * "Sizi özledik" mesajının sonuna eklenen indirim teklifi — 071. Kodu remind
+ * üretir (müşteriye özel, Kasa'da tanınır); burada önizleme için.
  */
 export function buildDiscountLine(percent: number, days: number, code: string): string {
     const until = days > 0
-        ? ` (${new Date(Date.now() + days * 86400_000).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })} tarihine kadar)`
-        : '';
-    return `\n\n🎁 Size özel *%${percent} indirim*${until}\nKod: *${code}*\nRandevunuzda bu kodu söylemeniz yeterli.`;
+        ? new Date(Date.now() + days * 86400_000).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })
+        : null;
+    return M.discountLine({ percent, code, until });
 }
 
-// "Sizi özledik" (winback) — 60+ gündür gelmeyen müşteriye. remind edge
-// function'ındaki buildWinbackMessage ile aynı metni üretir; buradaki sürüm
-// Ayarlar'daki önizleme içindir, ikisi aynı görünmeli.
 export function buildWinbackMessage(params: {
     customerName: string;
     businessName: string;
     comms?: SectorComms;
 }): string {
-    const firstName = (params.customerName || '').split(' ')[0];
-    const c = params.comms;
-    return (
-        `Merhaba ${firstName} ${c?.emoji ?? '😊'}\n\n` +
-        `*${params.businessName}* olarak sizi özledik! Bir süredir uğramadınız — ` +
-        `size uygun bir güne ${c?.serviceWord ?? 'randevu'} planlamak isterseniz bu mesaja yanıt vermeniz yeterli. 😊`
-    );
+    return M.winback(ctx(params.customerName, params.businessName, params.comms));
 }
 
-// Biten pakete yenileme teklifi — remind'daki buildRenewalMessage'ın eşi.
+// Biten pakete yenileme teklifi.
 export function buildRenewalMessage(params: {
     customerName: string;
     packageTitle: string;
     businessName: string;
     comms?: SectorComms;
 }): string {
-    const firstName = (params.customerName || '').split(' ')[0];
-    return (
-        `Merhaba ${firstName} ${params.comms?.emoji ?? '😊'}\n\n` +
-        `*${params.businessName}*'daki *${params.packageTitle}* paketiniz tamamlandı — emeğinize sağlık! 🎉\n\n` +
-        `Devam etmek isterseniz yenileme için bu mesaja yanıt vermeniz yeterli; size uygun bir plan hazırlayalım. 😊`
-    );
+    return M.renewalInvite(ctx(params.customerName, params.businessName, params.comms), { packageTitle: params.packageTitle });
 }
