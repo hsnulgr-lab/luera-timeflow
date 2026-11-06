@@ -26,7 +26,7 @@
 //
 // Saf modül: tests/wa-booking.test.mjs doğrudan import eder.
 
-import { timeLocative } from './tr.ts';
+import { genitiveSuffix, timeLocative } from './tr.ts';
 
 export interface Comms {
     persona: string;
@@ -93,7 +93,8 @@ export function greeting(c: Ctx, services: { name: string; duration: number }[])
     const hello = c.firstName
         ? `Merhaba ${c.firstName}! ${c.comms.emoji}`
         : `Merhaba! ${c.comms.emoji}`;
-    return `${hello}\nBen *${c.businessName}* randevu asistanıyım.\n\n`
+    const gen = genitiveSuffix(c.businessName) ?? '';
+    return `${hello}\nBen *${c.businessName}*${gen} dijital asistanıyım.\n\n`
         + `Hangi ${c.comms.serviceWord} için gelmek istersiniz?\n\n${list}\n\n`
         + `Hizmetin adını yazmanız yeterli, gerisini ben hallederim.`;
 }

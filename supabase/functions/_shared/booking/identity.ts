@@ -11,6 +11,8 @@
 //
 // Saf modül: tests/wa-booking.test.mjs doğrudan import eder.
 
+import { withTitle } from './hitap.ts';
+
 /**
  * Sistemin kendi ürettiği yer tutucu adlar. Bunlar isim DEĞİL; müşteriye
  * hitap ederken kullanılmamalı ve kayıt seçerken gerçek adın gerisinde
@@ -39,13 +41,14 @@ export function isPlaceholderName(name: string | null | undefined): boolean {
 }
 
 /**
- * Hitapta kullanılacak ilk ad. Yer tutucu ya da boşsa null döner — çağıran o
- * zaman "Merhaba!" der. "Merhaba Geçici!" demek, hiç ad kullanmamaktan kötü.
+ * Hitap: ilk ad, biliniyorsa Hanım/Bey ile ("Nisa Hanım", hitap.ts). Yer
+ * tutucu ya da boşsa null döner — çağıran o zaman "Merhaba!" der. "Merhaba
+ * Geçici!" demek, hiç ad kullanmamaktan kötü. Bütün şablonlar bunu okur.
  */
 export function greetingName(name: string | null | undefined): string | null {
     if (isPlaceholderName(name)) return null;
     const first = String(name).trim().split(/\s+/)[0];
-    return first ? first.charAt(0).toLocaleUpperCase('tr') + first.slice(1) : null;
+    return first ? withTitle(first.charAt(0).toLocaleUpperCase('tr') + first.slice(1)) : null;
 }
 
 export interface CustomerRow {

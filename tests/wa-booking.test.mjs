@@ -458,8 +458,32 @@ test('yer tutucu adlar isim sayılmaz', () => {
 
 test('greetingName yer tutucuda null döner', () => {
     assert.equal(greetingName('Geçici / Walk-in'), null);
-    assert.equal(greetingName('hasan ülger'), 'Hasan');
-    assert.equal(greetingName('  nisa nur  '), 'Nisa');
+    assert.equal(greetingName('hasan ülger'), 'Hasan Bey');
+    assert.equal(greetingName('  nisa nur  '), 'Nisa Hanım');
+});
+
+test('hitap: yaygın adda Hanım/Bey, iki cinste kullanılan ya da bilinmeyen adda yalnız ad', async () => {
+    const { titleFor, withTitle } = await import('../supabase/functions/_shared/booking/hitap.ts');
+    assert.equal(withTitle('Ayşe'), 'Ayşe Hanım');
+    assert.equal(withTitle('İrem'), 'İrem Hanım', 'Türkçe İ katlanır');
+    assert.equal(withTitle('Furkan'), 'Furkan Bey');
+    assert.equal(withTitle('Mustafa'), 'Mustafa Bey');
+    for (const n of ['Deniz', 'Umut', 'Ege', 'İlkay', 'Xavier']) assert.equal(titleFor(n), null, n);
+    assert.equal(withTitle(''), null);
+    assert.equal(greetingName('Deniz Yılmaz'), 'Deniz');
+});
+
+test('işletme adının iyelik eki okunuşa göre', async () => {
+    const { genitiveSuffix } = await import('../supabase/functions/_shared/booking/tr.ts');
+    const g = (n) => n + (genitiveSuffix(n) ?? '');
+    assert.equal(g('Test Salon 2'), "Test Salon 2'nin");
+    assert.equal(g('Lumi Güzellik'), "Lumi Güzellik'in");
+    assert.equal(g('Ayna Güzellik Salonu'), "Ayna Güzellik Salonu'nun");
+    assert.equal(g('Studio Kuaför'), "Studio Kuaför'ün");
+    assert.equal(g('Nail Bar'), "Nail Bar'ın");
+    assert.equal(g('Defne'), "Defne'nin");
+    assert.equal(g('Salon 40'), "Salon 40'ın");
+    assert.equal(genitiveSuffix('Beauty ✨'), null, 'ek kurulamazsa eksiz');
 });
 
 test('aynı numarada birden çok kayıt varsa gerçek adlı olan seçilir', () => {

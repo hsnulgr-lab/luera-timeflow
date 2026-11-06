@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { buildProfile, fnv1a, MAX_LISTED_SERVICES } from '../supabase/functions/_shared/agent/profile.ts';
 import {
-    AGENT_COOLDOWN_MS, agentLooksDown, agentRoute, commitBlock, echoAfterTemplate, costUsd, DEFAULT_MONTHLY_BUDGET_USD, EPISODE_IDLE_MS, EPISODE_MAX_MESSAGES,
+    AGENT_COOLDOWN_MS, agentLooksDown, agentRoute, commitBlock, echoAfterTemplate, stopAfterCommit, costUsd, DEFAULT_MONTHLY_BUDGET_USD, EPISODE_IDLE_MS, EPISODE_MAX_MESSAGES,
     filterTimes, needsNewEpisode, refPrefix, sanitizeForWhatsApp, shortRef, suggestTimes, supportsMidSystem,
 } from '../supabase/functions/_shared/agent/guard.ts';
 import { TOOLS } from '../supabase/functions/_shared/agent/tools.ts';
@@ -272,8 +272,8 @@ test('ilk mesaj: sektörün emojisi, 👋 yok; emojisiz profilde boşluk kalmaz'
 test('ilk mesaj: yaklaşan randevuyu sorar, saate göre selamlar', () => {
     assert.equal(
         intro({ upcoming: { date: '2026-10-31', time: '12:00' } }),
-        'İyi akşamlar Nisanur ✨\nBen *Test Salon 2* dijital asistanıyım.\n\n'
-        + "*Cumartesi 12:00*'deki randevunuzla mı ilgili yazdınız, yoksa yeni bir randevu mu istersiniz?",
+        "İyi akşamlar Nisanur ✨\nBen *Test Salon 2*'nin dijital asistanıyım.\n\n"
+        + "*Cumartesi 12:00*'deki randevunuzla mı ilgili yazdınız, yoksa size başka nasıl yardımcı olabilirim?",
     );
     assert.match(intro({ clock: at('09:00'), upcoming: { date: '2026-10-29', time: '13:00' } }),
         /^Günaydın Nisanur ✨\n[\s\S]*\*Bugün 13:00\*'teki randevunuzla/);
@@ -284,9 +284,12 @@ test('ilk mesaj: yaklaşan randevuyu sorar, saate göre selamlar', () => {
 
 test('ilk mesaj: randevusuz kayıtlı, kayıtsız ve selamün aleyküm', () => {
     assert.equal(intro({ clock: at('10:00') }),
-        'Günaydın Nisanur ✨\nBen *Test Salon 2* dijital asistanıyım.\n\nYeni bir randevu mu istersiniz, yoksa bir sorunuz mu var?');
+        "Günaydın Nisanur ✨\nBen *Test Salon 2*'nin dijital asistanıyım.\n\nSize nasıl yardımcı olabilirim?");
     assert.equal(intro({ firstName: null, known: false, clock: at('15:00') }),
-        'Merhaba ✨\nBen *Test Salon 2* dijital asistanıyım.\n\nRandevu almak mı istersiniz, yoksa bir sorunuz mu var?');
+        "Merhaba ✨\nBen *Test Salon 2*'nin dijital asistanıyım.\n\nSize nasıl yardımcı olabilirim?");
+    // Kullanıcının örneği: hitap unvanla gelir (greetingName → "Nisa Hanım").
+    assert.equal(intro({ firstName: 'Nisa Hanım', clock: at('14:00'), businessName: 'Lumi Güzellik Salonu' }),
+        "Merhaba Nisa Hanım ✨\nBen *Lumi Güzellik Salonu*'nun dijital asistanıyım.\n\nSize nasıl yardımcı olabilirim?");
     assert.match(intro({ salam: true }), /^Aleykümselam Nisanur ✨\nBen/);
     // Gece yarısı "İyi akşamlar" değil.
     assert.match(intro({ clock: at('23:30') }), /^Merhaba Nisanur/);
@@ -315,7 +318,7 @@ test('yapay zekâ onayı yalnız işletme açarsa (varsayılan kapalı), metin k
     const src = read('supabase/functions/wa-agent/index.ts');
     assert.match(src, /if \(cfg\.consent === true && !conv\.ai_consent_at\) \{/);
     const t = consentAsk({ businessName: 'Test Salon 2', firstName: 'Nisa' });
-    assert.match(t, /^Merhaba Nisa, ben \*Test Salon 2\* dijital asistanıyım\./);
+    assert.match(t, /^Merhaba Nisa, ben \*Test Salon 2\*'nin dijital asistanıyım\./);
     assert.match(t, /\*Evet\*/);
     assert.doesNotMatch(t, /yurt dışı|hizmet sağlayıcı/);
 });
@@ -501,7 +504,9 @@ test('müşteri kartı: tekrar eden tercih yazılır, iki ziyaretten "genelde" u
 test('müşteri kartı BAĞLAM\'a yalnız kayıtlı müşteride girer; telefon yok', () => {
     const base = { clock: istanbulClock(Date.parse('2026-11-06T10:00:00Z')), upcoming: [], openProposal: null };
     const known = buildTurnContext({ ...base, customer: { known: true, name: 'Ayşe Kaya', pushName: null }, card: ['Geçmiş ziyaret: 4', 'Paket: yok'] });
-    assert.match(known, /Müşteri: kayıtlı · Ayşe Kaya\nGeçmiş ziyaret: 4\nPaket: yok/);
+    assert.match(known, /Müşteri: kayıtlı · Ayşe Kaya\nHitap: ad kullanma\nGeçmiş ziyaret: 4\nPaket: yok/);
+    const titled = buildTurnContext({ ...base, customer: { known: true, name: 'Ayşe Kaya', pushName: null, hitap: 'Ayşe Hanım' } });
+    assert.match(titled, /\nHitap: Ayşe Hanım\n/);
     const anon = buildTurnContext({ ...base, customer: { known: false, name: null, pushName: 'ayse' }, card: ['Geçmiş ziyaret: 4'] });
     assert.doesNotMatch(anon, /Geçmiş ziyaret/);
     const src = readFileSync(new URL('../supabase/functions/wa-agent/handlers.ts', import.meta.url), 'utf8');
@@ -518,4 +523,16 @@ test('onay şablonundan sonra kısa nezaket tekrarı gönderilmez; soru ve bilgi
     assert.equal(echoAfterTemplate(''), false);
     const src = readFileSync(new URL('../supabase/functions/wa-agent/index.ts', import.meta.url), 'utf8');
     assert.match(src, /if \(text && !\(ctx\.sentTemplate && echoAfterTemplate\(text\)\)\)/);
+});
+
+test('onay verilip işlem uygulanınca model bir daha çağrılmaz; soru varsa devam', () => {
+    assert.equal(stopAfterCommit(true, 'Onaylıyorum'), true);
+    assert.equal(stopAfterCommit(true, 'evet'), true);
+    assert.equal(stopAfterCommit(false, 'evet'), false, 'şablon gitmediyse model konuşur');
+    assert.equal(stopAfterCommit(true, 'Evet onaylıyorum, otopark var mı?'), false, 'soru cevaplanır');
+    assert.equal(stopAfterCommit(true, 'yarın 14 olsun'), false);
+    const src = readFileSync(new URL('../supabase/functions/wa-agent/index.ts', import.meta.url), 'utf8');
+    const at = src.indexOf('if (stopAfterCommit(ctx.sentTemplate, customerText))');
+    assert.ok(at > src.indexOf("messages.push({ role: 'user', content: results });"), 'araç sonucundan sonra');
+    assert.match(src.slice(at, at + 400), /role: 'assistant'[\s\S]*break;/, 'geçmiş asistan sırasıyla biter');
 });

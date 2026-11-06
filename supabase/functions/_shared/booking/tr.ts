@@ -46,3 +46,32 @@ export function relativeDayLabel(dateISO: string, todayISO: string): string {
         day: 'numeric', month: 'long', timeZone: 'UTC',
     });
 }
+
+/**
+ * İşletme adına iyelik eki: "Test Salon 2'nin", "Lumi Güzellik'in",
+ * "Defne'nin", "Studio Kuaför'ün". Kullanıcı kararı (2026-11-06): "ben X'in
+ * dijital asistanıyım". Ek son ünlüye göre seçilir; ad ünlüyle bitiyorsa araya
+ * "n" girer; rakamla bitiyorsa okunuşu esas alınır (2 → "iki"). Son karakter
+ * harf ya da rakam değilse (nokta, emoji) ek kurulamaz ve null döner —
+ * çağıran o zaman eksiz yazar.
+ */
+export function genitiveSuffix(name: string): string | null {
+    const trimmed = name.trim();
+    const last = trimmed.slice(-1);
+    let word: string;
+    if (/\d/.test(last)) {
+        const digits = /(\d+)$/.exec(trimmed)![1];
+        const n = Number(digits.slice(-2));
+        word = lastSpokenWord(n);
+    } else if (/\p{L}/u.test(last)) {
+        word = trimmed.split(/\s+/).pop()!.toLocaleLowerCase('tr');
+    } else {
+        return null;
+    }
+    const vowels = [...word].filter((ch) => 'aeıioöuü'.includes(ch));
+    const v = vowels[vowels.length - 1];
+    if (!v) return null;
+    const harmony = 'aı'.includes(v) ? 'ı' : 'ei'.includes(v) ? 'i' : 'ou'.includes(v) ? 'u' : 'ü';
+    const endsVowel = 'aeıioöuü'.includes(word[word.length - 1]);
+    return `'${endsVowel ? 'n' : ''}${harmony}n`;
+}

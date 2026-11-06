@@ -15,7 +15,7 @@ import {
 } from '../_shared/agent/prompt.ts';
 import { TOOLS } from '../_shared/agent/tools.ts';
 import {
-    costUsd, echoAfterTemplate, needsNewEpisode, sanitizeForWhatsApp, shortRef, supportsMidSystem,
+    costUsd, echoAfterTemplate, needsNewEpisode, stopAfterCommit, sanitizeForWhatsApp, shortRef, supportsMidSystem,
     type AgentConfig, type UsageTotals,
 } from '../_shared/agent/guard.ts';
 import { loadPackagesAndBalance, loadPastVisits, loadUpcoming, openProposal, runTool, type TurnCtx } from './handlers.ts';
@@ -419,7 +419,7 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
         : undefined;
     const contextText = buildTurnContext({
         clock,
-        customer: { known: Boolean(known), name: known?.name ?? null, pushName },
+        customer: { known: Boolean(known), name: known?.name ?? null, pushName, hitap: msgCtx.firstName ?? null },
         upcoming: upcoming.map((r) => ({
             ref: shortRef('r', r.id),
             service: r.service,
@@ -522,6 +522,12 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
                     results.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(out) });
                 }
                 messages.push({ role: 'user', content: results });
+                if (stopAfterCommit(ctx.sentTemplate, customerText)) {
+                    // Geçmiş asistan sırasıyla bitsin; bu metin müşteriye gitmez.
+                    messages.push({ role: 'assistant', content: [{ type: 'text', text: '(Onay mesajı sistemce gönderildi.)' }] });
+                    stopReason = 'committed';
+                    break;
+                }
                 continue;
             }
             if (resp.stop_reason === 'pause_turn') continue;

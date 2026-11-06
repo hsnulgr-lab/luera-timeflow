@@ -17,7 +17,8 @@ Görevin müşterinin işini en az mesajla bitirmek: randevu almak, taşımak, i
 - Mesajlar kısa olsun: çoğu zaman bir ile üç cümle. Giriş cümlesi, tekrar ve dolgu yok; "sizi şımartmak isteriz" gibi süs ya da reklam cümlesi kurma.
 - Emoji en fazla bir tane ve yalnız İŞLETME'deki emoji; çoğu mesajda hiç. 👋 🙏 👉 gibi süs emojisi kullanma.
 - Biçim WhatsApp'a göre ve göze hoş: tarih, saat ve hizmet adını *tek yıldızla* kalın yaz, paragrafları boş satırla ayır. Önerilen saatleri ayrı bir satırda "*10:00* · *13:30* · *17:00*" biçiminde ver. Randevu özetini etiketli satırlarla yaz: *Hizmet:*, *Tarih:*, *Saat:*, *Uzman:*. Müşterinin randevusuna "kayıt" deme, "randevu" de. Başlık, tablo ve markdown bağlantısı kullanma.
-- Hitapta müşterinin ilk adını kullan. Cinsiyetinden emin değilsen "Hanım" ya da "Bey" ekleme.
+- Müşteriye BAĞLAM'daki "Hitap" ile seslen (ör. "Nisa Hanım", "Furkan Bey"); her mesajda değil, selamda, onayda ve kapanışta. Hitap yalnız ad ise unvan ekleme, "ad kullanma" ise adsız konuş. Unvanı kendin tahmin etme; kayıtlı olmayan müşteriye WhatsApp adıyla unvan ekleme.
+- Kapanışlarda yerinde karşılık ver: "teşekkürler"e "Rica ederim", "tamam" ya da "👍"e "Görüşmek üzere" gibi tek kısa cümle. İş bittiyse yeni soru sorma.
 - Bir insan gibi yaz: kalıp cümle, "sistemimizde görünüyor", "kayıtlarınıza göre", "önceki ziyaretlerinize göre" gibi makine dili kullanma. Müşterinin sorusunu doğrudan cevapla.
 
 Müşteriyi tanımak
@@ -140,7 +141,7 @@ export interface ContextAppointment {
 
 export interface TurnContextInput {
     clock: IstanbulClock;
-    customer: { known: boolean; name: string | null; pushName: string | null };
+    customer: { known: boolean; name: string | null; pushName: string | null; hitap?: string | null };
     upcoming: ContextAppointment[];
     openProposal: { ref: string; summary: string } | null;
     /** Müşteri bu işletmenin asistanıyla ilk kez konuşuyor. */
@@ -159,6 +160,7 @@ export function buildTurnContext(i: TurnContextInput): string {
 
     if (i.customer.known) {
         lines.push(`Müşteri: kayıtlı · ${i.customer.name ?? 'adı kayıtlı değil'}`);
+        lines.push(i.customer.hitap ? `Hitap: ${i.customer.hitap}` : 'Hitap: ad kullanma');
         for (const l of i.card ?? []) lines.push(l);
     } else {
         const push = i.customer.pushName ? ` · WhatsApp adı: "${i.customer.pushName}"` : '';
@@ -196,8 +198,15 @@ export const CONSENT_VERSION = 'v3-2026-10';
 
 // Saat ve gün ekleri ortak modülde (zamanlayıcı şablonları da kullanıyor).
 export { relativeDayLabel, timeLocativeKi } from '../booking/tr.ts';
+import { genitiveSuffix } from '../booking/tr.ts';
 
 /** Saate göre selam: 05–11 Günaydın, 18–23 İyi akşamlar, diğer saatler Merhaba. */
+/** "Ben *Test Salon 2*'nin dijital asistanıyım." Ek kurulamazsa eksiz. */
+export function assistantIntro(businessName: string): string {
+    const suffix = genitiveSuffix(businessName);
+    return `Ben *${businessName}*${suffix ?? ''} dijital asistanıyım.`;
+}
+
 export function timeGreeting(nowMin: number): string {
     if (nowMin >= 5 * 60 && nowMin < 11 * 60) return 'Günaydın';
     if (nowMin >= 18 * 60 && nowMin < 23 * 60) return 'İyi akşamlar';
@@ -226,16 +235,17 @@ export function introMessage(o: {
 }): string {
     // Görsel düzen (kullanıcı isteği, 2026-10-29): selam ve tanıtım ayrı
     // satırda, soru boş satırdan sonra; randevu günü ve saati kalın.
+    // Girizgâh (kullanıcı kararı, 2026-11-06): "Merhaba Nisa Hanım / Ben X'in
+    // dijital asistanıyım. Size nasıl yardımcı olabilirim?" — tanınmayana adsız.
+    // firstName hitap içerir (greetingName → "Nisa Hanım").
     const word = o.salam ? 'Aleykümselam' : timeGreeting(o.clock.nowMin);
-    const me = `${o.firstName ? `${word} ${o.firstName}` : word}${o.emoji ? ` ${o.emoji}` : ''}\nBen *${o.businessName}* dijital asistanıyım.`;
+    const me = `${o.firstName ? `${word} ${o.firstName}` : word}${o.emoji ? ` ${o.emoji}` : ''}\n${assistantIntro(o.businessName)}`;
     if (o.upcoming) {
         const day = relativeDayLabel(o.upcoming.date, o.clock.todayISO);
         const at = `*${day} ${o.upcoming.time}*${timeLocativeKi(o.upcoming.time)}`;
-        return `${me}\n\n${at} randevunuzla mı ilgili yazdınız, yoksa yeni bir randevu mu istersiniz?`;
+        return `${me}\n\n${at} randevunuzla mı ilgili yazdınız, yoksa size başka nasıl yardımcı olabilirim?`;
     }
-    return o.known
-        ? `${me}\n\nYeni bir randevu mu istersiniz, yoksa bir sorunuz mu var?`
-        : `${me}\n\nRandevu almak mı istersiniz, yoksa bir sorunuz mu var?`;
+    return `${me}\n\nSize nasıl yardımcı olabilirim?`;
 }
 
 /**
@@ -245,7 +255,8 @@ export function introMessage(o: {
  */
 export function consentAsk(o: { businessName: string; firstName: string | null }): string {
     const hello = o.firstName ? `Merhaba ${o.firstName},` : 'Merhaba,';
-    return `${hello} ben *${o.businessName}* dijital asistanıyım. Mesajlarınız randevu işlemleriniz için `
+    const intro = assistantIntro(o.businessName).replace(/^Ben /, 'ben ');
+    return `${hello} ${intro} Mesajlarınız randevu işlemleriniz için `
         + 'yapay zekâ desteğiyle işlenir; onaylıyorsanız *Evet* yazmanız yeterli.';
 }
 

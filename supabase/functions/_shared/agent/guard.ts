@@ -173,6 +173,17 @@ export function suggestTimes(times: string[], n = 3): string[] {
 // ── Çıktı ───────────────────────────────────────────────────────────────────
 
 /**
+ * İşlem uygulandı (onay şablonu gitti) ve müşteri yalnız onay verdi: model
+ * döngüsü burada biter, model bir daha çağrılmaz. Çağrılınca commit'i ikinci
+ * kez deneyip "ikinci bir işlem yapılmadı" diye iç işleyişi anlattı (canlı,
+ * 2026-11-06). Onayla birlikte soru sorulduysa model cevaplamaya devam eder.
+ */
+export function stopAfterCommit(sentTemplate: boolean, customerText: string): boolean {
+    const t = customerText.trim();
+    return sentTemplate && t.length <= 40 && !t.includes('?') && detectConfirm(t) === 'yes';
+}
+
+/**
  * Onay şablonu gittikten sonra modelin yazdığı kısa nezaket tekrarı mı?
  * Şablon zaten "Sizi bekliyoruz" ile bitiyor; arkasından "Sizi bekliyoruz,
  * Nisa Hanım." gitti (canlı, 2026-11-06). Soru ya da yeni bilgi taşıyan
