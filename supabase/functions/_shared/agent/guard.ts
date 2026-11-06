@@ -173,6 +173,18 @@ export function suggestTimes(times: string[], n = 3): string[] {
 // ── Çıktı ───────────────────────────────────────────────────────────────────
 
 /**
+ * Onay şablonu gittikten sonra modelin yazdığı kısa nezaket tekrarı mı?
+ * Şablon zaten "Sizi bekliyoruz" ile bitiyor; arkasından "Sizi bekliyoruz,
+ * Nisa Hanım." gitti (canlı, 2026-11-06). Soru ya da yeni bilgi taşıyan
+ * metin tekrar sayılmaz.
+ */
+export function echoAfterTemplate(text: string): boolean {
+    const t = text.trim();
+    if (!t || t.length > 40 || t.includes('?')) return false;
+    return /bekliyoruz|görüşmek üzere|görüşmek dileğiyle|iyi günler|teşekkür/i.test(t);
+}
+
+/**
  * WhatsApp biçimine çevirir. Model markdown'a meyilli; WhatsApp `**` yerine
  * `*`, başlık ve tablo bilmez, `[metin](adres)` ham görünür.
  */

@@ -1477,3 +1477,12 @@ test('sektör sözcüğüne ek elle yapıştırılmaz, müşterinin randevusuna 
     assert.match(MSG.confirmCancel(beauty, ap), /^Bu randevunuzu iptal edeyim mi\?/);
     assert.match(MSG.myAppointments(beauty, [ap]), /^Yaklaşan randevunuz:/);
 });
+
+test('saat ızgarası aralık katlarına oturur: 00:01 açılış :01/:31 üretmez', () => {
+    const hours = [{ day: 6, start: '00:01', end: '21:00', isOff: false }];
+    const mins = staffSlots({ orgHours: hours, staffHours: null, weekday: 6, serviceDuration: 45, slotDuration: 30, dayReservations: [], isTimeOff: false, minStart: 0 });
+    assert.ok(mins.every((m) => m % 30 === 0), mins.slice(0, 4).map(minToTime).join(' '));
+    assert.equal(minToTime(mins[0]), '00:30');
+    const normal = staffSlots({ orgHours: [{ day: 1, start: '09:00', end: '12:00', isOff: false }], staffHours: null, weekday: 1, serviceDuration: 60, slotDuration: 30, dayReservations: [], isTimeOff: false, minStart: 0 });
+    assert.deepEqual(normal.map(minToTime), ['09:00', '09:30', '10:00', '10:30', '11:00'], '09:00 açılış değişmez');
+});

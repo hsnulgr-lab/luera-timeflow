@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { buildProfile, fnv1a, MAX_LISTED_SERVICES } from '../supabase/functions/_shared/agent/profile.ts';
 import {
-    AGENT_COOLDOWN_MS, agentLooksDown, agentRoute, commitBlock, costUsd, DEFAULT_MONTHLY_BUDGET_USD, EPISODE_IDLE_MS, EPISODE_MAX_MESSAGES,
+    AGENT_COOLDOWN_MS, agentLooksDown, agentRoute, commitBlock, echoAfterTemplate, costUsd, DEFAULT_MONTHLY_BUDGET_USD, EPISODE_IDLE_MS, EPISODE_MAX_MESSAGES,
     filterTimes, needsNewEpisode, refPrefix, sanitizeForWhatsApp, shortRef, suggestTimes, supportsMidSystem,
 } from '../supabase/functions/_shared/agent/guard.ts';
 import { TOOLS } from '../supabase/functions/_shared/agent/tools.ts';
@@ -412,15 +412,18 @@ test('göç 130: yalnız service_role, kira fonksiyonu kapalı, geçmiş TEXT', 
     assert.match(sql, /timeout_milliseconds := 55000/);
 });
 
-test('wa-agent: çalışanın 60 sn ömrüne sığar, sığmıyorsa turu başlatmaz', () => {
+test('wa-agent: çalışanın ömrüne sığar, sığmıyorsa turu başlatmaz', () => {
     const src = read('supabase/functions/wa-agent/index.ts');
+    // Ömür main/index.ts'teki workerTimeoutMs (5 dk) ile aynı; 60 sn varsayılınca
+    // uzun yaşayan çalışan her turu erteledi (2026-11-06).
+    assert.match(src, /WA_WORKER_TIMEOUT_MS'\)\) \|\| 300_000;/);
     // Modül çalışan başına bir kez yüklenir; kalan ömür buradan hesaplanır.
     assert.match(src, /const WORKER_BORN = Date\.now\(\);/);
     assert.match(src, /if \(left < MIN_TURN_MS \+ DEBOUNCE_MS\) return \{ deferred: true/);
     assert.match(src, /const deadline = Math\.min\(t0 \+ RUN_BUDGET_MS, WORKER_BORN \+ WORKER_LIFETIME_MS - SAFETY_MS\);/);
     // Kira çalışan ömründen uzun ama fazla değil: yarıda kalan tur konuşmayı uzun kilitlemesin.
     const lease = Number(/const LEASE_SEC = (\d+);/.exec(src)[1]);
-    assert.ok(lease * 1000 > 60_000 && lease <= 90, `LEASE_SEC=${lease}`);
+    assert.ok(lease * 1000 > 40_000 && lease <= 90, `LEASE_SEC=${lease}`); // RUN_BUDGET_MS'ten uzun
     // Cevap gönderilir gönderilmez işlendi sayılır (çift cevap olmasın).
     const sendAt = src.indexOf('await send(text);');
     const markAt = src.indexOf('await markProcessed();', sendAt);
@@ -505,4 +508,14 @@ test('müşteri kartı BAĞLAM\'a yalnız kayıtlı müşteride girer; telefon y
     assert.match(src, /case 'my_history': return myHistory\(ctx\);/);
     assert.match(src, /\.in\('status', \['completed', 'confirmed'\]\)/, 'iptal ziyaret sayılmaz');
     assert.ok(TOOLS.some((t) => t.name === 'my_history'));
+});
+
+test('onay şablonundan sonra kısa nezaket tekrarı gönderilmez; soru ve bilgi gider', () => {
+    assert.equal(echoAfterTemplate('Sizi bekliyoruz, Nisa Hanım.'), true);
+    assert.equal(echoAfterTemplate('Görüşmek üzere!'), true);
+    assert.equal(echoAfterTemplate('Lazerden önce bölgeyi tıraş etmeyi unutmayın; görüşmek üzere.'), false, 'yeni bilgi taşıyor');
+    assert.equal(echoAfterTemplate('Bu arada paketinizde 3 seans kaldı, ister misiniz ikinciyi de ayarlayalım?'), false);
+    assert.equal(echoAfterTemplate(''), false);
+    const src = readFileSync(new URL('../supabase/functions/wa-agent/index.ts', import.meta.url), 'utf8');
+    assert.match(src, /if \(text && !\(ctx\.sentTemplate && echoAfterTemplate\(text\)\)\)/);
 });

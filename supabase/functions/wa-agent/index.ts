@@ -15,7 +15,7 @@ import {
 } from '../_shared/agent/prompt.ts';
 import { TOOLS } from '../_shared/agent/tools.ts';
 import {
-    costUsd, needsNewEpisode, sanitizeForWhatsApp, shortRef, supportsMidSystem,
+    costUsd, echoAfterTemplate, needsNewEpisode, sanitizeForWhatsApp, shortRef, supportsMidSystem,
     type AgentConfig, type UsageTotals,
 } from '../_shared/agent/guard.ts';
 import { loadPackagesAndBalance, loadPastVisits, loadUpcoming, openProposal, runTool, type TurnCtx } from './handlers.ts';
@@ -51,14 +51,18 @@ const corsHeaders = {
 
 // ── Süre ────────────────────────────────────────────────────────────────────
 // Self-hosted çalıştırıcı (functions/main/index.ts) her çalışanı doğduktan
-// 60 sn sonra öldürüyor ve çalışan sonraki isteklere de hizmet edebiliyor:
+// 5 dk sonra öldürüyor (2026-11-06'ya kadar 60 sn) ve çalışan sonraki
+// isteklere de hizmet edebiliyor:
 // yeni bir istek, ömrünün sonuna gelmiş bir çalışana düşebilir. Ölen çalışanın
 // turu yarıda kalır, kirası da süresi dolana kadar konuşmayı kilitler. Bu
 // yüzden her tur, çalışanın KALAN ömrüne sığacak şekilde planlanır; sığmıyorsa
 // hiç başlamaz, mesajı süpürme (en geç ~1 dk) taze bir çalışana bırakır.
 /** Modül çalışan başına bir kez yüklenir: bu an çalışanın doğumudur. */
 const WORKER_BORN = Date.now();
-const WORKER_LIFETIME_MS = Number(Deno.env.get('WA_WORKER_TIMEOUT_MS')) || 60_000;
+// main/index.ts'teki workerTimeoutMs ile AYNI olmalı. Kısa varsayılırsa
+// (60 sn kaldığı gün) uzun yaşayan çalışan "ömrüm bitti" sanıp her turu
+// erteler; mesaj çalışan yenilenene kadar cevapsız kalır (canlıda görüldü).
+const WORKER_LIFETIME_MS = Number(Deno.env.get('WA_WORKER_TIMEOUT_MS')) || 300_000;
 /** Ölümden önce cevabı gönderip kaydı yazacak pay. */
 const SAFETY_MS = 6_000;
 /** Bundan az ömür kaldıysa tur başlatılmaz. */
@@ -538,9 +542,9 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
     // ── Cevap ───────────────────────────────────────────────────────────────
     logCustomerId = ctx.customer?.id ?? logCustomerId;
     const text = sanitizeForWhatsApp(finalText);
-    if (text) {
+    if (text && !(ctx.sentTemplate && echoAfterTemplate(text))) {
         await send(text);
-    } else if (!ctx.sentTemplate) {
+    } else if (!text && !ctx.sentTemplate) {
         // Müşteri sessizlikle karşılaşmasın. Reddedilen istekte salona devredilir.
         const fallback = error === 'refusal' ? M.handoff(msgCtx, businessPhone) : agentFallback();
         await send(fallback);

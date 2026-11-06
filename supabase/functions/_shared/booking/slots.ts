@@ -76,7 +76,11 @@ export function staffSlots(input: SlotInput): number[] {
     const staff = (input.staffHours ?? input.orgHours)?.find((h) => h.day === input.weekday);
     if (!staff || staff.isOff) return [];
 
-    const start = Math.max(timeToMin(org.start), timeToMin(staff.start));
+    // Izgara gece yarısından aralık katlarına oturur: 00:01'de açılan gün
+    // 00:01 · 00:31 · 11:01 gibi saatler üretiyordu (canlıda asistan önerdi,
+    // 2026-11-06). 09:00/10:30 gibi açılışlarda hiçbir şey değişmez.
+    const rawStart = Math.max(timeToMin(org.start), timeToMin(staff.start));
+    const start = Math.ceil(rawStart / input.slotDuration) * input.slotDuration;
     const end = Math.min(timeToMin(org.end), timeToMin(staff.end));
 
     const busy = input.dayReservations.map(
