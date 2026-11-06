@@ -312,6 +312,33 @@ export async function sendWA(admin: Admin, opts: {
 }
 
 /**
+ * Gizli kimliğin (…@lid) numarası, Evolution'ın numara ön belleğinden. Evolution
+ * numarasıyla yazıştığı kişinin gizli kimliğini de saklıyor; bilmiyorsa kimliği
+ * aynen döndürür → null. Ağ ya da yetki hatasında da null: mesaj düşmez, yalnız
+ * çözülemez.
+ */
+export async function lidToPhone(admin: Admin, org: OrgWa, lid: string): Promise<string | null> {
+    if (!org.instance) return null;
+    const url = await getSecret(admin, 'EVOLUTION_API_URL');
+    const key = await getSecret(admin, 'EVOLUTION_API_KEY');
+    if (!url || !key) return null;
+    try {
+        const res = await fetch(`${url}/chat/whatsappNumbers/${org.instance}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', apikey: key },
+            body: JSON.stringify({ numbers: [`${lid}@lid`] }),
+            signal: AbortSignal.timeout(8000),
+        });
+        if (!res.ok) return null;
+        const rows = await res.json().catch(() => null);
+        const jid = Array.isArray(rows) ? String(rows[0]?.jid ?? '') : '';
+        return jid.endsWith('@s.whatsapp.net') ? normalizePhone(jid.split('@')[0].split(':')[0]) : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Ham gönderim — log YAZMAZ. Hem ilk deneme hem kuyruk boşaltma buradan geçer;
  * tek fark, kuyruk yeni satır açmak yerine mevcut satırı güncellemesidir.
  * İstek içinde iki deneme yapılır (anlık bir sarsıntı bir sonraki cron turunu

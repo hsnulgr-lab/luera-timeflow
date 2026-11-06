@@ -142,6 +142,45 @@ export function inboundKind(payload: {
     return 'skip';
 }
 
+/** Gizli kimlik (…@lid, cihaz eki atılır); numaralı JID'de ''. */
+export function lidOf(remoteJid?: string): string {
+    return remoteJid && remoteJid.endsWith('@lid') ? remoteJid.split('@')[0].split(':')[0] : '';
+}
+
+/**
+ * Mesajın asıl gövdesi. WhatsApp metni zarfla da gönderebiliyor: kaybolan
+ * mesaj (`ephemeralMessage`), tek görümlük, düzenlenmiş, açıklamalı belge,
+ * kendi cihazından giden. Zarf açılmazsa metin bulunamıyor ve mesaj sessizce
+ * atlanıyordu (hat yeniden bağlandıktan sonra canlıda görüldü, 2026-10-30).
+ */
+export interface WaMessage {
+    conversation?: string;
+    extendedTextMessage?: { text?: string };
+    audioMessage?: unknown;
+    imageMessage?: unknown;
+    videoMessage?: unknown;
+    documentMessage?: unknown;
+    stickerMessage?: unknown;
+    ephemeralMessage?: { message?: WaMessage };
+    viewOnceMessage?: { message?: WaMessage };
+    viewOnceMessageV2?: { message?: WaMessage };
+    documentWithCaptionMessage?: { message?: WaMessage };
+    editedMessage?: { message?: WaMessage };
+    deviceSentMessage?: { message?: WaMessage };
+}
+
+export function unwrapMessage(m: WaMessage | null | undefined): WaMessage | undefined {
+    let cur = m ?? undefined;
+    for (let i = 0; i < 4 && cur; i++) {
+        const inner = cur.ephemeralMessage?.message || cur.viewOnceMessage?.message
+            || cur.viewOnceMessageV2?.message || cur.documentWithCaptionMessage?.message
+            || cur.editedMessage?.message || cur.deviceSentMessage?.message;
+        if (!inner) break;
+        cur = inner;
+    }
+    return cur;
+}
+
 /**
  * Gönderenin numaralı JID'i. Yeni WhatsApp sürümleri numarayı gizleyen bir
  * kimlikle (`…@lid`) gönderebiliyor; numara o zaman `remoteJidAlt` /
@@ -150,9 +189,12 @@ export function inboundKind(payload: {
  * atılır. Numara bulunamazsa ''.
  */
 export function senderJid(key: {
-    remoteJid?: string; remoteJidAlt?: string; senderPn?: string; participantAlt?: string;
+    remoteJid?: string; remoteJidAlt?: string; senderPn?: string; participant?: string; participantAlt?: string;
 } | undefined, data?: { senderPn?: string }): string {
     const pn = (j?: string) => (j && j.endsWith('@s.whatsapp.net') ? j.replace(/:\d+@/, '@') : '');
+    // Gizli kimlikli birebir sohbette (addressingMode: 'lid') numara bazen
+    // `participant`'ta gelir (2026-10-30, yeniden bağlanan hat). Grup mesajı
+    // daha önce elendiği için burada participant hep karşıdaki kişidir.
     return pn(key?.remoteJid) || pn(key?.remoteJidAlt) || pn(key?.senderPn)
-        || pn(data?.senderPn) || pn(key?.participantAlt) || '';
+        || pn(data?.senderPn) || pn(key?.participantAlt) || pn(key?.participant) || '';
 }

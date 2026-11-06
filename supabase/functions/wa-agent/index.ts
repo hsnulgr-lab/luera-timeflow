@@ -18,7 +18,8 @@ import {
     costUsd, needsNewEpisode, sanitizeForWhatsApp, shortRef, supportsMidSystem,
     type AgentConfig, type UsageTotals,
 } from '../_shared/agent/guard.ts';
-import { loadUpcoming, openProposal, runTool, type TurnCtx } from './handlers.ts';
+import { loadPackagesAndBalance, loadPastVisits, loadUpcoming, openProposal, runTool, type TurnCtx } from './handlers.ts';
+import { buildCustomerCard, cardLines } from '../_shared/agent/customerCard.ts';
 
 // ============================================================
 // wa-agent — WhatsApp Sekreter v2 · P2: Claude ajanı
@@ -345,6 +346,7 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
                 clock: clockNow,
                 upcoming: next ? { date: next.date, time: String(next.start_time).slice(0, 5) } : null,
                 salam: lines.some((l) => /selamu?n?\s*aleyk/.test(foldTr(l))),
+                emoji: comms.emoji,
             }));
             await admin.from('wa_conversations').update({ state, updated_at: nowIso() }).eq('id', conv.id);
             await markProcessed();
@@ -358,6 +360,10 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
         console.error('wa-agent: ANTHROPIC_API_KEY tanımlı değil');
         await send(agentFallback());
         await markProcessed();
+        // Arıza izi: sonraki mesajlar bir süre eski bota gider (agentLooksDown).
+        await admin.from('wa_agent_runs').insert({
+            organization_id: orgId, conversation_id: conv.id, error: 'api_no_key',
+        });
         return;
     }
     const model = cfg.model || (await getSecret(admin, 'WA_MODEL_CUSTOMER')) || DEFAULT_MODEL;
@@ -392,7 +398,21 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
 
     const clock = istanbulClock(Date.now());
     const staffName = new Map<string, string>((staffRows ?? []).map((s: { id: string; name: string }) => [s.id, s.name]));
-    const upcoming = known ? await loadUpcoming(admin, orgId, known.id, clock) : [];
+    const [upcoming, past, extras] = known
+        ? await Promise.all([
+            loadUpcoming(admin, orgId, known.id, clock),
+            loadPastVisits(admin, orgId, known.id, clock),
+            loadPackagesAndBalance(admin, orgId, known.id, clock.todayISO).catch(() => null),
+        ])
+        : [[], [], null];
+    const card = known
+        ? cardLines(buildCustomerCard(past, staffName), extras ? {
+            packages: extras.packages.map((p: { title: string; available: number; total: number }) => ({
+                title: p.title, available: p.available, total: p.total,
+            })),
+            balanceText: extras.balance_text, overpaidText: extras.overpaid_text,
+        } : null)
+        : undefined;
     const contextText = buildTurnContext({
         clock,
         customer: { known: Boolean(known), name: known?.name ?? null, pushName },
@@ -407,6 +427,7 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
         })),
         openProposal: await openProposal(admin, conv.id),
         firstContact,
+        card,
     });
 
     // Bağlam operatör kanalından gider (`role: system`): müşteri metnine

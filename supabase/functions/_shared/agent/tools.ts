@@ -69,6 +69,14 @@ export const TOOLS: ToolDef[] = [
         input_schema: { type: 'object', properties: {}, required: [], additionalProperties: false },
     },
     {
+        name: 'my_history',
+        description:
+            'Yazan müşterinin geçmiş ziyaretlerini (en yeni 10) getirir: tarih, saat, hizmet, uzman. '
+            + '"Geçen sefer kim yapmıştı", "en son ne zaman geldim" gibi sorular için. Özet BAĞLAM\'daki müşteri kartında zaten var.',
+        strict: true,
+        input_schema: { type: 'object', properties: {}, required: [], additionalProperties: false },
+    },
+    {
         name: 'my_packages_and_balance',
         description: 'Yazan müşterinin paketlerini (kalan seans) ve ödenmemiş bakiyesini getirir.',
         strict: true,

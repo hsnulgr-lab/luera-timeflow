@@ -154,11 +154,14 @@ export function buildRebookInvite(params: {
     service: string;
     note?: string;
     bookingUrl?: string;
+    /** Sektörün emojisi; sunucudaki messages.ts ile aynı tek emoji kuralı. */
+    emoji?: string;
 }): string {
-    const note = params.note?.trim() ? `\n\n🎁 ${params.note.trim()}` : '';
-    const link = params.bookingUrl ? `\n\n👉 ${params.bookingUrl}` : '';
+    const note = params.note?.trim() ? `\n\n*${params.note.trim()}*` : '';
+    const link = params.bookingUrl ? `\n\n${params.bookingUrl}` : '';
     const how = params.bookingUrl ? 'Uygun gününüzü yazmanız ya da bağlantıdan seçmeniz yeterli.' : 'Uygun gününüzü yazmanız yeterli.';
-    const hello = params.customerName ? `Merhaba ${params.customerName} 👋` : 'Merhaba 👋';
+    const e = params.emoji ? ` ${params.emoji}` : '';
+    const hello = params.customerName ? `Merhaba ${params.customerName}${e}` : `Merhaba${e}`;
     return `${hello}\nBir sonraki *${params.service}* randevunuzu şimdiden ayırtmak ister misiniz?\n\n${how}${note}${link}`;
 }
 

@@ -27,16 +27,38 @@ export const DEFAULT_MONTHLY_BUDGET_USD = 25;
 
 export type AgentRoute = 'agent' | 'old' | 'silent';
 
+/** Claude hata verince ajan bu kadar dinlenir; arada mesajlara eski bot bakar. */
+export const AGENT_COOLDOWN_MS = 15 * 60_000;
+
+/**
+ * Ajan şu an çalışmıyor mu? Son turu Claude'a ulaşamadıysa (bakiye bitti, yetki,
+ * aşırı yük, bağlantı) bir süre eski bota düşülür. Yoksa her yeni mesaj aynı
+ * hatayı alıp müşteriye "aksaklık var" cevabı dönerdi. Süre dolunca ajan yine
+ * denenir; çalışırsa kendiliğinden geri gelir. Modelin kendi sonuçları (ret,
+ * süre, tur sınırı) arıza sayılmaz.
+ */
+export function agentLooksDown(
+    last: { error: string | null; created_at: string } | null | undefined,
+    now: number,
+): boolean {
+    if (!last?.error || !/^(api_|exception$)/.test(last.error)) return false;
+    const at = Date.parse(last.created_at);
+    return Number.isFinite(at) && now - at < AGENT_COOLDOWN_MS;
+}
+
 /**
  * Gelen mesaj ajana mı, eski bota mı gider? Bayrak kapalıysa her zaman eski
- * bot — diğer işletmeler hiçbir şey fark etmez. Tavan dolunca da eski bota
- * düşülür: müşteri cevapsız kalmaz, yalnız sohbet daha kalıplı olur.
+ * bot — diğer işletmeler hiçbir şey fark etmez. Tavan dolunca ya da Claude'a
+ * ulaşılamıyorsa da eski bota düşülür: müşteri cevapsız kalmaz, yalnız sohbet
+ * daha kalıplı olur.
  */
 export function agentRoute(o: {
     enabled: boolean;
     config: AgentConfig | null | undefined;
     phone: string;
     spentUsd: number;
+    /** agentLooksDown: Claude'a son deneme ulaşamadı. */
+    down?: boolean;
 }): AgentRoute {
     if (!o.enabled) return 'old';
     const cfg = o.config ?? {};
@@ -48,6 +70,7 @@ export function agentRoute(o: {
     }
     const budget = Number(cfg.monthly_budget_usd ?? DEFAULT_MONTHLY_BUDGET_USD);
     if (Number.isFinite(budget) && o.spentUsd >= budget) return 'old';
+    if (o.down) return 'old';
     return 'agent';
 }
 

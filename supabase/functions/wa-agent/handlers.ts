@@ -20,6 +20,7 @@ import { packageRights, type PackageResInput } from '../_shared/booking/packages
 import { eligibilityBlock, isReservationConflict } from '../_shared/booking/reservationErrors.ts';
 import { announceFreedSlot, firstNameOf, notifyOwner } from '../_shared/notify.ts';
 import type { Profile } from '../_shared/agent/profile.ts';
+import type { PastVisit } from '../_shared/agent/customerCard.ts';
 import type { IstanbulClock } from '../_shared/agent/prompt.ts';
 import {
     commitBlock, filterTimes, PROPOSAL_TTL_MS, refPrefix, shortRef, suggestTimes, type PartOfDay,
@@ -245,21 +246,55 @@ async function myAppointments(ctx: TurnCtx) {
 
 async function myPackagesAndBalance(ctx: TurnCtx) {
     if (!ctx.customer) return { known: false, hint: 'Bu numarada kayıtlı müşteri yok.' };
-    const cid = ctx.customer.id;
-    const today = ctx.clock.todayISO;
+    return { known: true, ...(await loadPackagesAndBalance(ctx.admin, ctx.orgId, ctx.customer.id, ctx.clock.todayISO)) };
+}
+
+/**
+ * Geçmiş ziyaretler (yeniden eskiye): tamamlanmış ya da tarihi geçmiş onaylı
+ * randevu. İptal edilenler ziyaret sayılmaz. Müşteri kartı ve my_history okur.
+ */
+export async function loadPastVisits(
+    admin: Admin, orgId: string, customerId: string, clock: IstanbulClock, limit = 60,
+): Promise<PastVisit[]> {
+    const { data } = await admin.from('reservations')
+        .select('date, start_time, service, staff_id, status')
+        .eq('organization_id', orgId).eq('customer_id', customerId)
+        .lte('date', clock.todayISO).in('status', ['completed', 'confirmed'])
+        .order('date', { ascending: false }).order('start_time', { ascending: false })
+        .limit(limit);
+    return ((data ?? []) as (PastVisit & { status: string })[]).filter((r) =>
+        r.date < clock.todayISO || timeToMin(hhmm(r.start_time)) < clock.nowMin);
+}
+
+async function myHistory(ctx: TurnCtx) {
+    if (!ctx.customer) return { known: false, hint: 'Bu numarada kayıtlı müşteri yok.' };
+    const rows = await loadPastVisits(ctx.admin, ctx.orgId, ctx.customer.id, ctx.clock, 10);
+    return {
+        known: true,
+        visits: rows.map((r) => ({
+            date_label: formatDateTr(r.date),
+            time: hhmm(r.start_time),
+            service: r.service,
+            staff: r.staff_id ? ctx.staffName.get(r.staff_id) ?? null : null,
+        })),
+    };
+}
+
+/** Paketler ve bakiye; my_packages_and_balance aracı ve müşteri kartı aynı hesabı okur. */
+export async function loadPackagesAndBalance(admin: Admin, orgId: string, cid: string, today: string) {
     const [{ data: plans }, { data: linked }, { data: allPlans }, { data: pays }] = await Promise.all([
-        ctx.admin.from('treatment_plans')
+        admin.from('treatment_plans')
             .select('id, title, session_count, sessions_done')
-            .eq('organization_id', ctx.orgId).eq('customer_id', cid).eq('status', 'active')
+            .eq('organization_id', orgId).eq('customer_id', cid).eq('status', 'active')
             .order('created_at', { ascending: false }).limit(5),
-        ctx.admin.from('reservations')
+        admin.from('reservations')
             .select('date, status, custom_fields')
-            .eq('organization_id', ctx.orgId).eq('customer_id', cid)
+            .eq('organization_id', orgId).eq('customer_id', cid)
             .gte('date', today).neq('status', 'cancelled'),
-        ctx.admin.from('treatment_plans').select('id, total_amount, status')
-            .eq('organization_id', ctx.orgId).eq('customer_id', cid),
-        ctx.admin.from('payments').select('amount, treatment_plan_id, type')
-            .eq('organization_id', ctx.orgId).eq('customer_id', cid)
+        admin.from('treatment_plans').select('id, total_amount, status')
+            .eq('organization_id', orgId).eq('customer_id', cid),
+        admin.from('payments').select('amount, treatment_plan_id, type')
+            .eq('organization_id', orgId).eq('customer_id', cid)
             // Düzeltilen ya da geri alınan eski kayıt para değil (111).
             .is('voided_at', null),
     ]);
@@ -287,7 +322,6 @@ async function myPackagesAndBalance(ctx: TurnCtx) {
         })),
     );
     return {
-        known: true,
         packages,
         balance_text: fin.balance > 0 ? formatTL(fin.balance) : null,
         overpaid_text: fin.overpaid > 0 ? formatTL(fin.overpaid) : null,
@@ -637,6 +671,7 @@ export async function runTool(ctx: TurnCtx, name: string, input: Input): Promise
     switch (name) {
         case 'find_slots': return findSlots(ctx, input);
         case 'my_appointments': return myAppointments(ctx);
+        case 'my_history': return myHistory(ctx);
         case 'my_packages_and_balance': return myPackagesAndBalance(ctx);
         case 'propose_booking': return proposeBooking(ctx, input);
         case 'propose_reschedule': return proposeReschedule(ctx, input);

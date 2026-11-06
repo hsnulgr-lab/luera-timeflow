@@ -259,7 +259,7 @@ export function WhatsApp() {
             on: Boolean(settings.rebookEnabled),
             onToggle: (v) => updateSettings({ ...settings, rebookEnabled: v }),
             text: sched
-                ? buildRebookInvite({ customerName: sample.split(' ')[0], service, note: d.rebookNote, bookingUrl })
+                ? buildRebookInvite({ customerName: sample.split(' ')[0], service, note: d.rebookNote, bookingUrl, emoji: comms.emoji })
                 : buildRebookMessage({ customerName: sample.split(' ')[0], service, businessName: biz, note: d.rebookNote, bookingUrl }),
             extra: (
                 <div className="ay-msg-ctrl" style={{ position: 'relative' }}>

@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
-    featureOn, findCustomerByPhone, logMessage, sendWA as sendWhatsApp,
+    featureOn, findCustomerByPhone, lidToPhone, logMessage, sendWA as sendWhatsApp,
     type Admin, type OrgWa,
 } from '../_shared/wa.ts';
 import { normalizePhone } from '../_shared/phone.ts';
@@ -12,7 +12,7 @@ import {
     availabilityFor, availableDays, formatDateTr as fmtDate, minToTime, timeToMin, weekdayOf,
     type WorkingHour as WH,
 } from '../_shared/booking/slots.ts';
-import { detectConfirm, detectIntent, detectListChoice, inboundKind, senderJid } from '../_shared/booking/intent.ts';
+import { detectConfirm, detectIntent, detectListChoice, inboundKind, lidOf, senderJid, unwrapMessage, type WaMessage } from '../_shared/booking/intent.ts';
 import { assignResources } from '../_shared/booking/resources.ts';
 import { parseReceiptEvent, receiptPatch } from '../_shared/booking/receipts.ts';
 import { EMPTY_EXTRACTION, extractWithAi, type Extraction, type Turn } from '../_shared/booking/ai.ts';
@@ -25,7 +25,7 @@ import { packageRights, type PackageResInput } from '../_shared/booking/packages
 import { announceFreedSlot, firstNameOf, notifyOwner } from '../_shared/notify.ts';
 import { checkAccess } from '../_shared/entitlement.ts';
 import { eligibilityBlock, isReservationConflict } from '../_shared/booking/reservationErrors.ts';
-import { agentRoute, type AgentConfig } from '../_shared/agent/guard.ts';
+import { agentLooksDown, agentRoute, type AgentConfig } from '../_shared/agent/guard.ts';
 import { handleScheduledReply } from '../_shared/scheduler/replies.ts';
 
 // ============================================================
@@ -87,7 +87,7 @@ function isDirectChat(jid: string): boolean {
     return jid.endsWith('@s.whatsapp.net') || jid.endsWith('@lid');
 }
 
-function mediaLabel(m: Record<string, unknown> | undefined): string {
+function mediaLabel(m: WaMessage | undefined): string {
     return m?.documentMessage ? '[dosya]' : '[görsel]';
 }
 
@@ -129,6 +129,24 @@ async function pauseForOwner(
     }, { onConflict: 'organization_id,phone' });
 }
 
+/**
+ * Gizli kimlikli (…@lid) gönderenin numarası: önce kendi eşlememiz, yoksa
+ * Evolution'ın numara ön belleği (bulunursa eşlemeye yazılır). Müşteriye bir
+ * şey sorulmaz; çözülemezse mesaj eskisi gibi geçilir ve iz bırakır.
+ */
+async function resolveLid(admin: Admin, orgWa: OrgWa, lid: string): Promise<string | null> {
+    const orgId = orgWa.organization_id;
+    const { data: row } = await admin.from('wa_lid_map')
+        .select('phone').eq('organization_id', orgId).eq('lid', lid).maybeSingle();
+    if (row?.phone) return row.phone;
+    const phone = await lidToPhone(admin, orgWa, lid);
+    if (!phone) return null;
+    await admin.from('wa_lid_map').upsert({
+        organization_id: orgId, lid, phone, updated_at: new Date().toISOString(),
+    }, { onConflict: 'organization_id,lid' });
+    return phone;
+}
+
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -140,13 +158,15 @@ Deno.serve(async (req: Request) => {
         const fromMe = d.key?.fromMe === true;
         const remoteJid: string = d.key?.remoteJid || '';
         const providerMsgId: string = d.key?.id || '';
-        const text: string = (d.message?.conversation || d.message?.extendedTextMessage?.text || '').trim();
+        // Kaybolan/düzenlenmiş mesaj zarfı açılır; metin içeride (intent.ts).
+        const msg = unwrapMessage(d.message);
+        const text: string = (msg?.conversation || msg?.extendedTextMessage?.text || '').trim();
         // Sesli mesaj Türkiye'de çok yaygın; okuyamıyoruz ama sessiz kalmak
         // müşteriyi cevapsız bırakıyordu.
         const hasMedia = Boolean(
-            d.message?.audioMessage || d.message?.imageMessage
-            || d.message?.videoMessage || d.message?.documentMessage
-            || d.message?.stickerMessage,
+            msg?.audioMessage || msg?.imageMessage
+            || msg?.videoMessage || msg?.documentMessage
+            || msg?.stickerMessage,
         );
 
         if (!instance) return ok({ skipped: true });
@@ -160,13 +180,30 @@ Deno.serve(async (req: Request) => {
         // işletmede botu o müşteri için susturur (130). Org ve sır çözüldükten
         // sonra işlenir; eski botta hiçbir etkisi yok.
         const ownerTyped = fromMe && receipts.length === 0 && isDirectChat(remoteJid) && Boolean(text || hasMedia);
-        if (receipts.length === 0 && msgKind === 'skip' && !ownerTyped) return ok({ skipped: true });
+        if (receipts.length === 0 && msgKind === 'skip' && !ownerTyped) {
+            // Müşteri yazdı ama okuyamadık: türü iz bırakır (yeni bir zarf ya da
+            // çözülemeyen şifreli mesaj olabilir). İçerik yazılmaz.
+            if (!fromMe && remoteJid && !remoteJid.includes('@g.us')) {
+                console.log('whatsapp-booking okunamadı', d.messageType ?? '-', Object.keys(d.message ?? {}).join(','));
+            }
+            return ok({ skipped: true });
+        }
         // Numarayı tek biçime çevir — log, kota ve müşteri eşleşmesi buna dayanır.
         // LID'li gönderende numara ayrı alanda gelir (senderJid); numarasız
         // mesaja cevap verilemez, sessizce geçilir.
         const jid = senderJid(d.key, d);
-        if (receipts.length === 0 && !jid) return ok({ skipped: 'numara yok' });
-        const phone = normalizePhone(jid.split('@')[0]) || jid.split('@')[0];
+        // Numara gizli geldiyse (…@lid) org çözüldükten sonra eşlemeden bulunur (136).
+        const lid = jid ? '' : lidOf(remoteJid);
+        if (receipts.length === 0 && !jid && !lid) {
+            // Numarayı gizleyen kimlik (…@lid) ve yanında numara yok: hangi
+            // alanların geldiği iz bırakır (numara değil, alan adları).
+            console.log('whatsapp-booking numara yok', JSON.stringify({
+                jid: remoteJid.replace(/^[^@]+/, '#'), key: Object.keys(d.key ?? {}), data: Object.keys(d).slice(0, 14),
+                participant: String(d.key?.participant ?? '').replace(/^[^@]+/, '#') || '-', mode: d.key?.addressingMode ?? '-',
+            }));
+            return ok({ skipped: 'numara yok' });
+        }
+        let phone = jid ? (normalizePhone(jid.split('@')[0]) || jid.split('@')[0]) : '';
 
         const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
@@ -206,6 +243,17 @@ Deno.serve(async (req: Request) => {
                     .is(r.receipt === 'delivered' ? 'delivered_at' : 'read_at', null);
             }
             return ok({ receipts: receipts.length });
+        }
+
+        // ── Gizli kimlik (136) ───────────────────────────────────────────────
+        // Numara gizli geldiyse eşlemeden ya da Evolution'ın ön belleğinden.
+        if (!phone) {
+            const found = await resolveLid(admin, orgWa, lid);
+            if (!found) {
+                console.log('whatsapp-booking gizli kimlik çözülemedi');
+                return ok({ skipped: 'numara yok' });
+            }
+            phone = found;
         }
 
         if (ownerTyped) {
@@ -329,34 +377,38 @@ Deno.serve(async (req: Request) => {
         // Bayrak yalnız seçilen işletmede açık; diğerlerinde aşağıdaki eski
         // akış aynen sürer. Ajanın cevabı burada YAZILMAZ: mesaj kuyruğa girer,
         // wa-agent birkaç saniye bekleyip art arda gelenleri tek turda işler.
-        // Kuyruğa yazılamazsa (göç eksik, bağlantı) eski bot devralır — müşteri
-        // cevapsız kalmaz.
+        // Kuyruğa yazılamazsa (göç eksik, bağlantı) ya da Claude'a son deneme
+        // ulaşamadıysa (bakiye, yetki) eski bot devralır — müşteri cevapsız kalmaz.
         if (featureOn(orgWa, 'agent_v2', false)) {
-            const [{ data: cfgRow }, { data: spent }, { count: lastHour }] = await Promise.all([
+            const [{ data: cfgRow }, { data: spent }, { count: lastHour }, { data: lastRun }] = await Promise.all([
                 admin.from('org_whatsapp').select('agent_config').eq('organization_id', orgId).maybeSingle(),
                 admin.rpc('wa_agent_spend', { p_org: orgId }),
                 admin.from('wa_message_log')
                     .select('id', { count: 'exact', head: true })
                     .eq('organization_id', orgId).eq('phone', phone)
                     .eq('direction', 'in').gte('created_at', new Date(Date.now() - 3600_000).toISOString()),
+                admin.from('wa_agent_runs').select('error, created_at')
+                    .eq('organization_id', orgId).order('created_at', { ascending: false })
+                    .limit(1).maybeSingle(),
             ]);
             const route = agentRoute({
                 enabled: true,
                 config: (cfgRow?.agent_config ?? null) as AgentConfig | null,
                 phone,
                 spentUsd: Number(spent) || 0,
+                down: agentLooksDown(lastRun, Date.now()),
             });
             if (route === 'silent') return ok({ skipped: 'agent_test_only' });
             if (route === 'agent') {
                 if ((lastHour ?? 0) > AGENT_FLOOD_PER_HOUR) return ok({ skipped: 'agent_flood' });
-                const audio = d.message?.audioMessage;
+                const audio = msg?.audioMessage;
                 const { error: inboxErr } = await admin.from('wa_inbox').insert({
                     organization_id: orgId,
                     phone,
                     remote_jid: remoteJid || null,
                     provider_msg_id: providerMsgId || null,
                     kind: msgKind === 'text' ? 'text' : audio ? 'audio' : 'media',
-                    body: msgKind === 'text' ? text : audio ? null : mediaLabel(d.message),
+                    body: msgKind === 'text' ? text : audio ? null : mediaLabel(msg),
                     // Sesin indirme anahtarları; wa-agent döküm için Evolution'dan ister.
                     media: audio ? { key: d.key, message: { audioMessage: audio } } : null,
                     push_name: String(d.pushName || '').trim() || null,

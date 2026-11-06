@@ -13,7 +13,7 @@ import {
     availabilityFor, availableDays, minToTime, overlaps, staffSlots, timeToMin, weekdayOf,
 } from '../supabase/functions/_shared/booking/slots.ts';
 import {
-    detectConfirm, detectIntent, detectListChoice, inboundKind, senderJid,
+    detectConfirm, detectIntent, detectListChoice, inboundKind, lidOf, senderJid, unwrapMessage,
 } from '../supabase/functions/_shared/booking/intent.ts';
 import {
     CLARIFY_OPTIONS, CLARIFY_QUESTION, clarifyQuestion, coerceTopic, detectClarify,
@@ -287,6 +287,37 @@ test('selamlama ayrı niyet', () => {
     assert.equal(detectIntent('Selam!'), 'greeting');
     assert.equal(detectIntent('merhaba yarın randevu almak istiyorum'), 'other',
         'içinde selam geçen dolu cümle selamlama değil');
+});
+
+test('gizli kimlikli birebir sohbette numara participant\'tan okunur', () => {
+    assert.equal(senderJid({ remoteJid: '123456789@lid', participant: '905524740440@s.whatsapp.net', addressingMode: 'lid' }), '905524740440@s.whatsapp.net');
+    assert.equal(senderJid({ remoteJid: '123456789@lid', participant: '987@lid' }), '');
+    assert.equal(senderJid({ remoteJid: '905321112233@s.whatsapp.net', participant: '905000000000@s.whatsapp.net' }), '905321112233@s.whatsapp.net');
+});
+
+test('gizli kimlik: kimlik ayrışır, numara müşteriye sorulmadan Evolution\'dan çözülür', () => {
+    assert.equal(lidOf('123456789012345@lid'), '123456789012345');
+    assert.equal(lidOf('123456789012345:7@lid'), '123456789012345');
+    assert.equal(lidOf('905524740440@s.whatsapp.net'), '');
+    const src = readFileSync(new URL('../supabase/functions/whatsapp-booking/index.ts', import.meta.url), 'utf8');
+    assert.match(src, /const found = await resolveLid\(admin, orgWa, lid\);/);
+    assert.doesNotMatch(src, /lidAskPhone|lidCode/, 'müşteriye numara sorulmamalı');
+    const wa = readFileSync(new URL('../supabase/functions/_shared/wa.ts', import.meta.url), 'utf8');
+    assert.match(wa, /chat\/whatsappNumbers\/\$\{org\.instance\}/);
+    assert.match(wa, /numbers: \[`\$\{lid\}@lid`\]/);
+    const sql = readFileSync(new URL('../supabase/136_wa_lid.sql', import.meta.url), 'utf8');
+    assert.match(sql, /REVOKE ALL ON public\.wa_lid_map FROM PUBLIC, anon, authenticated;/);
+});
+
+test('zarflı mesaj açılır: kaybolan, düzenlenmiş, tek görümlük', () => {
+    assert.equal(unwrapMessage({ conversation: 'a' }).conversation, 'a');
+    assert.equal(unwrapMessage({ ephemeralMessage: { message: { extendedTextMessage: { text: 'yarın yer var mı' } } } }).extendedTextMessage.text, 'yarın yer var mı');
+    assert.equal(unwrapMessage({ editedMessage: { message: { ephemeralMessage: { message: { conversation: 'b' } } } } }).conversation, 'b');
+    assert.ok(unwrapMessage({ viewOnceMessageV2: { message: { imageMessage: {} } } }).imageMessage);
+    assert.equal(unwrapMessage(undefined), undefined);
+    const src = readFileSync(new URL('../supabase/functions/whatsapp-booking/index.ts', import.meta.url), 'utf8');
+    assert.match(src, /const msg = unwrapMessage\(d\.message\);/);
+    assert.doesNotMatch(src, /d\.message\?\.conversation/);
 });
 
 test('inboundKind grup ve kendi mesajımızı eler', () => {
@@ -761,11 +792,12 @@ test('mesaj başına en fazla bir emoji, o da sektörün emojisi', () => {
     }
 });
 
-test('sektör sözcüğü profilden gelir — klinik "tedavi" der', () => {
+test('sektör sözcüğü cümlede profilden gelir, künyenin etiketi her yerde "Hizmet"', () => {
     const m = allMessages();
     assert.match(m.greeting, /Hangi tedavi için/);
-    assert.match(m.summary, /\*Tedavi:\* Dolgu/);
-    assert.match(m.created, /\*Tedavi:\* Dolgu/);
+    assert.match(m.summary, /\*Hizmet:\* Dolgu/);
+    assert.match(m.created, /\*Hizmet:\* Dolgu/);
+    assert.ok(!/\*Tedavi:\*/.test(m.created), '"Tedavi: Dolgu" etiketi kalktı (2026-11-06)');
     assert.match(m.blocked, /Bu tedavi için/);
 });
 
@@ -779,7 +811,7 @@ test('aynı metinler kuaförde "işlem" olur — hiçbir şey sabit yazılmamı�
     };
     const m = allMessages(kuafor);
     assert.match(m.greeting, /Hangi işlem için/);
-    assert.match(m.summary, /\*İşlem:\* Dolgu/);
+    assert.match(m.summary, /\*Hizmet:\* Dolgu/);
     assert.match(m.greeting, /LU Kuaför/);
     assert.ok(!m.greeting.includes('🦷'), 'diş emojisi kuaföre sızmamalı');
     assert.ok(m.greeting.includes('💇'));
@@ -795,9 +827,10 @@ test('onay bekleyen randevu "hazır" demez', () => {
     // booking_auto_confirm kapalıyken kayıt 'pending' düşüyor ama bot
     // "Randevun oluştu!" diyordu — müşteri onaylanmış sanıp geliyordu.
     const m = allMessages();
-    assert.match(m.created, /Hazır/);
-    assert.ok(!/[Hh]azır/.test(m.createdPending), 'pending randevu hazır sayılmamalı');
-    assert.match(m.createdPending, /Talebinizi aldım/);
+    assert.match(m.created, /Randevunuz oluşturuldu/);
+    assert.ok(!/oluşturuldu/.test(m.createdPending), 'pending randevu oluşturuldu sayılmamalı');
+    assert.match(m.createdPending, /Randevu talebinizi aldım/);
+    assert.match(m.createdPending, /Randevu talebinizi aldım/);
     assert.match(m.createdPending, /haber vereceğim/);
 });
 
@@ -987,7 +1020,7 @@ test('iptal ve taşıma mesajları da aynı ağzı kullanır', () => {
         assert.ok(!SENLI.test(t), `${k} senli benli`);
         const e = t.match(/\p{Extended_Pictographic}/gu) ?? [];
         assert.ok(e.length <= 1 && e.every((x) => x === DENTAL.emoji), `${k} emoji: ${e.join('')}`);
-        assert.match(t, /\*Tedavi:\* Dolgu/, `${k} sektör etiketi taşımalı`);
+        assert.match(t, /\*Hizmet:\* Dolgu/, `${k} künye etiketi taşımalı`);
     }
     assert.match(cancel, /Hasan, randevunuzu iptal ettim/);
     assert.match(move, /taşıdım/);
@@ -1419,4 +1452,28 @@ test('saat hesabı tek modülde: halka açık sayfa ve yönetim linki kendi kopy
         assert.match(src, /import \{[^}]*\bstaffSlots\b[^}]*\} from '\.\.\/_shared\/booking\/slots\.ts';/, `${f} ortak modülü kullanmalı`);
         assert.doesNotMatch(src, /function (staffSlots|computeSlots|timeToMin|minToTime)\(/, `${f} kendi kopyasını taşımamalı`);
     }
+});
+
+test('eski botun Groq yedeği kapanan llama yerine gpt-oss-120b, ayarla değişir', () => {
+    const ai = readFileSync(new URL('../supabase/functions/_shared/booking/ai.ts', import.meta.url), 'utf8');
+    assert.match(ai, /GROQ_DEFAULT_MODEL = 'openai\/gpt-oss-120b'/);
+    assert.doesNotMatch(ai, /model: 'llama-3\.3-70b-versatile'/);
+    assert.match(ai, /getSecret\(admin, 'WA_GROQ_MODEL'\)/);
+    assert.match(ai, /reasoning_effort: 'low', include_reasoning: false/);
+});
+
+test('sektör sözcüğüne ek elle yapıştırılmaz, müşterinin randevusuna "kayıt" denmez', () => {
+    const beauty = { ...CTX, comms: { ...CTX.comms, serviceWord: 'bakım', servicePhrase: 'bakımınızı', emoji: '✨' } };
+    const ap = { service: 'Lazer', dateLabel: '7 Kasım Cumartesi', time: '14:00' };
+    const all = [
+        MSG.myAppointments(beauty, [ap]), MSG.myAppointments(beauty, [ap, ap]), MSG.myAppointments(beauty, []),
+        MSG.confirmCancel(beauty, ap), MSG.cancelDone(beauty, ap), MSG.cancelKept(beauty), MSG.nothingToCancel(beauty),
+        MSG.rescheduleStart(beauty, ap), MSG.rescheduleDone(beauty, { ...ap, fromLabel: 'x', fromTime: '10:00' }),
+        MSG.tooLateToChange(beauty, null), MSG.reminderDeclined(beauty), MSG.whichAppointment(beauty, [ap, ap], 'iptal'),
+        MSG.myBalance(beauty, { balanceText: '0', overpaidText: '₺100' }), MSG.priceInfo(beauty, []),
+    ].join('\n');
+    assert.ok(!/bakımn|randevun[ıi]z|bakımnın/.test(all), all.match(/\S*bakımn\S*|\S*randevun[ıi]z\S*/g)?.join(' '));
+    assert.ok(!/[Kk]ayd[ıi]n[ıi]z|[Kk]ayıtlarınız/.test(all), 'kayıt değil randevu');
+    assert.match(MSG.confirmCancel(beauty, ap), /^Bu randevunuzu iptal edeyim mi\?/);
+    assert.match(MSG.myAppointments(beauty, [ap]), /^Yaklaşan randevunuz:/);
 });

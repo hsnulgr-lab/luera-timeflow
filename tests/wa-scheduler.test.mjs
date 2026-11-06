@@ -118,16 +118,16 @@ test('24 saat hatırlatması: etiketli satırlar, soru yalnız asistan açıkken
         service: 'ağda', dateLabel: 'Yarın, 30 Ekim Cuma', time: '12:00', mapsUrl: 'https://maps.example/x', askConfirm: true,
     });
     assert.equal(withAsk,
-        'Merhaba Nisanur 👋\n*Test Salon 2* olarak randevunuzu hatırlatmak istedik.\n\n'
-        + '*Bakım:* ağda\n*Tarih:* Yarın, 30 Ekim Cuma\n*Saat:* 12:00\n\n'
-        + 'Gelebilecek misiniz? *Evet* ya da *Hayır* yazmanız yeterli.\n\n📍 Konum: https://maps.example/x');
+        'Merhaba Nisanur ✨\n*Test Salon 2* olarak randevunuzu hatırlatmak istedik.\n\n'
+        + '*Hizmet:* ağda\n*Tarih:* Yarın, 30 Ekim Cuma\n*Saat:* 12:00\n\n'
+        + 'Gelebilecek misiniz? *Evet* ya da *Hayır* yazmanız yeterli.\n\n*Konum:* https://maps.example/x');
     const noAsk = MSG.reminder24h(CTX, { service: 'ağda', dateLabel: 'Yarın', time: '12:00', askConfirm: false });
     assert.doesNotMatch(noAsk, /Gelebilecek misiniz|Konum/);
 });
 
 test('2 saat, dürtme ve memnuniyet metinleri', () => {
     assert.equal(MSG.reminder2h(CTX, { service: 'ağda', time: '12:00' }),
-        'Merhaba Nisanur 👋\nRandevunuza 2 saat kaldı.\n\n*Bakım:* ağda\n*Saat:* 12:00\n\nGörüşmek üzere. ✨');
+        'Merhaba Nisanur ✨\nRandevunuza 2 saat kaldı.\n\n*Hizmet:* ağda\n*Saat:* 12:00\n\nGörüşmek üzere.');
     assert.equal(MSG.attendanceNudge(CTX, { when: "yarın *12:00*'deki" }),
         "Merhaba Nisanur, yarın *12:00*'deki randevunuz için gelebilecek misiniz? *Evet* ya da *Hayır* yazmanız yeterli.");
     assert.match(MSG.satisfactionAsk(CTX, { sameDay: true }), /^Merhaba Nisanur ✨\nBugünkü ziyaretiniz için teşekkür ederiz\.\n\nMemnun kaldınız mı\? 1 ile 5 arasında/);
@@ -135,11 +135,11 @@ test('2 saat, dürtme ve memnuniyet metinleri', () => {
 });
 
 test('memnuniyet cevabı ve bekleme listesi teklifi metinleri', () => {
-    assert.match(MSG.feedbackHappy(CTX, { reviewUrl: 'https://g.page/r/x' }), /Google'da paylaşırsanız[\s\S]*👉 https:\/\/g\.page\/r\/x$/);
+    assert.match(MSG.feedbackHappy(CTX, { reviewUrl: 'https://g.page/r/x' }), /Google'da paylaşırsanız[\s\S]*\nhttps:\/\/g\.page\/r\/x$/);
     assert.doesNotMatch(MSG.feedbackHappy(CTX, { reviewUrl: null }), /Google/);
     assert.match(MSG.feedbackUnhappy(CTX, { reviewUrl: 'https://g.page/r/x' }), /ekibimiz sizinle iletişime geçecek\.\n\nDilerseniz/);
     assert.equal(MSG.slotOffer(CTX, { service: 'ağda', dateLabel: '31 Ekim Cumartesi', time: '12:00', minutes: 30 }),
-        'Merhaba Nisanur 👋\nBeklediğiniz randevu için yer açıldı:\n\n*Bakım:* ağda\n*Tarih:* 31 Ekim Cumartesi\n*Saat:* 12:00\n\n'
+        'Merhaba Nisanur ✨\nBeklediğiniz randevu için yer açıldı:\n\n*Hizmet:* ağda\n*Tarih:* 31 Ekim Cumartesi\n*Saat:* 12:00\n\n'
         + 'İster misiniz? *Evet* yazarsanız sizin adınıza ayırıyorum. Teklif 30 dakika geçerli.');
 });
 
@@ -197,12 +197,12 @@ test('davet: akşam kapanan hesabın daveti ertesi sabah 10:00\'a, iki günden e
 
 test('davet metni: teşekkür tekrarı ve işletme adı eki yok; önizleme sunucuyla aynı', () => {
     const server = MSG.rebookInvite(CTX, { service: 'cilt bakımı', note: '%10 erken rezervasyon', bookingUrl: 'https://x/book/s' });
-    assert.equal(server, 'Merhaba Nisanur 👋\nBir sonraki *cilt bakımı* randevunuzu şimdiden ayırtmak ister misiniz?\n\n'
-        + 'Uygun gününüzü yazmanız ya da bağlantıdan seçmeniz yeterli.\n\n🎁 %10 erken rezervasyon\n\n👉 https://x/book/s');
+    assert.equal(server, 'Merhaba Nisanur ✨\nBir sonraki *cilt bakımı* randevunuzu şimdiden ayırtmak ister misiniz?\n\n'
+        + 'Uygun gününüzü yazmanız ya da bağlantıdan seçmeniz yeterli.\n\n*%10 erken rezervasyon*\n\nhttps://x/book/s');
     assert.doesNotMatch(server, /teşekkür|Test Salon 2/);
-    assert.equal(buildRebookInvite({ customerName: 'Nisanur', service: 'cilt bakımı', note: '%10 erken rezervasyon', bookingUrl: 'https://x/book/s' }), server);
+    assert.equal(buildRebookInvite({ customerName: 'Nisanur', service: 'cilt bakımı', note: '%10 erken rezervasyon', bookingUrl: 'https://x/book/s', emoji: CTX.comms.emoji }), server);
     assert.equal(MSG.rebookInvite({ ...CTX, firstName: null }, { service: 'ağda' }),
-        buildRebookInvite({ customerName: '', service: 'ağda' }));
+        buildRebookInvite({ customerName: '', service: 'ağda', emoji: CTX.comms.emoji }));
     // Eski (bayrak kapalı) davette elle yazılmış "'daki" eki gitti.
     assert.doesNotMatch(buildRebookMessage({ customerName: 'A', service: 'ağda', businessName: 'Test Salon 2' }), /\*'d[ae]ki/);
 });

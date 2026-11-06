@@ -15,10 +15,14 @@
 //
 // 2. MESAJ BAŞINA EN FAZLA BİR EMOJİ, o da sektörün kendi emojisi. Detay
 //    satırlarında emoji yerine *kalın* etiket kullanılır: 💼🗓️⏰ dizilimi
-//    ikon taklidi yapıyordu ve şablon gibi duruyordu.
+//    ikon taklidi yapıyordu ve şablon gibi duruyordu. 👋 🙏 👉 🎁 📍 de yok
+//    (kullanıcı kararı, 2026-11-06): bazı mesajlarda üç emojiye çıkıyordu.
 //
-// 3. SEKTÖR SÖZCÜĞÜ profilden gelir: "tedavi", "işlem", "seans", "prova".
-//    Kliniğe "randevunuz", kuaföre "işleminiz" denir.
+// 3. SEKTÖR SÖZCÜĞÜ yalnız cümle içinde: "yeni bir bakım için". Künyenin
+//    etiketi her sektörde *Hizmet:* ("Bakım: Lazer epilasyon" uyumsuzdu) ve
+//    müşterinin kaydına her yerde "randevu" denir, "kayıt" değil (2026-11-06).
+//    Sözcüğe ek ELLE yapıştırılmaz: "${'{'}serviceWord}nız" → "bakımnız" yanlış
+//    çıkıyordu.
 //
 // Saf modül: tests/wa-booking.test.mjs doğrudan import eder.
 
@@ -77,8 +81,7 @@ function timeGrid(times: string[]): string {
 
 /** Randevu künyesi — üç mesajda aynı biçim, emoji yerine kalın etiket. */
 function detailBlock(c: Ctx, o: { service: string; dateLabel: string; time: string }): string {
-    const label = c.comms.serviceWord.charAt(0).toLocaleUpperCase('tr') + c.comms.serviceWord.slice(1);
-    return `*${label}:* ${o.service}\n*Tarih:* ${o.dateLabel}\n*Saat:* ${o.time}`;
+    return `*Hizmet:* ${o.service}\n*Tarih:* ${o.dateLabel}\n*Saat:* ${o.time}`;
 }
 
 // ── Karşılama ───────────────────────────────────────────────────────────────
@@ -92,7 +95,7 @@ export function greeting(c: Ctx, services: { name: string; duration: number }[])
         : `Merhaba! ${c.comms.emoji}`;
     return `${hello}\nBen *${c.businessName}* randevu asistanıyım.\n\n`
         + `Hangi ${c.comms.serviceWord} için gelmek istersiniz?\n\n${list}\n\n`
-        + `Adını yazmanız yeterli, gerisini ben hallederim.`;
+        + `Hizmetin adını yazmanız yeterli, gerisini ben hallederim.`;
 }
 
 /**
@@ -179,8 +182,8 @@ export function created(c: Ctx, o: {
     pending?: boolean;
 }): string {
     const head = o.pending
-        ? `Talebinizi aldım. ${c.comms.emoji}`
-        : `Hazır, kaydınızı aldım. ${c.comms.emoji}`;
+        ? `Randevu talebinizi aldım. ${c.comms.emoji}`
+        : `Randevunuz oluşturuldu. ${c.comms.emoji}`;
     const tail = o.pending
         ? `Ekibimiz onaylayınca size haber vereceğim.`
         : `Sizi bekliyoruz.`;
@@ -244,7 +247,7 @@ export interface AppointmentLine {
 
 export function myAppointments(c: Ctx, rows: AppointmentLine[], manageUrl?: string | null): string {
     if (rows.length === 0) {
-        return `Kayıtlarımızda yaklaşan bir ${c.comms.serviceWord} göremedim. `
+        return `Yaklaşan bir randevunuz görünmüyor. `
             + `Randevu almak isterseniz hemen ayarlayabilirim — hangi ${c.comms.serviceWord} için gelmek istersiniz?`;
     }
     const list = rows.map((r) => {
@@ -252,7 +255,7 @@ export function myAppointments(c: Ctx, rows: AppointmentLine[], manageUrl?: stri
         const flag = r.pending ? ' _(onay bekliyor)_' : '';
         return `• *${r.dateLabel}* ${r.time} — ${r.service}${who}${flag}`;
     }).join('\n');
-    const head = rows.length === 1 ? `Yaklaşan ${c.comms.serviceWord}nız:` : `Yaklaşan kayıtlarınız:`;
+    const head = rows.length === 1 ? `Yaklaşan randevunuz:` : `Yaklaşan randevularınız:`;
     const manage = manageUrl ? `\n\nDeğiştirmek ya da iptal etmek için:\n${manageUrl}` : '';
     return `${head}\n\n${list}${manage}`;
 }
@@ -277,7 +280,7 @@ export function myPackages(c: Ctx, rows: PackageLine[]): string {
 export function myBalance(c: Ctx, o: { balanceText: string; overpaidText?: string | null }): string {
     if (o.overpaidText) {
         return `Hesabınızda *${o.overpaidText}* alacağınız görünüyor. `
-            + `Bir sonraki ${c.comms.serviceWord}nızda mahsup edeceğiz.`;
+            + `Bir sonraki randevunuzda mahsup edeceğiz.`;
     }
     return `Güncel bakiyeniz: *${o.balanceText}*.\n\n`
         + `Ödeme ve detaylar için salonda size yardımcı oluruz.`;
@@ -328,7 +331,7 @@ export interface PriceLine { name: string; priceText: string | null; duration: n
 export function priceInfo(c: Ctx, rows: PriceLine[]): string {
     const priced = rows.filter((r) => r.priceText);
     if (priced.length === 0) {
-        return `Fiyatlarımız ${c.comms.serviceWord}nın kapsamına göre değişiyor, o yüzden buradan net bir rakam vermek doğru olmaz. `
+        return `Fiyatlarımız hizmetin kapsamına göre değişiyor, o yüzden buradan net bir rakam vermek doğru olmaz. `
             + `Bize yazarsanız ekibimiz size özel bilgi versin.`;
     }
     const list = priced.map((r) => `• *${r.name}* · ${r.priceText} _(${r.duration} dk)_`).join('\n');
@@ -368,46 +371,46 @@ export function handoff(c: Ctx, phone?: string | null): string {
 export function whichAppointment(c: Ctx, rows: AppointmentLine[], verb: 'iptal' | 'ertele'): string {
     const list = rows.map((r, i) => `${i + 1}. *${r.dateLabel}* ${r.time} — ${r.service}`).join('\n');
     const what = verb === 'iptal' ? 'iptal etmek' : 'ertelemek';
-    return `Birden fazla kaydınız var. Hangisini ${what} istersiniz?\n\n${list}\n\n`
+    return `Birden fazla randevunuz var. Hangisini ${what} istersiniz?\n\n${list}\n\n`
         + `Numarasını yazmanız yeterli.`;
 }
 
 export function confirmCancel(c: Ctx, o: { service: string; dateLabel: string; time: string }): string {
-    return `Bu ${c.comms.serviceWord}nızı iptal ediyorum:\n\n${detailBlock(c, o)}\n\n`
-        + `Onaylıyor musunuz? *Evet* yazmanız yeterli.`;
+    return `Bu randevunuzu iptal edeyim mi?\n\n${detailBlock(c, o)}\n\n`
+        + `Onaylıyorsanız *Evet* yazmanız yeterli.`;
 }
 
 export function cancelDone(c: Ctx, o: { service: string; dateLabel: string; time: string }): string {
-    const who = c.firstName ? `${c.firstName}, kaydınızı` : 'Kaydınızı';
+    const who = c.firstName ? `${c.firstName}, randevunuzu` : 'Randevunuzu';
     return `${who} iptal ettim.\n\n${detailBlock(c, o)}\n\n`
         + `Yeni bir ${c.comms.serviceWord} için istediğiniz zaman yazabilirsiniz.`;
 }
 
 export function cancelKept(c: Ctx): string {
-    return `Tamamdır, kaydınız duruyor. Başka bir isteğiniz olursa yazmanız yeterli.`;
+    return `Tamamdır, randevunuz duruyor. Başka bir isteğiniz olursa yazmanız yeterli.`;
 }
 
 export function nothingToCancel(c: Ctx): string {
-    return `Yaklaşan bir kaydınız görünmüyor, iptal edecek bir şey yok. `
+    return `Yaklaşan bir randevunuz görünmüyor, iptal edecek bir şey yok. `
         + `Yeni bir ${c.comms.serviceWord} almak isterseniz yardımcı olayım.`;
 }
 
 /** Erteleme başladı: hangi randevunun taşınacağı belli, yeni gün soruluyor. */
 export function rescheduleStart(c: Ctx, o: { service: string; dateLabel: string; time: string }): string {
-    return `Mevcut kaydınız:\n\n${detailBlock(c, o)}\n\n`
+    return `Mevcut randevunuz:\n\n${detailBlock(c, o)}\n\n`
         + `Hangi güne taşıyalım? "yarın", "cumartesi" ya da "20 Ağustos" diyebilirsiniz.`;
 }
 
 export function rescheduleDone(c: Ctx, o: {
     service: string; dateLabel: string; time: string; fromLabel: string; fromTime: string;
 }): string {
-    return `Kaydınızı taşıdım. ${c.comms.emoji}\n\n`
+    return `Randevunuzu taşıdım. ${c.comms.emoji}\n\n`
         + `~${o.fromLabel} ${o.fromTime}~\n${detailBlock(c, o)}\n\nGörüşmek üzere.`;
 }
 
 export function tooLateToChange(c: Ctx, phone?: string | null): string {
     const call = phone ? ` ${phone} numarasından bize ulaşabilirsiniz.` : ' Bize yazmanız yeterli.';
-    return `Bu kaydı buradan değiştiremiyorum — saatine çok az kaldı ya da geçmişte kalmış.${call}`;
+    return `Bu randevuyu buradan değiştiremiyorum — saatine çok az kaldı ya da geçmişte kalmış.${call}`;
 }
 
 // ── 24 saat onay döngüsü (Dalga 3) ──────────────────────────────────────────
@@ -419,8 +422,8 @@ export function reminderConfirmed(c: Ctx, o: { dateLabel: string; time: string }
 
 /** Müşteri "Hayır" dedi → randevu iptal edildi ve yeri serbest bırakıldı. */
 export function reminderDeclined(c: Ctx): string {
-    return `Anlıyorum, kaydınızı iptal ettim ve yerinizi serbest bıraktım. `
-        + `Uygun olduğunuzda yazın, yeni bir ${c.comms.serviceWord} ayarlayalım.`;
+    return `Randevunuzu iptal ettim. `
+        + `Uygun olduğunuz bir gün yazın, yenisini ayarlayalım.`;
 }
 
 // ── Konuşma dışı ────────────────────────────────────────────────────────────
@@ -457,15 +460,11 @@ export function optedIn(c: Ctx): string {
 // çağıran hazırlar ("Yarın, 30 Ekim Cuma"); ekler tr.ts'ten.
 
 function helloLine(c: Ctx): string {
-    return c.firstName ? `Merhaba ${c.firstName} 👋` : 'Merhaba 👋';
-}
-
-function serviceLabel(c: Ctx): string {
-    return c.comms.serviceWord.charAt(0).toLocaleUpperCase('tr') + c.comms.serviceWord.slice(1);
+    return c.firstName ? `Merhaba ${c.firstName} ${c.comms.emoji}` : `Merhaba ${c.comms.emoji}`;
 }
 
 function withMaps(text: string, mapsUrl?: string | null): string {
-    return mapsUrl ? `${text}\n\n📍 Konum: ${mapsUrl}` : text;
+    return mapsUrl ? `${text}\n\n*Konum:* ${mapsUrl}` : text;
 }
 
 /**
@@ -486,7 +485,7 @@ export function reminder24h(c: Ctx, o: {
 export function reminder2h(c: Ctx, o: { service: string; time: string; mapsUrl?: string | null }): string {
     return withMaps(
         `${helloLine(c)}\nRandevunuza 2 saat kaldı.\n\n`
-        + `*${serviceLabel(c)}:* ${o.service}\n*Saat:* ${o.time}\n\nGörüşmek üzere. ${c.comms.emoji}`,
+        + `*Hizmet:* ${o.service}\n*Saat:* ${o.time}\n\nGörüşmek üzere.`,
         o.mapsUrl,
     );
 }
@@ -507,14 +506,14 @@ export function satisfactionAsk(c: Ctx, o: { sameDay: boolean }): string {
 export function feedbackHappy(c: Ctx, o: { reviewUrl: string | null }): string {
     const who = c.firstName ? ` ${c.firstName}` : '';
     return o.reviewUrl
-        ? `Çok teşekkür ederiz${who}! 🙏\n\nDeneyiminizi Google'da paylaşırsanız bize çok yardımcı olur:\n👉 ${o.reviewUrl}`
-        : `Çok teşekkür ederiz${who}, sizi yeniden görmeyi dört gözle bekliyoruz. 🙏`;
+        ? `Çok teşekkür ederiz${who}! ${c.comms.emoji}\n\nDeneyiminizi Google'da paylaşırsanız bize çok yardımcı olur:\n${o.reviewUrl}`
+        : `Çok teşekkür ederiz${who}, sizi yeniden görmeyi dört gözle bekliyoruz. ${c.comms.emoji}`;
 }
 
 export function feedbackUnhappy(c: Ctx, o: { reviewUrl: string | null }): string {
     const who = c.firstName ? ` ${c.firstName}` : '';
     const link = o.reviewUrl
-        ? `\n\nDilerseniz deneyiminizi Google'da da paylaşabilirsiniz:\n👉 ${o.reviewUrl}`
+        ? `\n\nDilerseniz deneyiminizi Google'da da paylaşabilirsiniz:\n${o.reviewUrl}`
         : '';
     return `Geri bildiriminiz için teşekkürler${who}. Daha iyisini yapabilmek için ekibimiz sizinle iletişime geçecek.${link}`;
 }
@@ -547,8 +546,8 @@ export function slotOfferExpired(): string {
  * işletme, adın "'daki/'deki" eki ise ada göre değişir.
  */
 export function rebookInvite(c: Ctx, o: { service: string; note?: string | null; bookingUrl?: string | null }): string {
-    const note = o.note?.trim() ? `\n\n🎁 ${o.note.trim()}` : '';
-    const link = o.bookingUrl ? `\n\n👉 ${o.bookingUrl}` : '';
+    const note = o.note?.trim() ? `\n\n*${o.note.trim()}*` : '';
+    const link = o.bookingUrl ? `\n\n${o.bookingUrl}` : '';
     const how = o.bookingUrl ? 'Uygun gününüzü yazmanız ya da bağlantıdan seçmeniz yeterli.' : 'Uygun gününüzü yazmanız yeterli.';
     return `${helloLine(c)}\nBir sonraki *${o.service}* randevunuzu şimdiden ayırtmak ister misiniz?\n\n${how}${note}${link}`;
 }

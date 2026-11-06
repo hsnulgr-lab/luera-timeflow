@@ -122,13 +122,24 @@ function turns(ctx: ExtractContext): Turn[] {
     return [...(ctx.history ?? []), { role: 'user' as const, text: ctx.message }];
 }
 
-async function askGroq(key: string, prompt: string, ctx: ExtractContext): Promise<Extraction | null> {
+/**
+ * Groq'un varsayılan modeli. llama-3.3-70b-versatile Groq'ta kurumsal hesaba
+ * çekildi (404, 2026-11-06) ve yedek sessizce boş dönüyordu. gpt-oss-120b
+ * JSON kipinde Türkçe hizmet adını korudu; 20b "lazer"i "laser"e çevirdi.
+ * Kapanırsa deploy gerekmez: WA_GROQ_MODEL ayarı yeter.
+ */
+export const GROQ_DEFAULT_MODEL = 'openai/gpt-oss-120b';
+
+async function askGroq(key: string, model: string, prompt: string, ctx: ExtractContext): Promise<Extraction | null> {
     try {
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
             body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile', temperature: 0.2, max_tokens: 300,
+                model, temperature: 0.2, max_tokens: 300,
+                // gpt-oss düşünür; düşünce max_tokens'tan yer ve gövdeye
+                // karışmasın diye düşük tutulup cevaptan çıkarılır.
+                reasoning_effort: 'low', include_reasoning: false,
                 response_format: { type: 'json_object' },
                 messages: [
                     { role: 'system', content: prompt },
@@ -185,15 +196,16 @@ export async function extractWithAi(admin: Admin, ctx: ExtractContext): Promise<
     const prompt = buildPrompt(ctx);
     const primary = ((await getSecret(admin, 'WA_AI_PRIMARY')) || 'groq').toLowerCase();
 
-    const [groqKey, geminiKey, thinkRaw] = await Promise.all([
+    const [groqKey, geminiKey, thinkRaw, groqModel] = await Promise.all([
         getSecret(admin, 'GROQ_API_KEY'),
         getSecret(admin, 'GEMINI_API_KEY'),
         getSecret(admin, 'WA_AI_THINKING'),
+        getSecret(admin, 'WA_GROQ_MODEL'),
     ]);
     // Düşünme payı ayarla değişir, deploy gerekmez. '0' yazmak kapatır.
     // Varsayılan 512: dolaylı cümlelerde ("geçen seferki gibi olsun ama
     // sabah") gözle görülür fark yapıyor, gecikmeyi ise saniyenin altında
-    // artırıyor. Yalnız Gemini'yi etkiler — Groq'un llama'sı düşünmüyor.
+    // artırıyor. Yalnız Gemini'yi etkiler; Groq'un düşünmesi askGroq'ta sabit düşük.
     const parsed = Number(thinkRaw);
     const withThink: ExtractContext = {
         ...ctx,
@@ -202,7 +214,7 @@ export async function extractWithAi(admin: Admin, ctx: ExtractContext): Promise<
 
     const providers: { name: string; run: () => Promise<Extraction | null> }[] = [];
     const push = (name: string) => {
-        if (name === 'groq' && groqKey) providers.push({ name, run: () => askGroq(groqKey, prompt, withThink) });
+        if (name === 'groq' && groqKey) providers.push({ name, run: () => askGroq(groqKey, groqModel || GROQ_DEFAULT_MODEL, prompt, withThink) });
         if (name === 'gemini' && geminiKey) providers.push({ name, run: () => askGemini(geminiKey, prompt, withThink) });
     };
     push(primary);

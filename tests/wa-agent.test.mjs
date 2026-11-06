@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { buildProfile, fnv1a, MAX_LISTED_SERVICES } from '../supabase/functions/_shared/agent/profile.ts';
 import {
-    agentRoute, commitBlock, costUsd, DEFAULT_MONTHLY_BUDGET_USD, EPISODE_IDLE_MS, EPISODE_MAX_MESSAGES,
+    AGENT_COOLDOWN_MS, agentLooksDown, agentRoute, commitBlock, costUsd, DEFAULT_MONTHLY_BUDGET_USD, EPISODE_IDLE_MS, EPISODE_MAX_MESSAGES,
     filterTimes, needsNewEpisode, refPrefix, sanitizeForWhatsApp, shortRef, suggestTimes, supportsMidSystem,
 } from '../supabase/functions/_shared/agent/guard.ts';
 import { TOOLS } from '../supabase/functions/_shared/agent/tools.ts';
@@ -159,6 +159,23 @@ test('agentRoute: aylık tavan dolunca eski bota düşer', () => {
     assert.equal(agentRoute({ enabled: true, config: { monthly_budget_usd: 100 }, phone: '905551112233', spentUsd: 50 }), 'agent');
 });
 
+test('agentLooksDown: Claude\'a ulaşılamayınca bir süre eski bot, sonra ajan yine denenir', () => {
+    const now = Date.parse('2026-11-06T12:00:00Z');
+    const ago = (ms) => new Date(now - ms).toISOString();
+    assert.equal(agentLooksDown({ error: 'api_400', created_at: ago(60_000) }, now), true, 'bakiye bitti');
+    assert.equal(agentLooksDown({ error: 'api_529', created_at: ago(60_000) }, now), true, 'aşırı yük');
+    assert.equal(agentLooksDown({ error: 'exception', created_at: ago(60_000) }, now), true, 'bağlantı');
+    assert.equal(agentLooksDown({ error: 'api_no_key', created_at: ago(60_000) }, now), true, 'anahtar yok');
+    assert.equal(agentLooksDown({ error: 'api_400', created_at: ago(AGENT_COOLDOWN_MS + 1) }, now), false, 'süre doldu');
+    assert.equal(agentLooksDown({ error: 'refusal', created_at: ago(60_000) }, now), false, 'ret arıza değil');
+    assert.equal(agentLooksDown({ error: 'deadline', created_at: ago(60_000) }, now), false);
+    assert.equal(agentLooksDown({ error: null, created_at: ago(60_000) }, now), false, 'son tur başarılı');
+    assert.equal(agentLooksDown(null, now), false);
+    assert.equal(agentRoute({ enabled: true, config: {}, phone: '905551112233', spentUsd: 0, down: true }), 'old');
+    const booking = readFileSync(new URL('../supabase/functions/whatsapp-booking/index.ts', import.meta.url), 'utf8');
+    assert.match(booking, /down: agentLooksDown\(lastRun, Date\.now\(\)\)/);
+});
+
 // ── Saat, çıktı, model ──────────────────────────────────────────────────────
 
 test('filterTimes: günün bölümü', () => {
@@ -244,28 +261,33 @@ test('kurallar: liste dökme yok, onaysız yazma yok, sonucu model söylemez', (
 const at = (hhmm) => istanbulClock(Date.parse(`2026-10-29T${hhmm}:00+03:00`));
 const intro = (over) => introMessage({
     businessName: 'Test Salon 2', firstName: 'Nisanur', known: true,
-    clock: at('20:15'), upcoming: null, salam: false, ...over,
+    clock: at('20:15'), upcoming: null, salam: false, emoji: '✨', ...over,
+});
+
+test('ilk mesaj: sektörün emojisi, 👋 yok; emojisiz profilde boşluk kalmaz', () => {
+    assert.ok(!intro({}).includes('👋'));
+    assert.match(intro({ emoji: '' }), /^İyi akşamlar Nisanur\nBen/);
 });
 
 test('ilk mesaj: yaklaşan randevuyu sorar, saate göre selamlar', () => {
     assert.equal(
         intro({ upcoming: { date: '2026-10-31', time: '12:00' } }),
-        'İyi akşamlar Nisanur 👋\nBen *Test Salon 2* dijital asistanıyım.\n\n'
+        'İyi akşamlar Nisanur ✨\nBen *Test Salon 2* dijital asistanıyım.\n\n'
         + "*Cumartesi 12:00*'deki randevunuzla mı ilgili yazdınız, yoksa yeni bir randevu mu istersiniz?",
     );
     assert.match(intro({ clock: at('09:00'), upcoming: { date: '2026-10-29', time: '13:00' } }),
-        /^Günaydın Nisanur 👋\n[\s\S]*\*Bugün 13:00\*'teki randevunuzla/);
+        /^Günaydın Nisanur ✨\n[\s\S]*\*Bugün 13:00\*'teki randevunuzla/);
     assert.match(intro({ clock: at('14:00'), upcoming: { date: '2026-10-30', time: '10:40' } }),
-        /^Merhaba Nisanur 👋\n[\s\S]*\*Yarın 10:40\*'taki randevunuzla/);
+        /^Merhaba Nisanur ✨\n[\s\S]*\*Yarın 10:40\*'taki randevunuzla/);
     assert.match(intro({ upcoming: { date: '2026-11-12', time: '16:30' } }), /\*12 Kasım 16:30\*'daki randevunuzla/);
 });
 
 test('ilk mesaj: randevusuz kayıtlı, kayıtsız ve selamün aleyküm', () => {
     assert.equal(intro({ clock: at('10:00') }),
-        'Günaydın Nisanur 👋\nBen *Test Salon 2* dijital asistanıyım.\n\nYeni bir randevu mu istersiniz, yoksa bir sorunuz mu var?');
+        'Günaydın Nisanur ✨\nBen *Test Salon 2* dijital asistanıyım.\n\nYeni bir randevu mu istersiniz, yoksa bir sorunuz mu var?');
     assert.equal(intro({ firstName: null, known: false, clock: at('15:00') }),
-        'Merhaba 👋\nBen *Test Salon 2* dijital asistanıyım.\n\nRandevu almak mı istersiniz, yoksa bir sorunuz mu var?');
-    assert.match(intro({ salam: true }), /^Aleykümselam Nisanur 👋\nBen/);
+        'Merhaba ✨\nBen *Test Salon 2* dijital asistanıyım.\n\nRandevu almak mı istersiniz, yoksa bir sorunuz mu var?');
+    assert.match(intro({ salam: true }), /^Aleykümselam Nisanur ✨\nBen/);
     // Gece yarısı "İyi akşamlar" değil.
     assert.match(intro({ clock: at('23:30') }), /^Merhaba Nisanur/);
 });
@@ -435,9 +457,52 @@ test('suggestTimes: günün başı, ortası, sonu; tam ya da buçuk saat tercih 
 test('kurallar ve araç: örnek cevaplar uydurma diye işaretli, find_slots önerileri hazır verir', () => {
     assert.match(RULES, /Örnek cevaplar\nTarzı göstermek içindir; içlerindeki hizmet, saat, fiyat ve adlar uydurmadır\./);
     assert.match(RULES, /Sen: Yarın, \*30 Ekim Cuma\* manikür için uygun saatler:\n\*10:00\* · \*13:30\* · \*17:00\*\n\nHangisi size uyar\?/);
-    assert.match(RULES, /\*Bakım:\* manikür \(45 dk\)\n\*Tarih:\* 30 Ekim Cuma\n\*Saat:\* 13:30\n\*Uzman:\* Ayşe/);
+    assert.match(RULES, /\*Hizmet:\* manikür \(45 dk\)\n\*Tarih:\* 30 Ekim Cuma\n\*Saat:\* 13:30\n\*Uzman:\* Ayşe/);
     const handlers = read('supabase/functions/wa-agent/handlers.ts');
     assert.match(handlers, /suggested: suggestTimes\(times\)/);
     const find = TOOLS.find((t) => t.name === 'find_slots');
     assert.match(find.description, /suggested saatlerini öner/);
+});
+
+// ── Müşteri kartı (2026-11-06) ──────────────────────────────────────────────
+
+test('müşteri kartı: tekrar eden tercih yazılır, iki ziyaretten "genelde" uydurulmaz', async () => {
+    const { buildCustomerCard, cardLines } = await import('../supabase/functions/_shared/agent/customerCard.ts');
+    const staff = new Map([['z', 'Zeynep'], ['e', 'Elif']]);
+    // Yeniden eskiye; Cuma = 2026-10-30, 10-23, 10-16, 10-09
+    const visits = [
+        { date: '2026-10-30', start_time: '14:00:00', service: 'Lazer epilasyon', staff_id: 'z' },
+        { date: '2026-10-23', start_time: '14:10:00', service: 'Lazer epilasyon', staff_id: 'z' },
+        { date: '2026-10-16', start_time: '13:50:00', service: 'Cilt bakımı', staff_id: 'e' },
+        { date: '2026-10-09', start_time: '14:00:00', service: 'Lazer epilasyon', staff_id: 'z' },
+    ];
+    const c = buildCustomerCard(visits, staff);
+    assert.equal(c.visits, 4);
+    assert.deepEqual(c.topService, { name: 'Lazer epilasyon', count: 3 });
+    assert.deepEqual(c.topStaff, { name: 'Zeynep', count: 3 });
+    assert.equal(c.usualDay, 'Cuma');
+    assert.equal(c.usualTime, '14:00');
+    assert.equal(c.last.staff, 'Zeynep');
+    const lines = cardLines(c, { packages: [{ title: '10 seans lazer', available: 4, total: 10 }], balanceText: null, overpaidText: null });
+    assert.match(lines.join('\n'), /Tercih: en sık hizmet: Lazer epilasyon \(3\) · en sık uzman: Zeynep \(3\) · genelde Cuma 14:00/);
+    assert.match(lines.join('\n'), /Paket: 10 seans lazer · 4\/10 seans kullanılabilir/);
+    assert.match(lines.join('\n'), /Bakiye: borç yok/);
+
+    const two = buildCustomerCard(visits.slice(2), staff);
+    assert.equal(two.topService, null, 'iki farklı hizmetten tercih çıkmaz');
+    assert.equal(two.usualDay, 'Cuma', 'aynı gün iki kez: tekrar ediyor');
+    const none = cardLines(buildCustomerCard([], staff), null);
+    assert.deepEqual(none, ['Geçmiş ziyaret: yok (ilk kez gelecek).']);
+});
+
+test('müşteri kartı BAĞLAM\'a yalnız kayıtlı müşteride girer; telefon yok', () => {
+    const base = { clock: istanbulClock(Date.parse('2026-11-06T10:00:00Z')), upcoming: [], openProposal: null };
+    const known = buildTurnContext({ ...base, customer: { known: true, name: 'Ayşe Kaya', pushName: null }, card: ['Geçmiş ziyaret: 4', 'Paket: yok'] });
+    assert.match(known, /Müşteri: kayıtlı · Ayşe Kaya\nGeçmiş ziyaret: 4\nPaket: yok/);
+    const anon = buildTurnContext({ ...base, customer: { known: false, name: null, pushName: 'ayse' }, card: ['Geçmiş ziyaret: 4'] });
+    assert.doesNotMatch(anon, /Geçmiş ziyaret/);
+    const src = readFileSync(new URL('../supabase/functions/wa-agent/handlers.ts', import.meta.url), 'utf8');
+    assert.match(src, /case 'my_history': return myHistory\(ctx\);/);
+    assert.match(src, /\.in\('status', \['completed', 'confirmed'\]\)/, 'iptal ziyaret sayılmaz');
+    assert.ok(TOOLS.some((t) => t.name === 'my_history'));
 });
