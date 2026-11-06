@@ -306,10 +306,13 @@ test('saat eki okunuşa göre: deki/daki/teki/taki', () => {
     assert.equal(relativeDayLabel('2026-11-05', '2026-10-29'), '5 Kasım');
 });
 
-test('ilk mesaj kuru selamda şablon, istekle gelende model kısa tanıtır', () => {
+test('kuru selam HER seferinde şablon girizgâh; istekle gelen ilk mesajda model kısa tanıtır', () => {
     const src = read('supabase/functions/wa-agent/index.ts');
-    assert.match(src, /if \(lines\.every\(\(l\) => detectIntent\(l\) === 'greeting'\)\) \{[\s\S]{0,300}await send\(introMessage/);
-    assert.match(src, /firstContact = true;/);
+    assert.match(src, /const pureGreeting = lines\.length > 0 && lines\.every\(\(l\) => detectIntent\(l\) === 'greeting'\);/);
+    assert.match(src, /if \(pureGreeting\) \{[\s\S]{0,300}await send\(introMessage/);
+    // Yalnız ilk konuşmada değil: "introduced_at" girizgâhı engellemez.
+    assert.doesNotMatch(src, /\} else if \(!state\.introduced_at\) \{/);
+    assert.match(src, /if \(!state\.introduced_at && !pureGreeting\) firstContact = true;/);
     assert.match(RULES, /"İlk temas" yazıyorsa cevaba kendini tek cümleyle tanıtarak başla/);
     assert.match(RULES, /"Aleykümselam" ile karşılık ver/);
 });

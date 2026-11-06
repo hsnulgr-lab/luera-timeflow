@@ -335,12 +335,16 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
             return;
         }
         customerText = withRequest ? [pending, customerText].filter(Boolean).join('\n') : pending;
-    } else if (!state.introduced_at) {
-        // Asistanla ilk konuşma: kuru selama tek cümlelik tanıtım (model yok);
-        // bir istekle geldiyse model cevaba kısa bir tanıtımla başlar.
-        state.introduced_at = nowIso();
+    } else {
+        // Kuru selam ("merhaba", "selam") HER seferinde hazır girizgâhla
+        // karşılanır, model çağrılmaz (kullanıcı kararı, 2026-11-06: "Merhaba
+        // Nisa Hanım, ben X'in dijital asistanıyım…"). Asistanla ilk konuşma
+        // bir istekle başladıysa model cevaba kısa bir tanıtımla başlar.
         const lines = customerText.split('\n').map((l) => l.trim()).filter(Boolean);
-        if (lines.every((l) => detectIntent(l) === 'greeting')) {
+        const pureGreeting = lines.length > 0 && lines.every((l) => detectIntent(l) === 'greeting');
+        if (!state.introduced_at && !pureGreeting) firstContact = true;
+        if (!state.introduced_at) state.introduced_at = nowIso();
+        if (pureGreeting) {
             const clockNow = istanbulClock(Date.now());
             const next = known ? (await loadUpcoming(admin, orgId, known.id, clockNow))[0] : undefined;
             await send(introMessage({
@@ -356,7 +360,6 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
             await markProcessed();
             return;
         }
-        firstContact = true;
     }
 
     const apiKey = await getSecret(admin, 'ANTHROPIC_API_KEY');
