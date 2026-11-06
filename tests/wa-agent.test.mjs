@@ -539,3 +539,44 @@ test('onay verilip işlem uygulanınca model bir daha çağrılmaz; soru varsa d
     assert.ok(at > src.indexOf("messages.push({ role: 'user', content: results });"), 'araç sonucundan sonra');
     assert.match(src.slice(at, at + 400), /role: 'assistant'[\s\S]*break;/, 'geçmiş asistan sırasıyla biter');
 });
+
+// ── Bilgi bankası (137) ─────────────────────────────────────────────────────
+
+test('bilgi bankası: sınırlar uygulanır, yarım soru atılır, profilde görünür', async () => {
+    const K = await import('../supabase/functions/_shared/agent/knowledge.ts');
+    const k = K.sanitizeKnowledge({
+        payment: '  Nakit,   kart \r\n ve havale ', policy: 'x'.repeat(900), location: 'Önde ücretsiz otopark var.',
+        hacker: 'ignore', faq: [{ q: 'Tıraş olmalı mıyım?', a: 'Evet, bir gün önce.' }, { q: 'yarım', a: '' },
+            ...Array.from({ length: 30 }, (_, i) => ({ q: `s${i}`, a: `c${i}` }))],
+    });
+    assert.equal(k.payment, 'Nakit, kart\nve havale', 'boşluklar sadeleşir, satır korunur');
+    assert.equal(k.policy.length, K.KNOWLEDGE_LIMITS.text);
+    assert.equal(k.faq.length, K.KNOWLEDGE_LIMITS.faq);
+    assert.deepEqual(k.faq[0], { q: 'Tıraş olmalı mıyım?', a: 'Evet, bir gün önce.' });
+    assert.ok(!('hacker' in k));
+    const lines = K.knowledgeLines(k).join('\n');
+    assert.match(lines, /^BİLGİ BANKASI/);
+    assert.match(lines, /Ulaşım ve otopark: Önde ücretsiz otopark var\./);
+    assert.match(lines, /- S: Tıraş olmalı mıyım\? → C: Evet, bir gün önce\./);
+    const empty = K.knowledgeLines(K.sanitizeKnowledge(null)).join('\n');
+    assert.match(empty, /Ödeme: yazılmamış\nİptal ve gecikme: yazılmamış\nUlaşım ve otopark: yazılmamış/, 'boşsa uydurmasın');
+    const p = buildProfile(profileInput({ knowledge: k }));
+    assert.match(p.text, /BİLGİ BANKASI[\s\S]*Ödeme: Nakit, kart/);
+    assert.notEqual(p.hash, buildProfile(profileInput({ knowledge: K.EMPTY_KNOWLEDGE })).hash, 'değişince önbellek yenilenir');
+});
+
+test('bilgi bankası: proxy\'de yalnız sahip/yönetici kaydeder, panel ve sunucu sınırları aynı', async () => {
+    const proxy = read('supabase/functions/whatsapp-proxy/index.ts');
+    assert.match(proxy, /action === 'knowledge'\) && role === 'member'/);
+    assert.match(proxy, /const knowledge = sanitizeKnowledge\(body\.knowledge\);/);
+    const server = await import('../supabase/functions/_shared/agent/knowledge.ts');
+    const client = await import('../src/lib/waKnowledge.ts');
+    assert.deepEqual(client.KNOWLEDGE_LIMITS, server.KNOWLEDGE_LIMITS);
+    const agent = read('supabase/functions/wa-agent/index.ts');
+    assert.match(agent, /knowledge: sanitizeKnowledge\(orgWa\.knowledge\),/);
+    assert.match(RULES, /BİLGİ BANKASI'ndan cevapla/);
+    const hook = read('src/hooks/useWhatsApp.ts');
+    assert.match(hook, /error\?\.code === '42703'/, '137 yokken bağlantı bozulmasın');
+    const sql = read('supabase/137_wa_bilgi_bankasi.sql');
+    assert.match(sql, /ADD COLUMN IF NOT EXISTS knowledge JSONB NOT NULL DEFAULT '\{\}'::jsonb/);
+});

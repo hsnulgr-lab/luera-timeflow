@@ -9,6 +9,7 @@ import * as M from '../_shared/booking/messages.ts';
 import { formatDateTr, type WorkingHour } from '../_shared/booking/slots.ts';
 import { firstNameOf, notifyOwner } from '../_shared/notify.ts';
 import { buildProfile, fnv1a } from '../_shared/agent/profile.ts';
+import { sanitizeKnowledge } from '../_shared/agent/knowledge.ts';
 import {
     agentFallback, buildTurnContext, consentAsk, consentDeclined, consentRepeat, consentThanks,
     CONSENT_VERSION, introMessage, istanbulClock, RULES,
@@ -117,7 +118,7 @@ interface ConversationRow {
     ai_consent_at: string | null;
 }
 
-type OrgWaRow = OrgWa & { agent_config: AgentConfig | null };
+type OrgWaRow = OrgWa & { agent_config: AgentConfig | null; knowledge?: unknown };
 
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -229,7 +230,7 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
         .in('id', rows.map((r) => r.id));
 
     const { data: orgWaRow } = await admin.from('org_whatsapp')
-        .select('organization_id, instance, status, webhook_secret, features, agent_config')
+        .select('organization_id, instance, status, webhook_secret, features, agent_config, knowledge')
         .eq('organization_id', orgId).maybeSingle();
     const orgWa = orgWaRow as OrgWaRow | null;
     if (!orgWa?.instance || orgWa.status !== 'connected') { await markProcessed(); return; }
@@ -391,6 +392,7 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
             id: s.id, name: s.name, specialty: s.specialty ?? null,
         })),
         autoConfirm: Boolean(org?.booking_auto_confirm),
+        knowledge: sanitizeKnowledge(orgWa.knowledge),
     });
     // Kurallar ya da araçlar bir deploy'la değişirse de yeni bölüm açılır.
     const prefixHash = fnv1a(`${RULES}\u0000${profile.hash}\u0000${JSON.stringify(TOOLS)}`);

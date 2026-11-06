@@ -4,6 +4,7 @@ import {
     type OrgWa, type WaKind,
 } from '../_shared/wa.ts';
 import { resolveOrg } from '../_shared/org.ts';
+import { sanitizeKnowledge } from '../_shared/agent/knowledge.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -27,7 +28,7 @@ const corsHeaders = {
  *
  * Action'lar: connect | state | disconnect | send | health
  */
-type Action = 'connect' | 'state' | 'disconnect' | 'send' | 'health' | 'features';
+type Action = 'connect' | 'state' | 'disconnect' | 'send' | 'health' | 'features' | 'knowledge';
 
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
@@ -60,7 +61,7 @@ Deno.serve(async (req: Request) => {
 
         // Bağlantıyı kurmak/koparmak ve otomatik mesaj anahtarları org sahibinin
         // kararı — "member" rolündeki bir personel hesabı bunları değiştiremez.
-        if ((action === 'connect' || action === 'disconnect' || action === 'features') && role === 'member') {
+        if ((action === 'connect' || action === 'disconnect' || action === 'features' || action === 'knowledge') && role === 'member') {
             return json({ error: 'owner_required' }, 403);
         }
 
@@ -84,6 +85,17 @@ Deno.serve(async (req: Request) => {
                 .update({ features: next, updated_at: new Date().toISOString() })
                 .eq('organization_id', orgId);
             return json({ ok: true, features: next }, 200);
+        }
+
+        // Asistanın bilgi bankası (137): sınırlar sunucuda uygulanır, istemciye
+        // güvenilmez; kaydedilen temiz hâl geri döner.
+        if (action === 'knowledge') {
+            const knowledge = sanitizeKnowledge(body.knowledge);
+            const { error } = await admin.from('org_whatsapp')
+                .update({ knowledge, updated_at: new Date().toISOString() })
+                .eq('organization_id', orgId);
+            if (error) return json({ ok: false, error: 'save_failed' }, 500);
+            return json({ ok: true, knowledge }, 200);
         }
 
         if (action === 'send') {

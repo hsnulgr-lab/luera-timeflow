@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { waState } from '@/services/whatsapp';
+import { EMPTY_KNOWLEDGE, knowledgeFromRow, type WaKnowledge } from '@/lib/waKnowledge';
 
 // WhatsApp bağlantı durumu — org başına tek satır (org_whatsapp, migration 070).
 //
@@ -29,12 +30,15 @@ export interface WaConnection {
     features: WaFeatures;
     /** features.scheduler_v2 (131): hatırlatma, memnuniyet ve davet zamanlayıcıdan. Ayarlardan açılmaz. */
     schedulerOn: boolean;
+    /** Asistanın bilgi bankası (137). */
+    knowledge: WaKnowledge;
 }
 
 const EMPTY: WaConnection = {
     instance: null, status: 'disconnected', connectedAt: null, lastError: null,
     features: { winback: true, renewal: true, recall: true, assistant: false, confirmation: true, review: true },
     schedulerOn: false,
+    knowledge: EMPTY_KNOWLEDGE,
 };
 
 function mapRow(row: Record<string, unknown>): WaConnection {
@@ -53,6 +57,7 @@ function mapRow(row: Record<string, unknown>): WaConnection {
             review: f.review ?? true,
         },
         schedulerOn: (row.features as Record<string, unknown> | null)?.scheduler_v2 === true,
+        knowledge: knowledgeFromRow(row.knowledge),
     };
 }
 
@@ -73,11 +78,11 @@ export function useWhatsApp() {
 
     const refresh = useCallback(async (): Promise<WaConnection | null> => {
         if (!orgId) return null;
-        const { data, error } = await supabase
-            .from('org_whatsapp')
-            .select('instance, status, connected_at, last_error, features')
-            .eq('organization_id', orgId)
-            .maybeSingle();
+        const read = (cols: string) => supabase.from('org_whatsapp').select(cols).eq('organization_id', orgId).maybeSingle();
+        let { data, error } = await read('instance, status, connected_at, last_error, features, knowledge');
+        // 42703 = sütun yok: 137 canlıya alınmadan panel yüklendiyse bağlantı
+        // "bağlı değil" görünmesin, bilgi bankası boş gelsin.
+        if (error?.code === '42703') ({ data, error } = await read('instance, status, connected_at, last_error, features'));
         if (error) {
             // 42P01 = tablo yok, PGRST205 = şema önbelleğinde yok → migration eksik
             const missing = error.code === '42P01' || error.code === 'PGRST205'
@@ -90,7 +95,7 @@ export function useWhatsApp() {
             return null;
         }
         setSetupError(null);
-        const next = data ? mapRow(data) : EMPTY;
+        const next = data ? mapRow(data as unknown as Record<string, unknown>) : EMPTY;
         setConnection(next);
         setLoading(false);
         return next;

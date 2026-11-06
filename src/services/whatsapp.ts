@@ -105,6 +105,11 @@ export function waHealth() { return call<WaHealth>({ action: 'health' }); }
  * Otomatik mesaj türlerini aç/kapat. org_whatsapp'ta yazma RLS'i olmadığı için
  * (yalnız service_role) doğrudan tablo update'i yapılamaz, proxy'den geçer.
  */
+/** Asistanın bilgi bankası (137). Sınırlar sunucuda; kaydedilen temiz hâl döner. */
+export function waSetKnowledge(knowledge: import('@/lib/waKnowledge').WaKnowledge) {
+    return call<{ ok: boolean; knowledge: import('@/lib/waKnowledge').WaKnowledge }>({ action: 'knowledge', knowledge });
+}
+
 export function waSetFeatures(features: Partial<Record<'confirmation' | 'review' | 'winback' | 'renewal' | 'recall' | 'assistant', boolean>>) {
     return call<{ ok: boolean; features: Record<string, boolean> }>({ action: 'features', features });
 }

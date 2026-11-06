@@ -14,6 +14,7 @@
 import type { Comms } from '../booking/messages.ts';
 import type { WorkingHour } from '../booking/slots.ts';
 import { formatTL } from '../booking/finance.ts';
+import { knowledgeLines, type Knowledge } from './knowledge.ts';
 
 export interface ProfileService {
     id: string;
@@ -41,6 +42,8 @@ export interface ProfileInput {
     staff: ProfileStaff[];
     /** Kapalıysa randevu "onay bekliyor" düşer. */
     autoConfirm: boolean;
+    /** İşletmenin Ayarlar'dan yazdığı bilgi bankası (137). */
+    knowledge?: Knowledge;
 }
 
 export interface Profile {
@@ -129,6 +132,11 @@ export function buildProfile(p: ProfileInput): Profile {
         lines.push(spec ? `${ref} · ${oneLine(st.name)} · ${spec}` : `${ref} · ${oneLine(st.name)}`);
     });
     if (p.staff.length === 0) lines.push('kayıtlı uzman yok');
+
+    if (p.knowledge) {
+        lines.push('');
+        lines.push(...knowledgeLines(p.knowledge));
+    }
 
     const text = lines.join('\n');
     return { text, hash: fnv1a(text), serviceByRef, staffByRef, refOfStaff };

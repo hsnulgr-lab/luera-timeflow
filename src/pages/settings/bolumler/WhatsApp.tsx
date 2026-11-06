@@ -23,7 +23,8 @@ import {
     build24hMessage, build2hMessage, buildConfirmationMessage, buildDiscountLine, buildRebookInvite, buildRebookMessage,
     buildRecallMessage, buildRenewalMessage, buildReviewMessage, buildWinbackMessage,
 } from '@/services/waTemplates';
-import { WA_FAIL_TEXT, lastProxyError, sendWhatsApp, waConnect, waDisconnect, waHealth, waSetFeatures, waState, type WaHealth } from '@/services/whatsapp';
+import { WA_FAIL_TEXT, lastProxyError, sendWhatsApp, waConnect, waDisconnect, waHealth, waSetFeatures, waSetKnowledge, waState, type WaHealth } from '@/services/whatsapp';
+import { KNOWLEDGE_LIMITS, type FaqItem } from '@/lib/waKnowledge';
 import { sinceText } from '../ayarlarModel';
 import { useTaslak, type Taslak } from '../useTaslak';
 import { Dots, Head, I, Modal, SaveBar, Switch } from '../parcalar';
@@ -45,6 +46,12 @@ interface Draft {
     emoji: string;
     recallConcept: string;
     recallDays: string;
+    // Asistanın bilgi bankası (137)
+    kPayment: string;
+    kPolicy: string;
+    kLocation: string;
+    kNotes: string;
+    kFaq: FaqItem[];
 }
 
 /** WhatsApp'ın *kalın* işaretini baloncukta kalın çizer; satırları böler. */
@@ -162,14 +169,21 @@ export function WhatsApp() {
             rebookNote: settings.rebookNote || '',
             persona: comms.persona, audience: comms.audience, servicePhrase: comms.servicePhrase, emoji: comms.emoji,
             recallConcept: comms.recall?.concept ?? '', recallDays: comms.recall ? String(comms.recall.afterDays) : '',
+            kPayment: connection.knowledge.payment, kPolicy: connection.knowledge.policy,
+            kLocation: connection.knowledge.location, kNotes: connection.knowledge.notes, kFaq: connection.knowledge.faq,
         },
         sectionLabel: 'WhatsApp',
         labels: {
             google: 'Google değerlendirme linki', discPct: 'İndirim oranı', discDays: 'İndirim süresi', rebookNote: 'Teşvik satırı',
             persona: 'Karakter', audience: 'Muhatap', servicePhrase: '“…hatırlatmak istedik” ifadesi', emoji: 'Emoji',
             recallConcept: 'Dönüş kavramı', recallDays: 'Kaç gün sonra',
+            kPayment: 'Ödeme yöntemleri', kPolicy: 'İptal ve gecikme', kLocation: 'Ulaşım ve otopark', kNotes: 'Diğer notlar', kFaq: 'Sık sorulanlar',
         },
-        validate: (d) => (Number(d.discPct) > 100 ? 'İndirim oranı en çok %100 olabilir.' : null),
+        validate: (d) => {
+            if (Number(d.discPct) > 100) return 'İndirim oranı en çok %100 olabilir.';
+            if (d.kFaq.some((f) => Boolean(f.q.trim()) !== Boolean(f.a.trim()))) return 'Sık sorulanlarda her sorunun cevabı da olmalı.';
+            return null;
+        },
         save: async (d, s) => {
             const patch: Parameters<typeof savePartial>[0] = {};
             if (d.google !== s.google) patch.googleReviewUrl = d.google.trim();
@@ -177,6 +191,16 @@ export function WhatsApp() {
             if (d.discDays !== s.discDays) patch.winbackDiscountDays = Number(d.discDays) || 0;
             if (Object.keys(patch).length > 0 && !(await savePartial(patch, { quiet: true }))) return false;
             if (d.rebookNote !== s.rebookNote && !(await updateSettings({ ...settings, rebookNote: d.rebookNote.trim() }))) return false;
+            const kChanged = (['kPayment', 'kPolicy', 'kLocation', 'kNotes', 'kFaq'] as const)
+                .some((k) => JSON.stringify(d[k]) !== JSON.stringify(s[k]));
+            if (kChanged) {
+                const res = await waSetKnowledge({
+                    payment: d.kPayment, policy: d.kPolicy, location: d.kLocation, notes: d.kNotes,
+                    faq: d.kFaq.filter((f) => f.q.trim() && f.a.trim()),
+                });
+                if (!res?.ok) return 'Asistanın bilgileri kaydedilemedi.';
+                void refresh();
+            }
             const commsChanged = (['persona', 'audience', 'servicePhrase', 'emoji', 'recallConcept', 'recallDays'] as const).some((k) => d[k] !== s[k]);
             if (commsChanged) {
                 const ok = await commsApi.save({
@@ -411,8 +435,10 @@ export function WhatsApp() {
                     </section>
                 )}
 
+                {isConnected && !ui && <BilgiBankasi t={t} />}
+
                 <section aria-label="Gönderilen mesajlar" style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 40 }}>
-                    <div className="ay-kicker">{isConnected && !ui ? '3' : '2'} · GÖNDERİLEN MESAJLAR</div>
+                    <div className="ay-kicker">{isConnected && !ui ? '4' : '2'} · GÖNDERİLEN MESAJLAR</div>
                     {isConnected ? (
                         <p className="ay-help" style={{ marginTop: -4 }}>Baloncuklar örnek müşteriyle doldurulmuş önizlemedir.</p>
                     ) : (
@@ -578,6 +604,65 @@ function MesajDili({ t, hasRecall, guardrail, isCustom, onReset }: {
                     <span><b style={{ color: 'var(--tx)' }}>Güvenlik kuralı korunur:</b> {guardrail}</span>
                 </div>
             )}
+        </section>
+    );
+}
+
+/**
+ * Asistanın bilgi bankası (137): müşteri "otopark var mı", "kartla ödeyebilir
+ * miyim" diye sorduğunda asistan bunları kullanır; yazılmamış konuda tahmin
+ * yürütmez, işletmeye sorar. Kayıt sayfanın Kaydet çubuğundan.
+ */
+function BilgiBankasi({ t }: { t: Taslak<Draft> }) {
+    const d = t.draft;
+    const L = KNOWLEDGE_LIMITS;
+    const mark = (k: keyof Draft) => t.isChanged(k) && <span aria-hidden="true" className="ay-changed" style={{ top: 18, bottom: 18 }} />;
+    const fields: { key: 'kPayment' | 'kPolicy' | 'kLocation' | 'kNotes'; id: string; label: string; help: string; placeholder: string }[] = [
+        { key: 'kPayment', id: 'ay-kb-odeme', label: 'Ödeme yöntemleri', help: 'Nakit, kart, havale, taksit…', placeholder: 'Nakit, kredi kartı ve havale. Paketlerde 3 taksit yapıyoruz.' },
+        { key: 'kPolicy', id: 'ay-kb-iptal', label: 'İptal ve gecikme', help: 'Kaç saat önceden iptal, geç kalınca ne olur.', placeholder: 'Randevunuzu en geç 24 saat önce iptal edebilirsiniz. 15 dakikadan fazla gecikmede işlem süresi kısalır.' },
+        { key: 'kLocation', id: 'ay-kb-ulasim', label: 'Ulaşım ve otopark', help: 'Otopark, toplu taşıma, bina girişi.', placeholder: 'Binanın önünde ücretsiz otopark var. Metroya 5 dakika yürüme mesafesindeyiz.' },
+        { key: 'kNotes', id: 'ay-kb-not', label: 'Diğer notlar', help: 'Kapora, çocukla gelmek, ikram… isteğe bağlı.', placeholder: 'Kapora almıyoruz. Randevudan 10 dakika önce gelmenizi rica ederiz.' },
+    ];
+    const setFaq = (faq: FaqItem[]) => t.set({ kFaq: faq });
+    return (
+        <section aria-label="Asistanın bilgileri" style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 40 }}>
+            <div className="ay-kicker">3 · ASİSTANIN BİLGİLERİ</div>
+            <p className="ay-help" style={{ marginTop: -4, maxWidth: 640, textWrap: 'pretty' }}>
+                Müşteri sorduğunda asistan bunları kullanır. Yazmadığınız bir konuda tahmin yürütmez, “ekibimize sorup döneyim” der.
+            </p>
+            <div className="ay-card pad" style={{ display: 'flex', flexDirection: 'column' }}>
+                {fields.map((f, i) => (
+                    <div key={f.key} className="ay-stack" style={{ padding: '18px 0', position: 'relative', borderTop: i ? '1px solid var(--bd)' : undefined }}>
+                        {mark(f.key)}
+                        <label className="ay-lbl sm" htmlFor={f.id}>{f.label}</label>
+                        <span className="ay-help sm">{f.help}</span>
+                        <textarea id={f.id} className="ay-input" style={{ minHeight: 66, fontSize: 15.5 }} rows={2} maxLength={L.text}
+                            value={d[f.key]} placeholder={f.placeholder} onChange={(e) => t.set({ [f.key]: e.target.value } as Partial<Draft>)} />
+                    </div>
+                ))}
+                <div className="ay-stack" style={{ padding: '18px 0 4px', position: 'relative', borderTop: '1px solid var(--bd)' }}>
+                    {mark('kFaq')}
+                    <span className="ay-lbl sm">Sık sorulanlar</span>
+                    <span className="ay-help sm">Müşterilerinizin en çok sorduğu sorular ve cevaplarınız. En çok {L.faq} soru.</span>
+                    {d.kFaq.map((f, i) => (
+                        <div key={i} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 10, alignItems: 'start', marginTop: 10 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                <input className="ay-input sm" aria-label={`Soru ${i + 1}`} maxLength={L.question} value={f.q} placeholder="Soru: Lazerden önce tıraş olmalı mıyım?"
+                                    onChange={(e) => setFaq(d.kFaq.map((x, j) => (j === i ? { ...x, q: e.target.value } : x)))} />
+                                <textarea className="ay-input" aria-label={`Cevap ${i + 1}`} style={{ minHeight: 56, fontSize: 15 }} rows={2} maxLength={L.answer} value={f.a}
+                                    placeholder="Cevap: Evet, seanstan bir gün önce bölgeyi tıraş etmeniz yeterli."
+                                    onChange={(e) => setFaq(d.kFaq.map((x, j) => (j === i ? { ...x, a: e.target.value } : x)))} />
+                            </div>
+                            <button type="button" className="ay-btn" aria-label={`Soru ${i + 1}'i sil`} style={{ padding: '0 12px', height: 40 }}
+                                onClick={() => setFaq(d.kFaq.filter((_, j) => j !== i))}><I n="trash" /></button>
+                        </div>
+                    ))}
+                    {d.kFaq.length < L.faq && (
+                        <button type="button" className="ay-link-btn" style={{ alignSelf: 'flex-start', marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                            onClick={() => setFaq([...d.kFaq, { q: '', a: '' }])}><I n="plus" />Soru ekle</button>
+                    )}
+                </div>
+            </div>
         </section>
     );
 }
