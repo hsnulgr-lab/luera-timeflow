@@ -8,6 +8,7 @@ import { checkAccess } from '../_shared/entitlement.ts';
 import * as M from '../_shared/booking/messages.ts';
 import { greetingName } from '../_shared/booking/identity.ts';
 import { bookingDateLabel } from '../_shared/booking/tr.ts';
+import { loadServiceNotes, prepByName } from '../_shared/booking/serviceNotes.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -211,6 +212,9 @@ Deno.serve(async (req: Request) => {
             // (_shared/booking/messages.ts), müşterinin adı Hanım/Bey ile.
             const ctxFor = (name: string | null | undefined): M.Ctx =>
                 ({ comms, businessName: business_name, firstName: greetingName(name) });
+            // Hazırlık notu (138) yalnız 24 saat hatırlatması varsa, tek sorguyla.
+            let notesCache: Awaited<ReturnType<typeof loadServiceNotes>> | null = null;
+            const notesOf = async () => (notesCache ??= await loadServiceNotes(supabase, organization_id));
             const mapsUrl = mapsUrlByOrg.get(organization_id) ?? null;
             const extras = orgExtras.get(organization_id)
                 ?? { reviewUrl: null, discountPercent: 0, discountDays: 30 };
@@ -254,6 +258,7 @@ Deno.serve(async (req: Request) => {
                 const msg = M.reminder24h(ctxFor(r.customer_name), {
                     service: r.service, dateLabel: bookingDateLabel(tomorrowStr, todayStr), time: startTime,
                     mapsUrl, askConfirm: featureOn(orgWa as OrgWa, 'assistant', false),
+                    prep: prepByName(await notesOf(), r.service),
                 });
                 const ok = await send(r.customer_phone, msg, 'reminder_24h', r.customer_id);
                 if (ok) {

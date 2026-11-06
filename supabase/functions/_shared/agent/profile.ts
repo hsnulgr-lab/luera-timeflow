@@ -22,7 +22,14 @@ export interface ProfileService {
     duration: number;
     price: number | null;
     color: string | null;
+    /** Kısa açıklama (138); sorulursa anlatılır. */
+    description?: string | null;
+    /** Gelmeden önce yapılacaklar (138). */
+    prep_note?: string | null;
 }
+
+/** Açıklama/hazırlık satırının istemdeki üst sınırı (veritabanı 400/300). */
+const NOTE_MAX = 400;
 
 export interface ProfileStaff {
     id: string;
@@ -109,13 +116,17 @@ export function buildProfile(p: ProfileInput): Profile {
     lines.push(...(hourLines.length > 0 ? hourLines : ['kayıtlı değil']));
 
     lines.push('');
-    lines.push('Hizmetler (kod · ad · süre · fiyat):');
+    lines.push('Hizmetler (kod · ad · süre · fiyat; altında varsa işletmenin yazdığı açıklama ve hazırlık):');
     const listed = p.services.slice(0, MAX_LISTED_SERVICES);
     listed.forEach((s, i) => {
         const ref = `h${i + 1}`;
         serviceByRef.set(ref, s);
         const price = s.price !== null && Number(s.price) > 0 ? formatTL(Number(s.price)) : 'fiyat sorunuz';
         lines.push(`${ref} · ${oneLine(s.name)} · ${s.duration} dk · ${price}`);
+        const desc = oneLine(s.description).slice(0, NOTE_MAX);
+        const prep = oneLine(s.prep_note).slice(0, NOTE_MAX);
+        if (desc) lines.push(`   açıklama: ${desc}`);
+        if (prep) lines.push(`   hazırlık: ${prep}`);
     });
     if (listed.length === 0) lines.push('kayıtlı hizmet yok');
     if (p.services.length > listed.length) {

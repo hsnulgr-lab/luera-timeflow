@@ -32,6 +32,26 @@ function isMissingRecipeColumn(error: { code?: string; message?: string }): bool
     return (error.code === 'PGRST204' || error.code === '42703') && /recipe/i.test(error.message ?? '');
 }
 
+/**
+ * Hizmet notları (138: description, prep_note) — reçeteyle aynı emniyet: göç
+ * çalışmadan masaüstü yayına çıkarsa hizmet kaydı durmasın, notsuz yazılsın.
+ */
+let notesColumns: boolean | null = null;
+
+function isMissingNotesColumn(error: { code?: string; message?: string }): boolean {
+    return (error.code === 'PGRST204' || error.code === '42703') && /description|prep_note/i.test(error.message ?? '');
+}
+
+function notesRow(s: Service): Record<string, string | null> {
+    if (notesColumns === false) return {};
+    return { description: s.description?.trim() || null, prep_note: s.prepNote?.trim() || null };
+}
+
+/** Bu oturumda not sütunları bulunamadıysa true — Ayarlar uyarı yazar. */
+export function notesUnsaved(): boolean {
+    return notesColumns === false;
+}
+
 /** Bu oturumda reçete sütunu bulunamadıysa true — Ayarlar uyarı yazar. */
 export function recipeUnsaved(): boolean {
     return recipeColumn === false;
@@ -362,6 +382,8 @@ function useReservationsState() {
             // kontrendikasyon ad eşleşmesine düşer (bkz. lib/serviceEligibility).
             tags: Array.isArray(s.tags) && s.tags.length > 0 ? (s.tags as string[]) : undefined,
             recipe: recipeOf(s.recipe),
+            description: typeof s.description === 'string' && s.description.trim() ? s.description : undefined,
+            prepNote: typeof s.prep_note === 'string' && s.prep_note.trim() ? s.prep_note : undefined,
         }));
 
         const seen = new Set<string>();
@@ -731,6 +753,7 @@ function useReservationsState() {
                     staffName: newRes.staffName,
                     mapsUrl: org?.maps_url || undefined,
                     comms: commsForSector(settings.sector),
+                    prepNote: settings.services.find((s) => s.name === newRes.service)?.prepNote,
                 });
                 const res = await sendWhatsApp(newRes.customerPhone, msg, 'confirmation', newRes.customerId);
                 if (!res.ok) {
@@ -1089,13 +1112,14 @@ function useReservationsState() {
         // 2) Mevcut hizmetleri güncelle (ID korunur)
         for (const s of toUpdate) {
             const row = { name: s.name, duration: s.duration, color: s.color, price: s.price || null, recall_days: s.recallDays || null, tags: s.tags ?? [] };
-            let { error } = await supabase
-                .from('services')
-                .update(recipeColumn !== false ? { ...row, recipe: s.recipe ?? [] } : row)
-                .eq('id', s.id);
-            if (error && isMissingRecipeColumn(error)) {
-                recipeColumn = false;
-                ({ error } = await supabase.from('services').update(row).eq('id', s.id));
+            const full = () => ({ ...row, ...notesRow(s), ...(recipeColumn !== false ? { recipe: s.recipe ?? [] } : {}) });
+            let { error } = await supabase.from('services').update(full()).eq('id', s.id);
+            // Eksik kolon hatası tek tek gelir (önce biri, sonra öteki): en çok iki kez düşürülür.
+            for (let i = 0; i < 2 && error; i++) {
+                if (isMissingRecipeColumn(error)) recipeColumn = false;
+                else if (isMissingNotesColumn(error)) notesColumns = false;
+                else break;
+                ({ error } = await supabase.from('services').update(full()).eq('id', s.id));
             }
             if (error) {
                 toast.error('Hizmetler güncellenemedi');
@@ -1115,13 +1139,16 @@ function useReservationsState() {
                 price: s.price || null,
                 recall_days: s.recallDays || null,
                 tags: s.tags ?? [],
-                ...(recipeColumn !== false ? { recipe: s.recipe ?? [] } : {}),
             }));
-            let { error } = await supabase.from('services').insert(rows);
-            if (error && isMissingRecipeColumn(error)) {
-                recipeColumn = false;
-                ({ error } = await supabase.from('services').insert(
-                    rows.map((r) => { const rest: Record<string, unknown> = { ...r }; delete rest.recipe; return rest; })));
+            const full = () => toInsert.map((s, i) => ({
+                ...rows[i], ...notesRow(s), ...(recipeColumn !== false ? { recipe: s.recipe ?? [] } : {}),
+            }));
+            let { error } = await supabase.from('services').insert(full());
+            for (let i = 0; i < 2 && error; i++) {
+                if (isMissingRecipeColumn(error)) recipeColumn = false;
+                else if (isMissingNotesColumn(error)) notesColumns = false;
+                else break;
+                ({ error } = await supabase.from('services').insert(full()));
             }
             if (error) {
                 toast.error('Hizmetler kaydedilemedi');

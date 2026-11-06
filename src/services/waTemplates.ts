@@ -57,6 +57,8 @@ export function buildConfirmationMessage(params: {
     staffName?: string;
     mapsUrl?: string;
     comms?: SectorComms;
+    /** Hizmetin hazırlık notu (138). */
+    prepNote?: string;
 }): string {
     return M.bookingConfirmation(ctx(params.customerName, params.businessName, params.comms), {
         items: [{
@@ -64,6 +66,7 @@ export function buildConfirmationMessage(params: {
             dateLabel: bookingDateLabel(params.date, todayISO()),
             time: params.startTime,
             staff: params.staffName,
+            prep: params.prepNote,
         }],
         mapsUrl: params.mapsUrl,
     });
@@ -91,6 +94,8 @@ export function build24hMessage(params: {
     mapsUrl?: string;
     comms?: SectorComms;
     askConfirm?: boolean;
+    /** Hizmetin hazırlık notu (138). */
+    prepNote?: string;
 }): string {
     const today = todayISO();
     return M.reminder24h(ctx(params.customerName, params.businessName, params.comms), {
@@ -99,6 +104,7 @@ export function build24hMessage(params: {
         time: params.startTime,
         mapsUrl: params.mapsUrl,
         askConfirm: Boolean(params.askConfirm),
+        prep: params.prepNote,
     });
 }
 

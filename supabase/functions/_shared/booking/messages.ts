@@ -84,6 +84,16 @@ function detailBlock(c: Ctx, o: { service: string; dateLabel: string; time: stri
     return `*Hizmet:* ${o.service}\n*Tarih:* ${o.dateLabel}\n*Saat:* ${o.time}`;
 }
 
+/**
+ * Hizmetin hazırlık notu (138): "Seanstan bir gün önce bölgeyi tıraş edin".
+ * Onay ve 24 saat hatırlatmasının künyesinden sonra tek satır; boşsa hiçbir şey.
+ * Satır sonları tek boşluğa iner: künye düzeni bozulmasın.
+ */
+function prepLine(prep?: string | null): string {
+    const t = String(prep ?? '').replace(/\s+/g, ' ').trim();
+    return t ? `\n\n*Hazırlık:* ${t}` : '';
+}
+
 // ── Karşılama ───────────────────────────────────────────────────────────────
 
 export function greeting(c: Ctx, services: { name: string; duration: number }[]): string {
@@ -179,6 +189,8 @@ export function declined(c: Ctx, o: { dateLabel: string; times: string[] }): str
 export function created(c: Ctx, o: {
     service: string; dateLabel: string; time: string;
     manageUrl?: string | null;
+    /** Hizmetin hazırlık notu (138). */
+    prep?: string | null;
     /** Otomatik onay kapalıysa randevu 'pending' — "hazır" demek yanıltıcı. */
     pending?: boolean;
 }): string {
@@ -189,7 +201,7 @@ export function created(c: Ctx, o: {
         ? `Ekibimiz onaylayınca size haber vereceğim.`
         : `Sizi bekliyoruz.`;
     const manage = o.manageUrl ? `\n\nİptal veya değişiklik için:\n${o.manageUrl}` : '';
-    return `${head}\n\n${detailBlock(c, o)}\n\n${tail}${manage}`;
+    return `${head}\n\n${detailBlock(c, o)}${prepLine(o.prep)}\n\n${tail}${manage}`;
 }
 
 /**
@@ -474,11 +486,13 @@ function withMaps(text: string, mapsUrl?: string | null): string {
  */
 export function reminder24h(c: Ctx, o: {
     service: string; dateLabel: string; time: string; mapsUrl?: string | null; askConfirm: boolean;
+    /** Hizmetin hazırlık notu (138): bir gün önce en çok burada işe yarar. */
+    prep?: string | null;
 }): string {
     const ask = o.askConfirm ? `\n\nGelebilecek misiniz? *Evet* ya da *Hayır* yazmanız yeterli.` : '';
     return withMaps(
         `${helloLine(c)}\n*${c.businessName}* olarak randevunuzu hatırlatmak istedik.\n\n`
-        + `${detailBlock(c, { service: o.service, dateLabel: o.dateLabel, time: o.time })}${ask}`,
+        + `${detailBlock(c, { service: o.service, dateLabel: o.dateLabel, time: o.time })}${prepLine(o.prep)}${ask}`,
         o.mapsUrl,
     );
 }
@@ -569,11 +583,13 @@ export interface BookingItem {
     dateLabel: string;
     time: string;
     staff?: string | null;
+    /** Hizmetin hazırlık notu (138). */
+    prep?: string | null;
 }
 
 function bookingBlock(c: Ctx, it: BookingItem): string {
     const staff = it.staff?.trim() ? `\n*Uzman:* ${it.staff.trim()}` : '';
-    return `${detailBlock(c, it)}${staff}`;
+    return `${detailBlock(c, it)}${staff}${prepLine(it.prep)}`;
 }
 
 /**

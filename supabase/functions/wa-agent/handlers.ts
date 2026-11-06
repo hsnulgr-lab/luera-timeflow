@@ -555,10 +555,12 @@ async function commitBook(ctx: TurnCtx, p: ProposalRow, done: Mark, failed: Mark
     }
     // Müdüre push veritabanından gider (notify_push_on_reservation · 118).
 
+    const prep = [...ctx.profile.serviceByRef.values()].find((s) => s.id === x.service_id)?.prep_note ?? null;
     await reply(ctx, M.created(ctx.msgCtx, {
         service: x.service, dateLabel: formatDateTr(x.date), time: x.time,
         manageUrl: reservation.customer_token ? `${APP_ORIGIN}/booking/${reservation.customer_token}` : null,
         pending: !ctx.autoConfirm,
+        prep,
     }));
     ctx.sentTemplate = true;
     return {

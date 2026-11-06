@@ -221,6 +221,9 @@ export function WhatsApp() {
         recall: comms.recall ? { ...comms.recall, concept: d.recallConcept, afterDays: Number(d.recallDays) || comms.recall.afterDays } : undefined };
     const sample = settings.sector === 'avukat' ? 'Ahmet Yılmaz' : 'Ayşe Demir';
     const service = settings.services[0]?.name || 'Konsültasyon';
+    // Hazırlık notu (138) olan ilk hizmet; yoksa önizlemede not satırı çıkmaz.
+    const prepNote = settings.services.find((s) => s.prepNote)?.prepNote;
+    const prepService = settings.services.find((s) => s.prepNote)?.name ?? service;
     const biz = settings.businessName || 'İşletmeniz';
     const maps = profile.mapsUrl || undefined;
     const bookingUrl = profile.slug ? `${window.location.origin}/book/${profile.slug}` : undefined;
@@ -234,11 +237,11 @@ export function WhatsApp() {
         dim?: boolean; extra?: ReactNode; on?: boolean; onToggle?: (v: boolean) => Promise<boolean>; anchor?: string;
     }[] = [
         { key: '24h', title: '24 saat önce hatırlatma', when: 'Randevudan 24 saat önce. Anahtarı yok: WhatsApp bağlıyken her zaman gider.', always: true, time: '10:00',
-            text: build24hMessage({ comms: previewComms, customerName: sample, startTime: '10:00', service, businessName: biz, mapsUrl: maps, askConfirm: f.assistant }) },
+            text: build24hMessage({ comms: previewComms, customerName: sample, startTime: '10:00', service: prepService, businessName: biz, mapsUrl: maps, askConfirm: f.assistant, prepNote }) },
         { key: '2h', title: '2 saat önce hatırlatma', when: 'Randevudan 2 saat önce. Anahtarı yok: WhatsApp bağlıyken her zaman gider.', always: true, time: '08:00',
             text: build2hMessage({ comms: previewComms, customerName: sample, startTime: '10:00', service, businessName: biz, mapsUrl: maps }) },
         { key: 'confirmation', title: 'Randevu onayı', when: 'Randevu oluşur oluşmaz; panelden, online randevudan ve WhatsApp botundan.', feature: 'confirmation', time: '09:12',
-            text: buildConfirmationMessage({ comms: previewComms, customerName: sample, date: PREVIEW_TOMORROW_ISO, startTime: '10:00', service, businessName: biz, mapsUrl: maps }) },
+            text: buildConfirmationMessage({ comms: previewComms, customerName: sample, date: PREVIEW_TOMORROW_ISO, startTime: '10:00', service: prepService, businessName: biz, mapsUrl: maps, prepNote }) },
         { key: 'review', title: 'Google değerlendirme',
             when: sched ? 'Randevu bitiminden 30 dk sonra memnuniyet sorulur; puan verene Google linki gider.' : 'Hesap kapandıktan ~3 saat sonra, randevu başına bir kez.',
             feature: 'review', time: '13:40', anchor: 'ay-google',

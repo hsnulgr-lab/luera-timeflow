@@ -101,6 +101,10 @@ export interface Service {
      * güzellikte hamilelik bayrağı olan müşteriye kapatılır.
      */
     tags?: string[];
+    /** Kısa açıklama; WhatsApp asistanı sorulursa anlatır (138). */
+    description?: string;
+    /** Müşterinin gelmeden önce yapması gereken; onay + 24 saat hatırlatmasına eklenir (138). */
+    prepNote?: string;
 }
 
 /** Bir hizmetin standart sarf tüketimi: "Dip boya = 60ml boya + 60ml oksidan". */

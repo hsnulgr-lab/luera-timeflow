@@ -14,7 +14,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { recipeUnsaved, useReservations } from '@/hooks/useReservations';
+import { notesUnsaved, recipeUnsaved, useReservations } from '@/hooks/useReservations';
 import { useProducts } from '@/hooks/useProducts';
 import { eligibilityTagsFor } from '@/lib/serviceEligibility';
 import { formatTRY } from '@/lib/plans';
@@ -32,7 +32,13 @@ interface Draft {
     recallDays: string;
     recipe: ServiceRecipeLine[];
     tags: string[];
+    description: string;
+    prepNote: string;
 }
+
+/** Veritabanındaki sınırlar (138). */
+const DESC_MAX = 400;
+const PREP_MAX = 300;
 
 const toDraft = (s: Service): Draft => ({
     name: s.name,
@@ -42,6 +48,8 @@ const toDraft = (s: Service): Draft => ({
     recallDays: s.recallDays ? String(s.recallDays) : '',
     recipe: s.recipe ?? [],
     tags: s.tags ?? [],
+    description: s.description ?? '',
+    prepNote: s.prepNote ?? '',
 });
 
 export function Hizmetler() {
@@ -209,7 +217,7 @@ function HizmetPaneli({ service, isNew, onClose, onDelete }: {
     const t = useTaslak<Draft>({
         saved: toDraft(service),
         sectionLabel: 'Hizmetler',
-        labels: { name: 'Ad', color: 'Renk', price: 'Ücret', duration: 'Süre', recallDays: 'Dönüş', recipe: 'Reçete', tags: 'Uygunluk etiketleri' },
+        labels: { name: 'Ad', color: 'Renk', price: 'Ücret', duration: 'Süre', recallDays: 'Dönüş', recipe: 'Reçete', tags: 'Uygunluk etiketleri', description: 'Açıklama', prepNote: 'Hazırlık notu' },
         validate: (d) => (!d.name.trim() ? 'Hizmetin adı boş olamaz.'
             : d.duration < 5 ? 'Süre en az 5 dakika.'
                 : d.recipe.some((l) => !(l.quantity > 0)) ? 'Reçetede miktarı boş satır var.' : null),
@@ -223,11 +231,16 @@ function HizmetPaneli({ service, isNew, onClose, onDelete }: {
                 recallDays: d.recallDays ? Math.max(1, parseInt(d.recallDays, 10)) || undefined : undefined,
                 recipe: d.recipe.filter((l) => l.productId && l.quantity > 0),
                 tags: d.tags,
+                description: d.description.trim() || undefined,
+                prepNote: d.prepNote.trim() || undefined,
             };
             const list = isNew ? [...settings.services, next] : settings.services.map((s) => (s.id === service.id ? next : s));
             const ok = await updateSettings({ ...settings, services: list });
             if (ok && recipeUnsaved() && next.recipe && next.recipe.length > 0) {
                 toast.warning('Reçete şu an kaydedilemiyor', { description: 'Hizmetin diğer bilgileri kaydedildi.' });
+            }
+            if (ok && notesUnsaved() && (next.description || next.prepNote)) {
+                toast.warning('Açıklama ve hazırlık notu şu an kaydedilemiyor', { description: 'Hizmetin diğer bilgileri kaydedildi.' });
             }
             if (ok && isNew) window.setTimeout(onClose, 600);
             return ok;
@@ -311,6 +324,27 @@ function HizmetPaneli({ service, isNew, onClose, onDelete }: {
                 <span className="ay-help sm" style={{ marginTop: -12, lineHeight: 1.5 }}>
                     Ücret boşsa “Ücret yok” olur, ₺0 değil. Süre 5'er dakika. Dönüş: seans bitince kaç gün sonrasına hatırlatma kurulsun; boş = kapalı.
                 </span>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 20, borderTop: '1px solid var(--bd)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <span style={{ fontSize: 17, fontWeight: 800 }}>Müşteriye anlatılanlar</span>
+                        <span className="ay-help" style={{ lineHeight: 1.5 }}>WhatsApp asistanı bunları bilir. Boş bırakırsanız uydurmaz, ekibe sorar.</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <label className="ay-lbl sm" htmlFor="ay-h-aciklama">Açıklama</label>
+                        <span className="ay-help sm">Hizmet nedir, nasıl yapılır? Müşteri sorarsa asistan bununla anlatır.</span>
+                        <textarea id="ay-h-aciklama" className="ay-input" style={{ minHeight: 66, fontSize: 15.5 }} rows={2} maxLength={DESC_MAX}
+                            value={d.description} placeholder="ör. Diyot lazerle kalıcı tüy azaltma; bölgeye göre 20–40 dk sürer."
+                            onChange={(e) => t.set({ description: e.target.value })} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <label className="ay-lbl sm" htmlFor="ay-h-hazirlik">Hazırlık notu</label>
+                        <span className="ay-help sm">Gelmeden önce yapılacaklar. Onay mesajının ve 24 saat hatırlatmasının sonuna eklenir.</span>
+                        <textarea id="ay-h-hazirlik" className="ay-input" style={{ minHeight: 66, fontSize: 15.5 }} rows={2} maxLength={PREP_MAX}
+                            value={d.prepNote} placeholder="ör. Seanstan bir gün önce bölgeyi tıraş edin, 48 saat güneşe çıkmayın."
+                            onChange={(e) => t.set({ prepNote: e.target.value })} />
+                    </div>
+                </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 20, borderTop: '1px solid var(--bd)' }}>
                     <span style={{ fontSize: 17, fontWeight: 800 }}>Reçete</span>

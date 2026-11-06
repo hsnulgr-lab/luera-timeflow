@@ -11,6 +11,7 @@ import {
     istanbulMinute, istanbulMs, nudgeDueMs, OFFER_TTL_MIN, sendDecision, todayIstanbul, type JobKind,
 } from '../_shared/scheduler/timing.ts';
 import { isUnhappy } from '../_shared/scheduler/feedback.ts';
+import { loadServiceNotes, prepByName, type ServiceNote } from '../_shared/booking/serviceNotes.ts';
 
 // ============================================================
 // wa-scheduler — WhatsApp Sekreter v2 · P1: zamanlayıcı
@@ -82,6 +83,8 @@ interface OrgCtx {
     /** Ayarlar → WhatsApp → "Sıradaki randevu daveti" (settings.rebook_*). */
     rebook: { enabled: boolean; note: string | null };
     bookingUrl: string | null;
+    /** Hizmet notları (138): 24 saat hatırlatmasına hazırlık notu. */
+    notes: Map<string, ServiceNote>;
 }
 
 type Outcome = 'sent' | 'skipped' | 'cancelled' | 'postponed' | 'failed';
@@ -147,7 +150,9 @@ async function loadOrg(admin: Admin, orgId: string): Promise<OrgCtx | null> {
         admin.from('organizations').select('name, maps_url, owner_id, slug').eq('id', orgId).maybeSingle(),
     ]);
     if (!orgWa) return null;
-    const [settings, access] = await Promise.all([ownerSettings(admin, orgId, org?.owner_id ?? null), checkAccess(admin, orgId)]);
+    const [settings, access, notes] = await Promise.all([
+        ownerSettings(admin, orgId, org?.owner_id ?? null), checkAccess(admin, orgId), loadServiceNotes(admin, orgId),
+    ]);
     return {
         orgWa: orgWa as OrgWa,
         accessOk: access.ok,
@@ -156,6 +161,7 @@ async function loadOrg(admin: Admin, orgId: string): Promise<OrgCtx | null> {
         mapsUrl: org?.maps_url ?? null,
         rebook: { enabled: Boolean(settings?.rebook_enabled), note: settings?.rebook_note ?? null },
         bookingUrl: org?.slug ? `${APP_ORIGIN}/book/${org.slug}` : null,
+        notes,
     };
 }
 
@@ -248,6 +254,7 @@ async function runJob(admin: Admin, job: Job, org: OrgCtx | null): Promise<Outco
         const askConfirm = featureOn(org.orgWa, 'assistant', false);
         const res = await send(M.reminder24h(ctx, {
             service: r.service, dateLabel: dateLabel(r.date, today), time, mapsUrl: org.mapsUrl, askConfirm,
+            prep: prepByName(org.notes, r.service),
         }), 'reminder_24h');
         const outcome = await settle(admin, job, res);
         if (outcome === 'sent') {

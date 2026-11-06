@@ -27,6 +27,7 @@ import { checkAccess } from '../_shared/entitlement.ts';
 import { eligibilityBlock, isReservationConflict } from '../_shared/booking/reservationErrors.ts';
 import { agentLooksDown, agentRoute, type AgentConfig } from '../_shared/agent/guard.ts';
 import { handleScheduledReply } from '../_shared/scheduler/replies.ts';
+import { loadServiceNotes } from '../_shared/booking/serviceNotes.ts';
 
 // ============================================================
 // whatsapp-booking — WhatsApp üzerinden randevu
@@ -1259,12 +1260,14 @@ Deno.serve(async (req: Request) => {
         await clearSession();
         // Otomatik onay kapalıysa kayıt 'pending' düşüyor ama bot yine
         // "Randevun oluştu!" diyordu — müşteri onaylanmış sanıp geliyordu.
+        const prep = (await loadServiceNotes(admin, orgId)).get(svc.id)?.prep_note ?? null;
         return reply(M.created(msgCtx(), {
             service: svc.name, dateLabel: fmtDate(date), time: String(state.time),
             manageUrl: reservation?.customer_token
                 ? `${APP_ORIGIN}/booking/${reservation.customer_token}`
                 : null,
             pending: !autoConfirm,
+            prep,
         }));
     } catch (err) {
         console.error('whatsapp-booking error:', err);

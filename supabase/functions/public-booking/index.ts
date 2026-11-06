@@ -18,6 +18,7 @@ import { minToTime, staffSlots, timeToMin, weekdayOf, type WorkingHour } from '.
 import * as M from '../_shared/booking/messages.ts';
 import { greetingName } from '../_shared/booking/identity.ts';
 import { bookingDateLabel } from '../_shared/booking/tr.ts';
+import { loadServiceNotes } from '../_shared/booking/serviceNotes.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -122,14 +123,14 @@ async function bookingAbuseCheck(
 /** WhatsApp onayı: _shared/booking/messages.ts → bookingConfirmation. */
 function buildBookingMessage(p: {
     customerName: string; businessName: string; comms: unknown; confirmed: boolean;
-    items: { date: string; time: string; service: string }[];
+    items: { date: string; time: string; service: string; prep?: string | null }[];
     manageUrl?: string; mapsUrl?: string | null;
 }): string {
     const today = new Date(Date.now() + TZ_OFFSET_MIN * 60_000).toISOString().slice(0, 10);
     return M.bookingConfirmation(
         { comms: M.resolveComms(p.comms), businessName: p.businessName, firstName: greetingName(p.customerName) },
         {
-            items: p.items.map((it) => ({ service: it.service, dateLabel: bookingDateLabel(it.date, today), time: it.time })),
+            items: p.items.map((it) => ({ service: it.service, dateLabel: bookingDateLabel(it.date, today), time: it.time, prep: it.prep })),
             pending: !p.confirmed,
             manageUrl: p.manageUrl,
             mapsUrl: p.mapsUrl,
@@ -388,9 +389,10 @@ Deno.serve(async (req: Request) => {
             // WhatsApp — tek birleşik mesaj
             const orgWa = await getOrgWa(supabase, orgId);
             if (orgWa?.instance && orgWa.status === 'connected') {
+                const notes = await loadServiceNotes(supabase, orgId);
                 const text = buildBookingMessage({
                     customerName, businessName, comms: settings?.comms, confirmed: autoConfirm,
-                    items: prepared.map((p) => ({ date: p.date, time: p.time, service: p.svcName })),
+                    items: prepared.map((p) => ({ date: p.date, time: p.time, service: p.svcName, prep: notes.get(p.serviceId)?.prep_note })),
                     mapsUrl: org.maps_url,
                 });
                 sendWA(supabase, { org: orgWa, phone: customerPhone, kind: 'booking', ignoreOptOut: true, text }).catch(() => {});
@@ -558,9 +560,10 @@ Deno.serve(async (req: Request) => {
         const orgWa = await getOrgWa(supabase, orgId);
         if (orgWa?.instance && orgWa.status === 'connected') {
             const manageUrl = reservation.customer_token ? `${APP_ORIGIN}/booking/${reservation.customer_token}` : undefined;
+            const prep = (await loadServiceNotes(supabase, orgId)).get(svc.id)?.prep_note;
             const msg = buildBookingMessage({
                 customerName, businessName, comms: settings?.comms, confirmed: autoConfirm,
-                items: [{ date, time, service: svc.name }], manageUrl, mapsUrl: org.maps_url,
+                items: [{ date, time, service: svc.name, prep }], manageUrl, mapsUrl: org.maps_url,
             });
             sendWA(supabase, { org: orgWa, phone: customerPhone, kind: 'booking', ignoreOptOut: true, text: msg }).catch(() => {});
         }

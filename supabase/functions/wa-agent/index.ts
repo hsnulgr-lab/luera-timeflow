@@ -21,6 +21,7 @@ import {
 } from '../_shared/agent/guard.ts';
 import { loadPackagesAndBalance, loadPastVisits, loadUpcoming, openProposal, runTool, type TurnCtx } from './handlers.ts';
 import { buildCustomerCard, cardLines } from '../_shared/agent/customerCard.ts';
+import { loadServiceNotes } from '../_shared/booking/serviceNotes.ts';
 
 // ============================================================
 // wa-agent — WhatsApp Sekreter v2 · P2: Claude ajanı
@@ -243,7 +244,7 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
     // Sahip telefondan bu müşteriye yazdı: devraldı, bot karışmaz.
     if (conv.paused_until && Date.parse(conv.paused_until) > Date.now()) { await markProcessed(); return; }
 
-    const [{ data: settings }, { data: org }, { data: services }, { data: staffRows }] = await Promise.all([
+    const [{ data: settings }, { data: org }, { data: services }, { data: staffRows }, serviceNotes] = await Promise.all([
         admin.from('settings')
             .select('business_name, working_hours, slot_duration, comms, webhook_url')
             .eq('organization_id', orgId).limit(1).maybeSingle(),
@@ -256,6 +257,8 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
         admin.from('staff')
             .select('id, name, specialty, working_hours')
             .eq('organization_id', orgId).eq('is_active', true).order('created_at'),
+        // Açıklama + hazırlık notu (138) ayrı sorguda: göç yoksa hizmetler yine gelir.
+        loadServiceNotes(admin, orgId),
     ]);
     const comms = M.resolveComms(settings?.comms);
     const businessName: string = settings?.business_name || org?.name || 'İşletme';
@@ -387,6 +390,8 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
         hours: orgHours,
         services: (services ?? []).map((s: { id: string; name: string; duration: number; price: number | null; color: string | null }) => ({
             id: s.id, name: s.name, duration: Number(s.duration) || 30, price: s.price ?? null, color: s.color ?? null,
+            description: serviceNotes.get(s.id)?.description ?? null,
+            prep_note: serviceNotes.get(s.id)?.prep_note ?? null,
         })),
         staff: (staffRows ?? []).map((s: { id: string; name: string; specialty: string | null }) => ({
             id: s.id, name: s.name, specialty: s.specialty ?? null,
