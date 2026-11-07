@@ -16,7 +16,7 @@ import {
 } from '../_shared/agent/prompt.ts';
 import { TOOLS } from '../_shared/agent/tools.ts';
 import {
-    costUsd, echoAfterTemplate, needsNewEpisode, stopAfterCommit, sanitizeForWhatsApp, shortRef, supportsMidSystem,
+    cleanContent, cleanHistory, costUsd, echoAfterTemplate, needsNewEpisode, stopAfterCommit, sanitizeForWhatsApp, shortRef, supportsMidSystem,
     type AgentConfig, type UsageTotals,
 } from '../_shared/agent/guard.ts';
 import { loadPackagesAndBalance, loadPastVisits, loadUpcoming, openProposal, runTool, type TurnCtx } from './handlers.ts';
@@ -403,7 +403,7 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
     const prefixHash = fnv1a(`${RULES}\u0000${profile.hash}\u0000${JSON.stringify(TOOLS)}`);
 
     let history: unknown[] = [];
-    try { history = JSON.parse(conv.messages_json || '[]'); } catch { history = []; }
+    try { history = cleanHistory(JSON.parse(conv.messages_json || '[]')); } catch { history = []; }
     const fresh = needsNewEpisode({
         lastMessageAt: conv.last_message_at, model: conv.model,
         prefixHash: conv.prefix_hash, messageCount: history.length,
@@ -516,7 +516,8 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
             usage.cacheRead += resp.usage?.cache_read_input_tokens ?? 0;
             usage.cacheWrite += resp.usage?.cache_creation_input_tokens ?? 0;
             stopReason = resp.stop_reason;
-            messages.push({ role: 'assistant', content: resp.content });
+            // Boş metin parçası geçmişe girmesin: geri gönderilince 400 olur.
+            messages.push({ role: 'assistant', content: cleanContent(resp.content) });
 
             if (resp.stop_reason === 'tool_use') {
                 const results: unknown[] = [];
@@ -551,7 +552,9 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
         if (calls >= MAX_CALLS && !finalText && !error) error = 'max_calls';
     } catch (e) {
         const status = e instanceof Anthropic.APIError ? (e as { status?: number }).status : undefined;
-        error = e instanceof Anthropic.APIError ? `api_${status ?? 'error'}` : 'exception';
+        // Bakiye bitince de 400 gelir; isteğin bozukluğundan ayrılsın (agentLooksDown).
+        const credit = status === 400 && /credit balance/i.test(String((e as Error)?.message ?? ''));
+        error = e instanceof Anthropic.APIError ? (credit ? 'api_credit' : `api_${status ?? 'error'}`) : 'exception';
         console.error('wa-agent model error', e);
     }
 

@@ -41,7 +41,10 @@ export function agentLooksDown(
     last: { error: string | null; created_at: string } | null | undefined,
     now: number,
 ): boolean {
-    if (!last?.error || !/^(api_|exception$)/.test(last.error)) return false;
+    // api_400 = isteğin kendisi bozuktu (ör. geçmişte boş metin); geçmiş o
+    // turda sıfırlanır ve sonraki tur düzelir, eski bota düşmek gereksiz
+    // (canlı 2026-11-08). Bakiye bitince gelen 400 ayrı adla yazılır: api_credit.
+    if (!last?.error || !/^(api_(?!400$)|exception$)/.test(last.error)) return false;
     const at = Date.parse(last.created_at);
     return Number.isFinite(at) && now - at < AGENT_COOLDOWN_MS;
 }
@@ -254,4 +257,30 @@ export function shortRef(prefix: string, uuid: string): string {
 export function refPrefix(ref: string, prefix: string): string | null {
     const m = new RegExp(`^${prefix}-([0-9a-f]{8})$`).exec(String(ref).trim().toLowerCase());
     return m ? m[1] : null;
+}
+
+/**
+ * Geçmişte boş metin parçası bırakma. Model aracı çağırırken yanına boş bir
+ * metin bloğu koyabiliyor; cevapta kabul edilen bu blok, geçmiş geri
+ * gönderilince "text content blocks must contain non-whitespace text" (400)
+ * ile reddediliyor ve konuşma çöküyordu (canlı 2026-11-08 00:25).
+ *
+ * Boş metin blokları atılır; içi tümden boşalan mesaja tek nokta konur ki
+ * kullanıcı/asistan sırası bozulmasın. Düşünce ve araç blokları olduğu gibi kalır.
+ */
+export function cleanContent(content: unknown): unknown {
+    if (typeof content === 'string') return content.trim() ? content : '…';
+    if (!Array.isArray(content)) return content;
+    const kept = content.filter((b) => !(b && typeof b === 'object'
+        && (b as { type?: string }).type === 'text'
+        && !String((b as { text?: unknown }).text ?? '').trim()));
+    return kept.length > 0 ? kept : [{ type: 'text', text: '…' }];
+}
+
+/** Kayıtlı geçmişin her mesajına `cleanContent`. Bozuk girdi boş geçmiş olur. */
+export function cleanHistory(history: unknown): unknown[] {
+    if (!Array.isArray(history)) return [];
+    return history
+        .filter((m) => m && typeof m === 'object' && 'role' in (m as object))
+        .map((m) => ({ ...(m as object), content: cleanContent((m as { content?: unknown }).content) }));
 }

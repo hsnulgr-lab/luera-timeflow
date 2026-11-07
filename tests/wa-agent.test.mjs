@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { buildProfile, fnv1a, MAX_LISTED_SERVICES } from '../supabase/functions/_shared/agent/profile.ts';
 import {
-    AGENT_COOLDOWN_MS, agentLooksDown, agentRoute, commitBlock, echoAfterTemplate, stopAfterCommit, costUsd, DEFAULT_MONTHLY_BUDGET_USD, EPISODE_IDLE_MS, EPISODE_MAX_MESSAGES,
+    AGENT_COOLDOWN_MS, agentLooksDown, agentRoute, cleanContent, cleanHistory, commitBlock, echoAfterTemplate, stopAfterCommit, costUsd, DEFAULT_MONTHLY_BUDGET_USD, EPISODE_IDLE_MS, EPISODE_MAX_MESSAGES,
     filterTimes, needsNewEpisode, refPrefix, sanitizeForWhatsApp, shortRef, suggestTimes, supportsMidSystem,
 } from '../supabase/functions/_shared/agent/guard.ts';
 import { TOOLS } from '../supabase/functions/_shared/agent/tools.ts';
@@ -162,11 +162,13 @@ test('agentRoute: aylık tavan dolunca eski bota düşer', () => {
 test('agentLooksDown: Claude\'a ulaşılamayınca bir süre eski bot, sonra ajan yine denenir', () => {
     const now = Date.parse('2026-11-06T12:00:00Z');
     const ago = (ms) => new Date(now - ms).toISOString();
-    assert.equal(agentLooksDown({ error: 'api_400', created_at: ago(60_000) }, now), true, 'bakiye bitti');
+    assert.equal(agentLooksDown({ error: 'api_credit', created_at: ago(60_000) }, now), true, 'bakiye bitti');
+    // Bozuk istek (geçmişte boş metin): geçmiş sıfırlandı, sonraki tur düzelir; eski bota düşülmez.
+    assert.equal(agentLooksDown({ error: 'api_400', created_at: ago(60_000) }, now), false, 'istek hatası');
     assert.equal(agentLooksDown({ error: 'api_529', created_at: ago(60_000) }, now), true, 'aşırı yük');
     assert.equal(agentLooksDown({ error: 'exception', created_at: ago(60_000) }, now), true, 'bağlantı');
     assert.equal(agentLooksDown({ error: 'api_no_key', created_at: ago(60_000) }, now), true, 'anahtar yok');
-    assert.equal(agentLooksDown({ error: 'api_400', created_at: ago(AGENT_COOLDOWN_MS + 1) }, now), false, 'süre doldu');
+    assert.equal(agentLooksDown({ error: 'api_529', created_at: ago(AGENT_COOLDOWN_MS + 1) }, now), false, 'süre doldu');
     assert.equal(agentLooksDown({ error: 'refusal', created_at: ago(60_000) }, now), false, 'ret arıza değil');
     assert.equal(agentLooksDown({ error: 'deadline', created_at: ago(60_000) }, now), false);
     assert.equal(agentLooksDown({ error: null, created_at: ago(60_000) }, now), false, 'son tur başarılı');
@@ -174,6 +176,26 @@ test('agentLooksDown: Claude\'a ulaşılamayınca bir süre eski bot, sonra ajan
     assert.equal(agentRoute({ enabled: true, config: {}, phone: '905551112233', spentUsd: 0, down: true }), 'old');
     const booking = readFileSync(new URL('../supabase/functions/whatsapp-booking/index.ts', import.meta.url), 'utf8');
     assert.match(booking, /down: agentLooksDown\(lastRun, Date\.now\(\)\)/);
+});
+
+test('geçmişte boş metin parçası kalmaz (canlı 400, 2026-11-08)', () => {
+    const toolTurn = [
+        { type: 'thinking', thinking: 'x', signature: 's' },
+        { type: 'text', text: '  ' },
+        { type: 'tool_use', id: 't1', name: 'commit_proposal', input: {} },
+    ];
+    assert.deepEqual(cleanContent(toolTurn), [toolTurn[0], toolTurn[2]]);
+    assert.deepEqual(cleanContent([{ type: 'text', text: '' }]), [{ type: 'text', text: '…' }]);
+    assert.equal(cleanContent('   '), '…');
+    assert.equal(cleanContent('Merhaba'), 'Merhaba');
+    const h = cleanHistory([{ role: 'user', content: [{ type: 'text', text: 'a' }] }, { role: 'assistant', content: toolTurn }, 7, null]);
+    assert.equal(h.length, 2);
+    assert.equal(h[1].content.length, 2);
+    assert.deepEqual(cleanHistory('bozuk'), []);
+    const agent = readFileSync(new URL('../supabase/functions/wa-agent/index.ts', import.meta.url), 'utf8');
+    assert.match(agent, /history = cleanHistory\(JSON\.parse/);
+    assert.match(agent, /content: cleanContent\(resp\.content\)/);
+    assert.match(agent, /credit \? 'api_credit'/);
 });
 
 // ── Saat, çıktı, model ──────────────────────────────────────────────────────
