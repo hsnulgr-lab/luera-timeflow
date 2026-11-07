@@ -141,6 +141,7 @@ function mapDbReservation(row: any): Reservation {
         arrivedAt: row.arrived_at || undefined,
         customerArrivedAt: row.customer_arrived_at || undefined,
         noShowAt: row.no_show_at || undefined,
+        customerConfirm: row.customer_confirm === 'yes' || row.customer_confirm === 'no' ? row.customer_confirm : undefined,
         serviceEndedAt: row.service_ended_at || undefined,
         adisyonItems: Array.isArray(row.adisyon_items) ? row.adisyon_items : [],
         groupId: row.group_id || undefined,

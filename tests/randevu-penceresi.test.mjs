@@ -24,11 +24,13 @@ test('"Geç geldi" gelmedi damgasını da kaldırır', () => {
 });
 
 test('"Gelmedi" kırmızı yazılır — varsayılan yeşile düşmez', () => {
-    assert.match(modal, /case 'missed':[\s\S]{0,260}color: 'var\(--dc-red\)'/);
+    // Yeni çekmece (2026-11-08): durum bloğu tonu 'late' = kırmızı metin + kırmızı zemin
+    assert.match(modal, /case 'missed':[\s\S]{0,120}tone: 'late'/);
+    assert.match(modal, /late: \{ c: 'var\(--rd\)', b: 'var\(--rdT\)' \}/);
 });
 
 test('gelmeyen randevuda üç sonuç sorulur', () => {
-    assert.match(modal, /Ne oldu\?/);
+    // "Ne oldu?" başlığı kalktı: üç seçenek durum bloğunun içinde (birincil + iki ikincil)
     assert.match(modal, /Gelmedi olarak kapat/);
     assert.match(modal, /Geldi, geç kaldı/);
     assert.match(modal, /Başka güne al/);
@@ -44,4 +46,22 @@ test('iptal tek tıkla olmaz — pencerede onay ister', () => {
 test('takvim detay paneli takvimin sol kenarını aşmaz', () => {
     assert.match(agenda, /const minX = Math\.max\(pad, \(scrollRef\.current\?\.getBoundingClientRect\(\)\.left \?\? 0\) \+ 8\);/);
     assert.match(agenda, /else if \(hover\.rect\.left - pad - W >= minX\)/);
+});
+
+test('randevu penceresi: sağdan çekmece, sekmesiz, perde takvim çubuğunun altından (2026-11-08)', () => {
+    assert.doesNotMatch(modal, /setTab\(|'adisyon' \| 'musteri'/);
+    assert.match(modal, /className=\{`rcw-dw\$\{confirmCancel \? ' cfo' : ''\}`\} role="dialog" aria-modal="true"/);
+    assert.match(modal, /document\.querySelector\('\[data-cal-topbar\]'\)/);
+    assert.match(modal, /\[data-res-id="\$\{CSS\.escape\(r\.id\)\}"\]/);
+    const cal = read('../src/pages/CalendarPage.tsx');
+    assert.match(cal, /data-cal-topbar=""/);
+    // Esc önce açık olanı kapatır; Enter birincili tetiklemez
+    assert.match(modal, /if \(picking\) setPicking\(false\);\s*else if \(confirmCancel\) setConfirmCancel\(false\);\s*else onClose\(\);/);
+    assert.match(modal, /if \(e\.key === 'Enter'\) e\.preventDefault\(\)/);
+    // Hatırlatma cevabı ("Gelirim dedi") ve tercih asistanla aynı kaynaktan
+    assert.match(modal, /r\.customerConfirm === 'yes'/);
+    assert.match(modal, /buildCustomerCard\(visits/);
+    const css = read('../src/components/reservations/randevuCekmecesi.css');
+    assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+    assert.match(css, /\.rcw-hole \{[^}]*box-shadow: 0 0 0 200vmax var\(--scr\)/);
 });

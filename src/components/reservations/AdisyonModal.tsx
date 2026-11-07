@@ -1,54 +1,78 @@
-import { useState, useMemo } from 'react';
-import { X, Plus, Trash2, Wallet, User, Check, Package, Phone, CalendarClock, ClipboardList, Pencil, Ban, ArrowRight, StickyNote, Stethoscope, UserX, RotateCcw } from 'lucide-react';
+import { useState, useMemo, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
+import {
+    X, Plus, Wallet, User, Check, Phone, CalendarDays, Pencil, Ban, ArrowRight, DoorOpen,
+    MessageCircle, Globe, Layers, Clock, UserX, CalendarClock, Undo2,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { apptPhase, primaryAction } from '@/lib/appointmentFlow';
+import { apptPhase, PHASE_LABEL } from '@/lib/appointmentFlow';
 import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
 import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { sendWhatsApp } from '@/services/whatsapp';
 import { buildCancelMessage } from '@/services/waTemplates';
 import { commsForSector } from '@/lib/sectorProfiles';
-
-/** İptalden sonra "Geri Al" süresi; WhatsApp iptal mesajı bu süre dolunca gider. */
-const CANCEL_UNDO_MS = 8000;
 import { usePayments } from '@/hooks/usePayments';
 import { useProducts } from '@/hooks/useProducts';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useStaff } from '@/hooks/useStaff';
-import { useCustomerPackages } from '@/hooks/useCustomerPackages';
+import { useOrgPackages } from '@/hooks/useOrgPackages';
 import { useCashEnabled } from '@/hooks/useModules';
 import { useTheme } from '@/contexts/ThemeContext';
+import { computePatientFinance } from '@/lib/patientBalance';
 import type { Reservation, PaymentMethod } from '@/types';
 import { reservationPrice } from '@/utils/reservationServices';
 import { toISODate } from '@/utils/date';
+import { buildCustomerCard } from '../../../supabase/functions/_shared/agent/customerCard.ts';
+import { withTitle } from '../../../supabase/functions/_shared/booking/hitap.ts';
+import { timeLocative } from '../../../supabase/functions/_shared/booking/tr.ts';
+import './randevuCekmecesi.css';
+
+/** İptalden sonra "Geri Al" süresi; WhatsApp iptal mesajı bu süre dolunca gider. */
+const CANCEL_UNDO_MS = 8000;
 
 const PM: { key: PaymentMethod; label: string }[] = [
     { key: 'cash', label: 'Nakit' }, { key: 'card', label: 'Kart' },
     { key: 'transfer', label: 'Havale' }, { key: 'other', label: 'Diğer' },
 ];
 const fmt = (n: number) => n.toLocaleString('tr-TR');
+const tl = (n: number) => `${fmt(n)} ₺`;
+const hhmm = (iso?: string | null) => (iso ? new Date(iso).toTimeString().slice(0, 5) : '');
+const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
+const longDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' });
+const shortDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
+/** "+90 542 602 60 48" — kayıtlı biçim ne olursa olsun okunur yazılır. */
+const phoneTR = (p: string) => {
+    const d = p.replace(/\D/g, '');
+    const n = d.startsWith('90') ? d.slice(2) : d.startsWith('0') ? d.slice(1) : d;
+    return n.length === 10 ? `+90 ${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6, 8)} ${n.slice(8)}` : p;
+};
 
 interface Props { reservation: Reservation; onClose: () => void; onEdit?: (r: Reservation) => void; }
-interface ModalTheme {
-    ink: string;
-    muted: string;
-    muted2: string;
-    surface: string;
-    surface2: string;
-    surface3: string;
-    border: string;
-    border2: string;
-    orange: string;
-    green: string;
-}
+
+/** C bloğunun tonları — durum adı, renk ve zemin tasarımdaki sözlükten (TN). */
+type Tone = 'ok' | 'pend' | 'here' | 'run' | 'due' | 'late' | 'paid' | 'cx';
+const TONE: Record<Tone, { c: string; b: string; d?: string }> = {
+    ok: { c: 'var(--tx)', b: 'var(--s2)', d: 'var(--m2)' },
+    pend: { c: 'var(--am)', b: 'var(--amT)' },
+    here: { c: 'var(--am)', b: 'var(--amT)' },
+    run: { c: 'var(--ord)', b: 'var(--orT)' },
+    due: { c: 'var(--ord)', b: 'var(--orT)' },
+    late: { c: 'var(--rd)', b: 'var(--rdT)' },
+    paid: { c: 'var(--gr)', b: 'var(--grT)' },
+    cx: { c: 'var(--m1)', b: 'var(--s2)', d: 'var(--m2)' },
+};
+
+interface Btn { label: string; icon?: ReactNode; tone: 'ink' | 'or' | 'o'; onClick?: () => void; disabled?: boolean }
 
 /**
- * Takvim randevu kartından açılan sekmeli panel:
- *  • Özet     — randevu detayı, faz aksiyonu (Müşteri Geldi / …), Düzenle/İptal.
- *  • Adisyon  — hesap (hizmet + ürünler + indirim) ve Kasa'ya tahsilat.
- *  • Müşteri  — geçmiş randevular, LTV, paketler, not.
- * Varsayılan sekme faza göre: tamamlanmış+ödenmemiş → doğrudan Adisyon;
- * diğer hâllerde Özet (resepsiyonist önce detaya/aksiyona bakar).
+ * Randevu penceresi — takvimde (ve panoda) bir randevuya tıklayınca sağdan
+ * açılan çekmece. Tasarım: "Luera Masaustu - Randevu Penceresi v1"
+ * (docs/randevu-penceresi-claude-design-prompt.md, 2026-11-08).
+ *
+ * Sekme yok: A kimlik · B zaman ve yer · C durum + sıradaki adım (sabit) ·
+ * D hesap → müşteri (kendi içinde kayar) · E iptal (sabit). Davranış eski
+ * pencereyle aynı (tahsilat, geri al, gelmedi, iptal + WhatsApp haberi);
+ * değişen görünüm ve yerleşim.
  */
 export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
     const navigate = useNavigate();
@@ -60,25 +84,17 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
     const { allCustomers } = useCustomers();
     const { staff } = useStaff();
     const staffName = (id?: string) => (id ? staff.find(s => s.id === id)?.name : undefined);
-    const { forCustomer } = useCustomerPackages();
+    const { packages } = useOrgPackages();
+    const isDental = settings.sector === 'dis';
+    const K = isDental ? 'Hasta' : 'Müşteri';
+    const kDat = isDental ? 'Hastaya' : 'Müşteriye';
 
-    // Faza-duyarlı varsayılan sekme: tamamlanmış ama ödenmemiş → tahsilat amacı (Adisyon),
-    // diğer tüm hâllerde önce Özet açılır.
-    const [tab, setTab] = useState<'ozet' | 'adisyon' | 'musteri'>(
-        r.status === 'completed' && !r.isPaid ? 'adisyon' : 'ozet',
-    );
     const [lines, setLines] = useState<{ productId: string; name: string; price: number }[]>([]);
     const [discStr, setDiscStr] = useState('');
     const [method, setMethod] = useState<PaymentMethod>('cash');
+    const [picking, setPicking] = useState(false);
     // Durum satırındaki "45 dk sonra / 3 gün önce" için açılış anı (render saf kalsın)
     const [nowMs] = useState(() => Date.now());
-
-    const T = {
-        ink: 'var(--dc-ink)', muted: 'var(--dc-muted)', muted2: 'var(--dc-muted2)',
-        surface: 'var(--dc-surface)', surface2: 'var(--dc-surface2)', surface3: 'var(--dc-surface3)',
-        border: 'var(--dc-border)', border2: 'var(--dc-border2)', orange: '#FF5A1F',
-        green: 'var(--dc-green)',
-    };
 
     const customer = allCustomers.find(c => c.id === r.customerId);
     const svcPrice = (x: Reservation) => reservationPrice(x, settings.services);
@@ -86,7 +102,7 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
     // Çoklu hizmet booking'i: aynı group_id'li satırların hepsi tek birleşik adisyonda.
     const groupRes = useMemo(() => {
         if (!r.groupId) return [r];
-        // Modalın açıldığı satır realtime listeye henüz düşmemiş olsa bile grup
+        // Pencerenin açıldığı satır realtime listeye henüz düşmemiş olsa bile grup
         // hesabından ve toplu geri almadan kaybolmasın.
         const byId = new Map(
             [...reservations.filter((item) => item.groupId === r.groupId), r]
@@ -105,11 +121,12 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
 
     // Adisyon satırları: her randevu için hizmet + personelin canlı eklediği kalemler.
     const baseRows = groupRes.flatMap(x => [
-        { name: x.service, sub: x.staffName || 'Hizmet', price: svcPrice(x) },
+        { name: x.service, sub: `${x.startTime}–${x.endTime}${x.staffName ? ` · ${x.staffName}` : ''}`, price: svcPrice(x), tag: undefined as string | undefined },
         ...(x.adisyonItems || []).map(it => ({
             name: it.name,
-            sub: it.kind === 'product' ? 'Ürün' : it.kind === 'material' ? 'Malzeme' : 'Ekstra',
+            sub: x.staffName ? `${x.staffName} seans sırasında ekledi` : 'Seans sırasında eklendi',
             price: it.price,
+            tag: it.kind === 'product' ? 'Ürün' : it.kind === 'material' ? 'Malzeme' : 'Ekstra',
         })),
     ]);
     const baseTotal = baseRows.reduce((s, row) => s + row.price, 0);
@@ -132,6 +149,7 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
     const addLine = (id: string) => {
         const p = products.find(x => x.id === id);
         if (p) setLines(prev => [...prev, { productId: p.id, name: p.name, price: p.price }]);
+        setPicking(false);
     };
 
     const collect = async () => {
@@ -162,9 +180,8 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
         if (updates.every(Boolean)) toast.success(resPayments.length > 0 ? 'Tahsilat geri alındı' : 'Ücretsiz tamamlama geri alındı');
     };
 
-    // ── Özet: faz + birincil aksiyon ──
+    // ── Faz + eylemler ──
     const phase = apptPhase(r);
-    const primary = primaryAction(phase);
     const confirmReservation = async () => {
         const updated = await updateReservation(r.id, { status: 'confirmed' });
         if (updated) toast.success('Randevu onaylandı');
@@ -174,7 +191,7 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
         const updated = await updateReservation(r.id, { customerArrivedAt: new Date().toISOString(), ...(r.noShowAt ? { noShowAt: null } : {}) });
         if (updated) toast.success(r.staffName
             ? `${r.staffName} bilgilendirildi`
-            : `${settings.sector === 'dis' ? 'Hasta' : 'Müşteri'} geldi olarak işaretlendi`);
+            : `${K} geldi olarak işaretlendi`);
     };
     // Gelmedi: randevu iptal EDİLMEZ, damga basılır (098) — raporlar ve
     // telefon aynı durumu görür. Yanlış basılırsa toast'tan geri alınır.
@@ -223,407 +240,439 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
     const hasServiceRows = baseRows.length > 0;
     const completeFree = async () => {
         const updates = await Promise.all(groupRes.map((item) => updateReservation(item.id, { isPaid: true, status: 'completed' })));
-        if (updates.every(Boolean)) toast.success('Ücretsiz tamamlandı');
+        if (updates.every(Boolean)) toast.success(cashOn ? 'Ücretsiz tamamlandı' : 'Randevu tamamlandı');
     };
 
-    // Müşteri sekmesi verileri
+    // ── Müşteri verileri ──
+    const groupIds = useMemo(() => new Set(groupReservationIds), [groupReservationIds]);
     const history = useMemo(
-        () => (r.customerId ? reservations.filter(x => x.customerId === r.customerId).sort((a, b) => b.date.localeCompare(a.date)) : []),
+        () => (r.customerId ? reservations.filter(x => x.customerId === r.customerId).sort((a, b) => (b.date + b.startTime).localeCompare(a.date + a.startTime)) : []),
         [reservations, r.customerId],
     );
+    const others = useMemo(() => history.filter(h => !groupIds.has(h.id)), [history, groupIds]);
+    const isNewCustomer = Boolean(r.customerId) && others.length === 0;
     const realSpent = r.customerId ? totalForCustomer(r.customerId) : 0;
     const estSpent = history.filter(h => h.status === 'completed').reduce((s, h) => s + (settings.services.find(sv => sv.name === h.service)?.price || 0), 0);
     const ltv = realSpent > 0 ? realSpent : estSpent;
-    const pkgs = r.customerId ? forCustomer(r.customerId) : [];
-
-    const inputCss = { padding: '9px 11px', borderRadius: 9, border: `1px solid ${T.border2}`, background: T.surface2, color: T.ink, fontSize: 13.5, outline: 'none' } as const;
-
-    // ── Özet: saat kutusu ve durum satırı ──
-    const startAt = new Date(`${r.date}T${r.startTime}:00`);
+    const plans = useMemo(
+        () => (r.customerId ? packages.filter(p => p.customerId === r.customerId && p.status !== 'cancelled') : []),
+        [packages, r.customerId],
+    );
+    // Paket = çok seanslı ve süren plan; diş sektöründe bu "tedavi"dir, paket çipi çıkmaz.
+    const activePkgs = isDental ? [] : plans.filter(p => p.status === 'active' && p.sessionCount > 1);
+    const finance = useMemo(() => computePatientFinance(
+        plans.map(p => ({ id: p.id, totalAmount: p.totalAmount, status: p.status })),
+        r.customerId ? payments.filter(p => p.customerId === r.customerId) : [],
+    ), [plans, payments, r.customerId]);
     const todayStr = toISODate(new Date(nowMs));   // yerel gün (UTC gece yarısı kayması olmasın)
-    const dayLabel = r.date === todayStr ? 'Bugün' : startAt.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' });
-    const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
-    const durMin = Math.max(0, toMin(r.endTime) - toMin(r.startTime));
+    const lastVisit = others.find(h => h.status === 'completed' && h.date <= todayStr);
+    // Tercih: WhatsApp asistanının müşteri kartıyla aynı hesap (tekrar etmeyen tercih yazılmaz).
+    const pref = useMemo(() => {
+        const visits = others
+            .filter(h => h.status === 'completed' && h.date <= todayStr)
+            .map(h => ({ date: h.date, start_time: h.startTime, service: h.service, staff_id: h.staffId ?? null }));
+        if (visits.length < 2) return null;
+        const card = buildCustomerCard(visits, new Map(staff.map(s => [s.id, s.name])));
+        const parts = [
+            card.topService ? `En sık: ${card.topService.name}` : null,
+            card.topStaff ? `${withTitle(card.topStaff.name.split(' ')[0]) ?? card.topStaff.name} ile` : null,
+            card.usualDay || card.usualTime ? `genelde ${[card.usualDay, card.usualTime].filter(Boolean).join(' ')}` : null,
+        ].filter(Boolean);
+        return parts.length ? parts.join(' · ') : null;
+    }, [others, staff, todayStr]);
+
+    // ── B: zaman ve yer ──
+    const first = groupRes[0];
+    const last = groupRes[groupRes.length - 1];
+    const startAt = new Date(`${r.date}T${first.startTime}:00`);
+    const durMin = groupRes.reduce((s, x) => s + Math.max(0, toMin(x.endTime) - toMin(x.startTime)), 0);
+    const tomorrowStr = toISODate(new Date(nowMs + 86_400_000));
+    const yesterdayStr = toISODate(new Date(nowMs - 86_400_000));
+    const rel = r.date === todayStr ? 'Bugün' : r.date === tomorrowStr ? 'Yarın' : r.date === yesterdayStr ? 'Dün' : null;
+    const dayLine = rel ? `${rel} · ${longDate(r.date)}` : longDate(r.date);
+    const staffNames = [...new Set(groupRes.map(x => x.staffName).filter(Boolean))].join(', ');
+    const svcLine = isGroup
+        ? `${groupRes.length} hizmet${staffNames ? ` · ${staffNames}` : ''}`
+        : `${r.service}${r.staffName ? ` · ${r.staffName}` : ''}`;
     const diffMin = Math.round((startAt.getTime() - nowMs) / 60_000);
     const ago = (m: number) => { const a = Math.abs(m); return a < 60 ? `${a} dk` : a < 1440 ? `${Math.round(a / 60)} saat` : `${Math.round(a / 1440)} gün`; };
-    const status: { title: string; detail: string; color: string; bg: string } = (() => {
+    // "16:02’de", "16:30’da" — ek okunuşa göre (tr.ts)
+    const at = (iso?: string | null) => { const t = hhmm(iso); return t ? `${t}${timeLocative(t).replace("'", '’')}` : ''; };
+
+    // ── D: hesap ──
+    const [hesapOpen, setHesapOpen] = useState(phase === 'done' && !isPaid);
+    const dDRef = useRef<HTMLDivElement>(null);
+    const hesapRef = useRef<HTMLDivElement>(null);
+    const openHesap = () => {
+        setHesapOpen(true);
+        window.setTimeout(() => {
+            if (dDRef.current && hesapRef.current) dDRef.current.scrollTo({ top: hesapRef.current.offsetTop - 8, behavior: 'smooth' });
+        }, 30);
+    };
+    const payBtn: Btn = !cashOn
+        ? (hasServiceRows
+            ? { label: 'Randevuyu Tamamla', icon: <Check size={16} />, tone: 'ink', onClick: completeFree }
+            : { label: 'Hizmet ekleyin', tone: 'ink', disabled: true })
+        : net > 0
+            ? { label: `${fmt(net)} ₺ Tahsil Et`, icon: <Wallet size={16} />, tone: 'or', onClick: collect }
+            : hasServiceRows
+                ? { label: 'Ücretsiz Tamamla', icon: <Check size={16} />, tone: 'ink', onClick: completeFree }
+                : { label: 'Tutar yok', tone: 'ink', disabled: true };
+
+    // ── C: durum + sıradaki adım ──
+    const reschedule: Btn[] = onEdit ? [{ label: 'Başka güne al', icon: <CalendarClock size={16} />, tone: 'o', onClick: () => { onEdit(r); onClose(); } }] : [];
+    const st: { tone: Tone; w: string; x?: string; d: string; btn?: Btn; alt?: Btn[] } = (() => {
         switch (phase) {
-            case 'pending': return { title: 'Onay bekliyor', detail: 'Randevu henüz onaylanmadı.', color: 'var(--dc-amber)', bg: 'var(--dc-amber-bg)' };
+            case 'pending':
+                return {
+                    tone: 'pend', w: PHASE_LABEL.pending, x: diffMin > 0 ? `${ago(diffMin)} sonra` : undefined,
+                    d: 'Randevu henüz onaylanmadı.',
+                    btn: { label: 'Randevuyu Onayla', icon: <Check size={16} />, tone: 'ink', onClick: confirmReservation },
+                };
             case 'missed': return r.noShowAt
-                ? { title: 'Gelmedi', detail: 'Gelmedi olarak kaydedildi. Müşteri gelirse "Geldi, geç kaldı" ile devam edin.', color: 'var(--dc-red)', bg: 'var(--dc-red-bg)' }
-                : { title: 'Gelmedi', detail: `Randevu saati ${ago(diffMin)} önce geçti, geldi kaydı yok.`, color: 'var(--dc-red)', bg: 'var(--dc-red-bg)' };
-            case 'inService': return { title: 'Hizmette', detail: 'Seans sürüyor; bitince tamamla ve tahsil et.', color: 'var(--dc-orange-d)', bg: 'var(--dc-orange-soft)' };
+                ? {
+                    tone: 'late', w: PHASE_LABEL.missed, x: 'kaydedildi',
+                    d: `Gelmedi olarak kaydedildi. ${K} gelirse “Geldi, geç kaldı” ile devam edin.`,
+                    btn: { label: 'Geldi, geç kaldı', icon: <Check size={16} />, tone: 'ink', onClick: markArrived },
+                    alt: reschedule,
+                }
+                : {
+                    tone: 'late', w: PHASE_LABEL.missed, x: `${ago(diffMin)} geçti`,
+                    d: `Randevu saati ${ago(diffMin)} önce geçti.`,
+                    btn: { label: 'Gelmedi olarak kapat', icon: <UserX size={16} />, tone: 'ink', onClick: markNoShow },
+                    alt: [{ label: 'Geldi, geç kaldı', icon: <Check size={16} />, tone: 'o', onClick: markArrived }, ...reschedule],
+                };
+            case 'inService':
+                return {
+                    tone: 'run', w: PHASE_LABEL.inService, x: r.arrivedAt ? `${at(r.arrivedAt)} başladı` : undefined,
+                    d: cashOn ? 'Seans sürüyor. Bitince tamamlayıp tahsil edin.' : 'Seans sürüyor. Bitince tamamlayın.',
+                    btn: !cashOn || hesapOpen ? payBtn : { label: 'Tamamla & Tahsilat', icon: <Wallet size={16} />, tone: 'or', onClick: openHesap },
+                };
             case 'done': return isPaid
-                ? { title: 'Tamamlandı · ödendi', detail: 'Seans kapandı.', color: T.green, bg: 'var(--dc-green-bg)' }
-                : { title: 'Tamamlandı · tahsilat bekliyor', detail: 'Hesap Kasa\'da kapanınca seans tamamen biter.', color: 'var(--dc-orange-d)', bg: 'var(--dc-orange-soft)' };
-            case 'cancelled': return { title: 'İptal edildi', detail: 'Bu randevu takvimde yer tutmuyor.', color: T.muted, bg: T.surface2 };
+                ? { tone: 'paid', w: PHASE_LABEL.done, x: cashOn ? 'ödendi' : undefined, d: 'Seans kapandı.' }
+                : { tone: 'due', w: PHASE_LABEL.done, x: 'tahsilat bekliyor', d: 'Hesap Kasa’da kapanınca seans biter.', btn: payBtn };
+            case 'cancelled':
+                return { tone: 'cx', w: 'İptal edildi', d: 'Takvimde yer tutmuyor.' };
             default: return r.customerArrivedAt
-                ? { title: 'Müşteri geldi · bekliyor', detail: r.staffName ? `${r.staffName} haberdar edildi.` : 'Hizmete başlanmayı bekliyor.', color: T.green, bg: 'var(--dc-green-bg)' }
-                : { title: diffMin > 0 ? `Onaylandı · ${ago(diffMin)} sonra` : 'Onaylandı · şimdi', detail: 'Müşteri gelince "Müşteri geldi"ye basın.', color: 'var(--dc-blue)', bg: 'var(--dc-blue-bg)' };
+                ? {
+                    tone: 'here', w: `${K} geldi · bekliyor`, x: `${at(r.customerArrivedAt)} geldi`,
+                    d: r.staffName ? `${r.staffName} haberdar edildi.` : 'Hizmete başlanmayı bekliyor.',
+                    btn: hesapOpen ? payBtn : { label: 'Hesabı aç', icon: <Wallet size={16} />, tone: 'ink', onClick: openHesap },
+                }
+                : {
+                    tone: 'ok', w: PHASE_LABEL.upcoming, x: diffMin > 0 ? `${ago(diffMin)} sonra` : 'şimdi',
+                    d: `${K} gelince “${K} Geldi”ye basın.`,
+                    btn: { label: `${K} Geldi`, icon: <Check size={16} />, tone: 'ink', onClick: markArrived },
+                };
         }
     })();
-    // Birincil koyu düğme koyu temada TERS (krem zemin) — koyu kahve kartta kayboluyordu
-    const inv = dark
-        ? { bg: '#F3EDE3', fg: '#141210', sub: 'rgba(20,18,16,.6)', chip: 'rgba(20,18,16,.08)' }
-        : { bg: 'var(--dc-inkbox)', fg: 'var(--dc-inkbox-fg)', sub: 'rgba(243,237,227,.62)', chip: 'rgba(255,255,255,.14)' };
-    const btnCss = { display: 'inline-flex', alignItems: 'center', gap: 7, height: 40, padding: '0 14px', borderRadius: 11, border: `1px solid ${T.border2}`, background: 'var(--dc-card)', color: T.ink, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', justifyContent: 'center' } as const;
-    const bigCss = { width: '100%', height: 46, marginTop: 14, borderRadius: 12, border: 'none', fontSize: 15, fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 } as const;
-    const choiceCss = { display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, border: `1px solid ${T.border2}`, background: 'var(--dc-card)', color: T.ink, textAlign: 'left', cursor: 'pointer', width: '100%' } as const;
-    const choiceIcon = { width: 32, height: 32, borderRadius: 9, display: 'grid', placeItems: 'center', flexShrink: 0 } as const;
-    const choiceTitle = { display: 'block', fontSize: 14.5, fontWeight: 750 } as const;
-    const choiceSub = { display: 'block', fontSize: 12.5, color: T.muted, marginTop: 1 } as const;
-    const linkCss = { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: T.muted, fontSize: 13.5, fontWeight: 700, cursor: 'pointer', padding: '6px 2px' } as const;
+    // Diş: hasta ziyareti birincilin yanında ikincil düğme
+    const dentalBtn: Btn | null = isDental && phase !== 'cancelled'
+        ? { label: 'Hasta Ziyaretini Aç', icon: <ArrowRight size={15} />, tone: 'o', onClick: openDentalVisit }
+        : null;
+    const T = TONE[st.tone];
+    const altBtns = [...(st.alt ?? []), ...(dentalBtn ? [dentalBtn] : [])];
+    // Diş + tek birincil: yan yana (1fr auto); gelmedi: birincil üstte, ikinciller altta
+    const cbsClass = !st.btn ? ' one' : dentalBtn && !(st.alt?.length) ? ' two' : '';
+
+    // ── A: çipler ──
+    const chips: { icon: ReactNode; text: string; color?: string }[] = [];
+    if (r.source === 'whatsapp') chips.push({ icon: <MessageCircle size={14} />, text: 'WhatsApp’tan' });
+    else if (r.source === 'booking') chips.push({ icon: <Globe size={14} />, text: 'Online randevu' });
+    else if (r.source === 'leadflow') chips.push({ icon: <Globe size={14} />, text: 'LeadFlow’dan' });
+    if ((phase === 'upcoming' || phase === 'pending') && r.customerConfirm === 'yes') chips.push({ icon: <Check size={14} />, text: 'Gelirim dedi', color: 'var(--gr)' });
+    if ((phase === 'upcoming' || phase === 'pending') && r.customerConfirm === 'no') chips.push({ icon: <X size={14} />, text: 'Gelemem dedi', color: 'var(--rd)' });
+    if (finance.balance > 0) chips.push({ icon: <Wallet size={14} />, text: `Borç ${tl(finance.balance)}`, color: 'var(--rd)' });
+    if (activePkgs.length === 1) chips.push({ icon: <Layers size={14} />, text: `Paket · ${Math.max(0, activePkgs[0].sessionCount - activePkgs[0].sessionsDone)}/${activePkgs[0].sessionCount} kaldı` });
+    else if (activePkgs.length > 1) chips.push({ icon: <Layers size={14} />, text: `${activePkgs.length} paket` });
+    if (lastVisit) chips.push({ icon: <Clock size={14} />, text: `Son ziyaret ${shortDate(lastVisit.date)}` });
+    const initials = r.customerName.split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toLocaleUpperCase('tr');
+
+    // ── Geçmiş: yaklaşan ve geçmiş ayrı, insan diliyle ──
+    const nowKey = `${todayStr} ${new Date(nowMs).toTimeString().slice(0, 5)}`;
+    const upcomingList = others.filter(h => h.status !== 'cancelled' && `${h.date} ${h.startTime}` >= nowKey).reverse().slice(0, 4);
+    const pastList = others.filter(h => !upcomingList.includes(h)).slice(0, Math.max(0, 8 - upcomingList.length));
+    const histKind = (h: Reservation): [string, string] => {
+        const p = apptPhase(h, { now: new Date(nowMs) });
+        if (p === 'done') return ['Tamamlandı', 'var(--gr)'];
+        if (p === 'cancelled') return ['İptal', 'var(--m1)'];
+        if (p === 'missed') return ['Gelmedi', 'var(--rd)'];
+        return [PHASE_LABEL[p], 'var(--tx)'];
+    };
+    const histRow = (h: Reservation) => {
+        const [label, color] = histKind(h);
+        return (
+            <div className="hi" key={h.id}>
+                <div className="a"><span className="d">{longDate(h.date)} · {h.startTime}</span><span className="s">{h.service}</span></div>
+                <span className="k" style={{ color }}>{label}</span>
+            </div>
+        );
+    };
+
+    // ── Konum: perde üst çubuğun altından, seçili blok delikten görünür ──
+    const [geo, setGeo] = useState<{ top: number; hole: { l: number; t: number; w: number; h: number } | null }>({ top: 0, hole: null });
+    useLayoutEffect(() => {
+        const update = () => {
+            const bar = document.querySelector('[data-cal-topbar]');
+            const top = bar ? Math.max(0, bar.getBoundingClientRect().bottom + 6) : 0;
+            const el = document.querySelector(`[data-res-id="${CSS.escape(r.id)}"]`);
+            const b = el?.getBoundingClientRect();
+            setGeo({ top, hole: b && b.width > 0 ? { l: b.left, t: b.top - top, w: b.width, h: b.height } : null });
+        };
+        update();
+        // Takvim açılışta hâlâ yerleşiyor olabilir (görünüm değişimi, realtime); kısa bir gecikmeyle bir kez daha ölç.
+        const late = window.setTimeout(update, 250);
+        window.addEventListener('resize', update);
+        window.addEventListener('scroll', update, true);
+        return () => { window.clearTimeout(late); window.removeEventListener('resize', update); window.removeEventListener('scroll', update, true); };
+    }, [r.id]);
+
+    // ── Klavye: Esc önce açık olanı, sonra pencereyi kapatır; açılışta odak pencerede ──
+    const dwRef = useRef<HTMLElement>(null);
+    const keepRef = useRef<HTMLButtonElement>(null);
+    useEffect(() => { dwRef.current?.focus(); }, []);
+    useEffect(() => { if (confirmCancel) keepRef.current?.focus(); }, [confirmCancel]);
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return;
+            e.stopPropagation();
+            if (picking) setPicking(false);
+            else if (confirmCancel) setConfirmCancel(false);
+            else onClose();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [confirmCancel, picking, onClose]);
+    // Enter birincili tetiklemez — yanlışlıkla tahsilat olmasın (yalnız tıklama ve Boşluk)
+    const noEnter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') e.preventDefault(); };
+    const button = (b: Btn, primary = false) => (
+        <button type="button" key={b.label} className={`b44 ${b.tone}`} disabled={b.disabled} onClick={b.onClick}
+            onKeyDown={primary ? noEnter : undefined} data-primary={primary ? '1' : undefined}>
+            {b.tone !== 'o' && b.icon}{b.label}{b.tone === 'o' && b.icon}
+        </button>
+    );
+    const cancelLines = [
+        'Saat boşa çıkar.',
+        ...(r.customFields?.paket_plan_id ? ['Paket hakkı kullanılmamış sayılır.'] : []),
+        ...(isPaid ? ['Alınan ödeme Kasa’da kalır.'] : []),
+    ];
+    const discPct = subtotal > 0 && discount > 0 ? `%${Math.round((discount / subtotal) * 100)}` : null;
+    const showPayFields = hesapOpen && phase !== 'cancelled';
 
     return (
-        <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-            <div onClick={e => e.stopPropagation()} className={dark ? 'dash-theme dark' : 'dash-theme'} style={{ width: '100%', maxWidth: 460, maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 18, boxShadow: '0 20px 60px rgba(0,0,0,0.45)', overflow: 'hidden', color: T.ink }}>
+        <div className={`rcw${dark ? ' dark' : ''}`}>
+            <div className={`rcw-scr${geo.hole ? '' : ' full'}`} style={{ top: geo.top }} onClick={onClose} aria-hidden="true">
+                {geo.hole && <div className="rcw-hole" style={{ left: geo.hole.l, top: geo.hole.t, width: geo.hole.w, height: geo.hole.h }} />}
+            </div>
+            <section ref={dwRef} className={`rcw-dw${confirmCancel ? ' cfo' : ''}`} role="dialog" aria-modal="true"
+                aria-label={`${K} randevusu · ${r.customerName}`} tabIndex={-1} style={{ top: geo.top ? geo.top + 6 : 16 }}>
+                <span className="rcw-grab" />
 
-                {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 18px', borderBottom: `1px solid ${T.border}` }}>
-                    <div style={{ width: 42, height: 42, borderRadius: 12, background: T.surface3, border: `1px solid ${T.border2}`, display: 'grid', placeItems: 'center', flexShrink: 0, fontWeight: 800, fontSize: 15 }}>
-                        {r.customerName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.customerName}</div>
-                        <div style={{ fontSize: 13.5, color: T.muted, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{isGroup ? `${groupRes.length} hizmet · ${groupRes.map(x => x.staffName).filter(Boolean).join(', ')}` : [r.service, r.customFields?.paket_seans ? `paket ${r.customFields.paket_seans}` : null, r.staffName].filter(Boolean).join(' · ')}</div>
-                    </div>
-                    {isPaid && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 800, color: T.green, background: 'var(--dc-green-bg)', borderRadius: 999, padding: '4px 10px' }}><Check size={13} /> Ödendi</span>}
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, padding: 4, marginLeft: 4 }}><X size={20} /></button>
-                </div>
-
-                {/* Tabs */}
-                <div style={{ display: 'flex', gap: 4, margin: '12px 16px 0', padding: 3, borderRadius: 11, background: T.surface2 }}>
-                    {([
-                        { key: 'ozet', label: 'Özet', icon: <ClipboardList size={15} /> },
-                        { key: 'adisyon', label: 'Adisyon', icon: <Wallet size={15} /> },
-                        { key: 'musteri', label: settings.sector === 'dis' ? 'Hasta' : 'Müşteri', icon: <User size={15} /> },
-                    ] as const).map(t => (
-                        <button key={t.key} onClick={() => setTab(t.key)} style={{
-                            flex: 1, padding: '8px', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', border: 'none',
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                            background: tab === t.key ? 'var(--dc-card)' : 'transparent', color: tab === t.key ? T.ink : T.muted,
-                            boxShadow: tab === t.key ? '0 1px 2px rgba(0,0,0,.1)' : 'none',
-                        }}>
-                            {t.icon}{t.label}
-                        </button>
-                    ))}
-                </div>
-
-                <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-                    {tab === 'ozet' ? (
-                        <>
-                            {/* Ne zaman — saat kutusu */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}` }}>
-                                <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>{r.startTime}</span>
-                                <span style={{ fontSize: 13, color: T.muted, lineHeight: 1.35 }}>
-                                    {dayLabel} · {durMin} dk<br />{r.startTime}–{r.endTime}
-                                </span>
+                {/* A · kimlik */}
+                <div className="dA">
+                    <span className={`av${isNewCustomer ? ' nw' : ''}`}>{initials || '?'}</span>
+                    <div className="who">
+                        <span className="ey">{isNewCustomer ? `Yeni ${K.toLocaleLowerCase('tr')}` : K}</span>
+                        <h3 className="nm">{r.customerName}</h3>
+                        {chips.length > 0 && (
+                            <div className="chips">
+                                {chips.map(c => <span key={c.text} className="cp"><span className="ic">{c.icon}</span><span style={c.color ? { color: c.color } : undefined}>{c.text}</span></span>)}
                             </div>
+                        )}
+                    </div>
+                    <div className="hbt">
+                        {onEdit && phase !== 'cancelled' && (
+                            <button type="button" className="b36 o" onClick={() => { onEdit(r); onClose(); }}><Pencil size={14} />Düzenle</button>
+                        )}
+                        <button type="button" className="b36 ic" aria-label="Kapat (Esc)" onClick={onClose}><X size={18} /></button>
+                    </div>
+                </div>
 
-                            {/* Çoklu hizmet — kalemler */}
-                            {isGroup && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
-                                    {groupRes.map((x, i) => (
-                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px', borderRadius: 10, background: T.surface2, border: `1px solid ${T.border}` }}>
-                                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: x.serviceColor || T.orange, flexShrink: 0 }} />
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{x.service}</div>
-                                                <div style={{ fontSize: 12.5, color: T.muted }}>{x.startTime}–{x.endTime}{x.staffName ? ` · ${x.staffName}` : ''}</div>
-                                            </div>
+                {/* B · zaman ve yer */}
+                <div className="dB">
+                    <span className={`ey${rel === 'Bugün' ? ' or' : ''}`}>{dayLine}</span>
+                    <div className="tm">
+                        <span className="tt">{first.startTime}<i>–</i>{last.endTime}</span>
+                        <span className="du">{durMin} dk</span>
+                    </div>
+                    <div className="lc">
+                        <span>{svcLine}</span>
+                        {r.resourceName && <span><DoorOpen size={15} className="ic" />{r.resourceName}</span>}
+                    </div>
+                </div>
+
+                {/* C · durum + sıradaki adım */}
+                <div className={`dC${altBtns.length ? ' col' : ''}`} style={{ background: T.b }}>
+                    <div className="cx">
+                        <div className="cw">
+                            <i style={{ background: T.d || T.c }} />
+                            <b style={{ color: T.c }}>{st.w}</b>
+                            {st.x && <span style={{ color: T.c }}>· {st.x}</span>}
+                        </div>
+                        <p>{st.d}</p>
+                    </div>
+                    {altBtns.length > 0 ? (
+                        <div className={`cbs${cbsClass}`}>
+                            {st.btn && button(st.btn, true)}
+                            {altBtns.map(b => button(b))}
+                        </div>
+                    ) : st.btn && button(st.btn, true)}
+                </div>
+
+                {/* D · hesap → müşteri */}
+                <div className="dD" ref={dDRef}>
+                    {r.notes && (
+                        <div className="sec"><div className="note"><span className="ey">Randevu notu</span><span>{r.notes}</span></div></div>
+                    )}
+
+                    <div className="sec" ref={hesapRef}>
+                        {!cashOn ? (
+                            <>
+                                <div className="sh"><span className="ey">Seans</span><span className="kl">Kasa modülü kapalı · para tutulmaz</span></div>
+                                <div className="hl">
+                                    {baseRows.map((row, i) => (
+                                        <div className="hr" key={i}><div className="hm"><div className="hn">{row.tag && <span className="tg">{row.tag}</span>}<span>{row.name}</span></div><div className="hs">{row.sub}</div></div></div>
+                                    ))}
+                                </div>
+                            </>
+                        ) : isPaid ? (
+                            <>
+                                <div className="sh"><span className="ey">Hesap</span><span className="pd"><Check size={14} />Ödendi</span></div>
+                                <div className="hl">
+                                    {resPayments.map(p => (
+                                        <div className="hr" key={p.id}>
+                                            <div className="hm"><div className="hn"><span>{p.description || 'Tahsilat'}</span></div><div className="hs">{[staffName(p.staffId), PM.find(m => m.key === p.method)?.label].filter(Boolean).join(' · ')}</div></div>
+                                            <div className="hp">{tl(p.amount)}</div>
                                         </div>
                                     ))}
                                 </div>
-                            )}
-
-                            {/* Durum — renkli tek satır + ne anlama geldiği. Eskiden "Gelmedi"
-                                yeşil yazıyordu (renk eşlemesinde yoktu, varsayılana düşüyordu). */}
-                            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 12, padding: '12px 14px', borderRadius: 12, background: status.bg }}>
-                                <span style={{ width: 9, height: 9, borderRadius: '50%', background: status.color, marginTop: 5, flexShrink: 0 }} />
-                                <div>
-                                    <div style={{ fontSize: 14.5, fontWeight: 800, color: status.color }}>{status.title}</div>
-                                    <div style={{ fontSize: 13, color: T.muted, marginTop: 2, lineHeight: 1.4 }}>{status.detail}</div>
-                                </div>
-                            </div>
-
-                            {/* Not */}
-                            {r.notes && (
-                                <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginTop: 10, padding: '11px 13px', borderRadius: 10, background: T.surface2, border: `1px solid ${T.border}` }}>
-                                    <StickyNote size={14} style={{ color: T.muted2, marginTop: 2, flexShrink: 0 }} />
-                                    <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.5 }}>{r.notes}</div>
-                                </div>
-                            )}
-
-                            {confirmCancel ? (
-                                /* İptal onayı — pencerenin içinde */
-                                <div style={{ marginTop: 14, padding: 14, borderRadius: 12, border: '1px solid rgba(201,64,64,.28)', background: 'var(--dc-red-bg)' }}>
-                                    <div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--dc-red)' }}>Bu randevu iptal edilsin mi?</div>
-                                    <div style={{ fontSize: 13, color: T.muted, marginTop: 3, lineHeight: 1.45 }}>
-                                        Saat boşa çıkar.{r.customFields?.paket_plan_id ? ' Paket hakkı kullanılmamış sayılır.' : ''}{isPaid ? ' Alınan ödeme Kasa\'da kalır.' : ''}
-                                    </div>
-                                    {r.customerPhone && (
-                                        <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, fontSize: 13, fontWeight: 600, color: canNotify ? T.ink : T.muted2 }}>
-                                            <input type="checkbox" checked={canNotify && notifyCancel} disabled={!canNotify} onChange={(e) => setNotifyCancel(e.target.checked)} />
-                                            Müşteriye WhatsApp'tan haber ver{canNotify ? '' : ' · WhatsApp bağlı değil'}
-                                        </label>
-                                    )}
-                                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                                        <button onClick={() => setConfirmCancel(false)} style={{ ...btnCss, flex: 1 }}>Vazgeç</button>
-                                        <button onClick={cancelRes} style={{ ...btnCss, flex: 1, background: 'var(--dc-red)', borderColor: 'var(--dc-red)', color: '#fff' }}><Ban size={14} /> İptal et</button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    {/* Gelmedi: ne oldu? — üç sonuç, birincisi koyu */}
-                                    {phase === 'missed' && (
-                                        <>
-                                            <div style={{ margin: '16px 0 8px', fontSize: 13, fontWeight: 700, color: T.muted }}>Ne oldu?</div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                {!r.noShowAt && (
-                                                    <button onClick={markNoShow} style={{ ...choiceCss, background: inv.bg, borderColor: inv.bg, color: inv.fg }}>
-                                                        <span style={{ ...choiceIcon, background: inv.chip }}><UserX size={16} /></span>
-                                                        <span><b style={choiceTitle}>Gelmedi olarak kapat</b><small style={{ ...choiceSub, color: inv.sub }}>Kayıt "gelmedi" diye kalır, raporlara geçer</small></span>
-                                                    </button>
-                                                )}
-                                                <button onClick={markArrived} style={choiceCss}>
-                                                    <span style={{ ...choiceIcon, background: 'var(--dc-green-bg)', color: T.green }}><Check size={16} /></span>
-                                                    <span><b style={choiceTitle}>Geldi, geç kaldı</b><small style={choiceSub}>Seans devam eder{r.staffName ? `, ${r.staffName} haberdar olur` : ''}</small></span>
-                                                </button>
-                                                {onEdit && (
-                                                    <button onClick={() => { onEdit(r); onClose(); }} style={choiceCss}>
-                                                        <span style={{ ...choiceIcon, background: 'var(--dc-blue-bg)', color: 'var(--dc-blue)' }}><RotateCcw size={16} /></span>
-                                                        <span><b style={choiceTitle}>Başka güne al</b><small style={choiceSub}>Aynı hizmetle yeni saat seç</small></span>
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </>
-                                    )}
-
-                                    {/* Diğer durumlar — tek birincil adım */}
-                                    {primary.kind === 'confirm' && (
-                                        <button onClick={confirmReservation} style={{ ...bigCss, background: inv.bg, color: inv.fg }}>
-                                            <Check size={16} /> {primary.label}
-                                        </button>
-                                    )}
-                                    {phase === 'upcoming' && !r.customerArrivedAt && (
-                                        <button onClick={markArrived} style={{ ...bigCss, background: T.green, color: '#fff' }}>
-                                            <Check size={16} /> {primary.label}
-                                        </button>
-                                    )}
-                                    {primary.kind === 'completePay' && !isPaid && (
-                                        <button onClick={() => setTab('adisyon')} style={{ ...bigCss, background: T.orange, color: '#fff' }}>
-                                            <Wallet size={16} /> {primary.label}
-                                        </button>
-                                    )}
-                                    {phase === 'done' && !isPaid && (
-                                        <button onClick={() => setTab('adisyon')} style={{ ...bigCss, background: T.orange, color: '#fff' }}>
-                                            <Wallet size={16} /> Tahsil et
-                                        </button>
-                                    )}
-
-                                    {settings.sector === 'dis' && phase !== 'cancelled' && (
-                                        <button onClick={openDentalVisit} style={{ ...bigCss, background: T.ink, color: 'var(--dc-cream)' }}>
-                                            <Stethoscope size={16} /> Hasta Ziyaretini Aç <ArrowRight size={15} />
-                                        </button>
-                                    )}
-
-                                    {/* Hesap — yalnız para konuşulan durumlarda */}
-                                    {(phase === 'inService' || phase === 'done' || (phase === 'upcoming' && r.customerArrivedAt)) && (
-                                        <button onClick={() => setTab('adisyon')} style={{ ...btnCss, width: '100%', marginTop: 10, justifyContent: 'center' }}>
-                                            <Wallet size={15} /> {isPaid ? 'Adisyonu gör' : 'Adisyona git'} <ArrowRight size={15} />
-                                        </button>
-                                    )}
-                                </>
-                            )}
-                        </>
-                    ) : tab === 'adisyon' ? (
-                        <>
-                            {/* Hesap satırları */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
-                                {baseRows.map((row, i) => <Row key={`b${i}`} label={row.name} sub={row.sub} amount={row.price} T={T} />)}
-                                {(isPaid ? [] : lines).map((l, i) => (
-                                    <Row key={i} label={l.name} sub="Ürün" amount={l.price} T={T} onDel={() => setLines(prev => prev.filter((_, x) => x !== i))} />
-                                ))}
-                                {isPaid && resPayments.length > 0 && resPayments.map(p => (
-                                    <Row key={p.id} label={p.description || 'Tahsilat'} sub={[staffName(p.staffId), PM.find(m => m.key === p.method)?.label].filter(Boolean).join(' · ')} amount={p.amount} T={T} />
-                                ))}
-                            </div>
-
-                            {!isPaid && (
-                                <>
-                                    {/* Ürün ekle */}
-                                    {products.length > 0 && (
-                                        <div style={{ marginBottom: 14 }}>
-                                            <label style={{ fontSize: 11, fontWeight: 700, color: T.muted, display: 'block', marginBottom: 6 }}>Ürün ekle</label>
-                                            <div style={{ display: 'flex', gap: 6 }}>
-                                                <select style={{ ...inputCss, flex: 1 }} value="" onChange={e => { if (e.target.value) addLine(e.target.value); }}>
-                                                    <option value="">Ürün seç…</option>
-                                                    {products.map(p => <option key={p.id} value={p.id}>{p.name} — {fmt(p.price)} ₺</option>)}
-                                                </select>
-                                                <span style={{ display: 'grid', placeItems: 'center', width: 38, borderRadius: 9, background: T.surface3, color: T.muted }}><Plus size={16} /></span>
-                                            </div>
+                                <div className="sums"><div className="sm t2"><span>Tahsil edilen</span><span>{tl(resPayments.reduce((s, p) => s + p.amount, 0) || net)}</span></div></div>
+                                <button type="button" className="b36 q" style={{ margin: '8px 0 0 -10px' }} onClick={undo}><Undo2 size={15} />Ödemeyi geri al</button>
+                            </>
+                        ) : (
+                            <>
+                                <div className="sh"><span className="ey">Hesap</span><span className={`tot${phase === 'cancelled' ? ' mu' : ''}`}>{tl(net)}</span></div>
+                                <div className="hl">
+                                    {baseRows.map((row, i) => (
+                                        <div className="hr" key={`b${i}`}>
+                                            <div className="hm"><div className="hn">{row.tag && <span className="tg">{row.tag}</span>}<span>{row.name}</span></div><div className="hs">{row.sub}</div></div>
+                                            <div className="hp">{tl(row.price)}</div>
                                         </div>
-                                    )}
-
-                                    {/* İndirim + yöntem */}
-                                    <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ fontSize: 11, fontWeight: 700, color: T.muted, display: 'block', marginBottom: 6 }}>İndirim (₺)</label>
-                                            <input style={{ ...inputCss, width: '100%' }} inputMode="numeric" placeholder="0" value={discStr} onChange={e => setDiscStr(e.target.value.replace(/[^0-9]/g, ''))} />
+                                    ))}
+                                    {lines.map((l, i) => (
+                                        <div className="hr" key={`l${i}`}>
+                                            <div className="hm"><div className="hn"><span className="tg">Ürün</span><span>{l.name}</span></div><div className="hs">Masada eklendi</div></div>
+                                            <div className="hp">{tl(l.price)}<button type="button" className="ib" aria-label={`${l.name} kalemini kaldır`} onClick={() => setLines(prev => prev.filter((_, x) => x !== i))}><X size={14} /></button></div>
                                         </div>
-                                        <div style={{ flex: 2 }}>
-                                            <label style={{ fontSize: 11, fontWeight: 700, color: T.muted, display: 'block', marginBottom: 6 }}>Ödeme yöntemi</label>
-                                            <div style={{ display: 'flex', gap: 5 }}>
+                                    ))}
+                                </div>
+                                {phase !== 'cancelled' && products.length > 0 && (
+                                    <>
+                                        <button type="button" className="add" aria-expanded={picking} onClick={() => setPicking(v => !v)}><Plus size={15} className="ic" />Ürün ekle</button>
+                                        {picking && (
+                                            <div className="pick" role="listbox" aria-label="Ürün seç">
+                                                {products.map(p => (
+                                                    <button type="button" role="option" aria-selected={false} key={p.id} onClick={() => addLine(p.id)}><span>{p.name}</span><b>{tl(p.price)}</b></button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                                {showPayFields && (
+                                    <>
+                                        <div className="kv">
+                                            <span className="kl">İndirim</span>
+                                            <span className="fld">
+                                                {discPct && <span className="fh">{discPct}</span>}
+                                                <input className="fi" inputMode="numeric" aria-label="İndirim, lira" placeholder="0 ₺"
+                                                    value={discStr ? `${fmt(discount)} ₺` : ''}
+                                                    onChange={e => setDiscStr(e.target.value.replace(/[^0-9]/g, ''))} />
+                                            </span>
+                                        </div>
+                                        <div className="kv">
+                                            <span className="kl">Ödeme yöntemi</span>
+                                            <div className="seg" role="radiogroup" aria-label="Ödeme yöntemi">
                                                 {PM.map(m => (
-                                                    <button key={m.key} onClick={() => setMethod(m.key)} style={{
-                                                        flex: 1, padding: '9px 4px', borderRadius: 9, fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
-                                                        background: method === m.key ? T.ink : T.surface2, color: method === m.key ? 'var(--dc-cream)' : T.muted,
-                                                        border: `1px solid ${method === m.key ? T.ink : T.border}`,
-                                                    }}>{m.label}</button>
+                                                    <button type="button" key={m.key} role="radio" aria-checked={method === m.key} className={method === m.key ? 'on' : ''} onClick={() => setMethod(m.key)}>{m.label}</button>
                                                 ))}
                                             </div>
                                         </div>
-                                    </div>
-                                </>
-                            )}
-
-                            {/* Toplam */}
-                            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '12px 0', borderTop: `1px solid ${T.border}` }}>
-                                <span style={{ fontSize: 13, fontWeight: 700, color: T.muted }}>{isPaid ? 'Tahsil edilen' : 'Toplam'}</span>
-                                <span style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em', color: isPaid ? T.green : T.orange }}>
-                                    {fmt(isPaid ? resPayments.reduce((s, p) => s + p.amount, 0) || net : net)} <span style={{ fontSize: 15 }}>₺</span>
-                                </span>
-                            </div>
-
-                            {isPaid ? (
-                                <button onClick={undo} style={{ width: '100%', padding: 12, borderRadius: 11, background: T.surface2, border: `1px solid ${T.border2}`, color: T.muted, fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>
-                                    Ödemeyi geri al
-                                </button>
-                            ) : (
-                                // Kasa modülü kapalıyken tahsilat TimeFlow'da tutulmuyordur:
-                                // ödeme kaydı yazan buton gösterilmez, randevu ödeme kaydı
-                                // üretmeden kapatılır (completeFree ile aynı yol).
-                                !cashOn ? (
-                                    hasServiceRows ? (
-                                        <button onClick={completeFree} style={{ width: '100%', padding: 14, borderRadius: 12, background: T.green, color: '#fff', border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
-                                            Randevuyu Tamamla
-                                        </button>
-                                    ) : (
-                                        <button disabled style={{ width: '100%', padding: 14, borderRadius: 12, background: T.surface3, color: T.muted2, border: 'none', fontWeight: 800, fontSize: 15, cursor: 'not-allowed' }}>
-                                            Hizmet ekleyin
-                                        </button>
-                                    )
-                                ) : net > 0 ? (
-                                    <button onClick={collect} style={{ width: '100%', padding: 14, borderRadius: 12, background: T.orange, color: '#fff', border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
-                                        {fmt(net)} ₺ Tahsil Et
-                                    </button>
-                                ) : hasServiceRows ? (
-                                    // Toplam 0 ama hizmet var → ücretsiz işlem; ödeme kaydı olmadan kapat.
-                                    <button onClick={completeFree} style={{ width: '100%', padding: 14, borderRadius: 12, background: T.green, color: '#fff', border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
-                                        Ücretsiz Tamamla
-                                    </button>
-                                ) : (
-                                    <button disabled style={{ width: '100%', padding: 14, borderRadius: 12, background: T.surface3, color: T.muted2, border: 'none', fontWeight: 800, fontSize: 15, cursor: 'not-allowed' }}>
-                                        Tutar yok
-                                    </button>
-                                )
-                            )}
-                        </>
-                    ) : (
-                        <>
-                            {/* LTV */}
-                            <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-                                <Stat label="Yaşam boyu değer" value={`${fmt(ltv)} ₺`} accent T={T} />
-                                <Stat label="Toplam randevu" value={String(history.length)} T={T} />
-                            </div>
-
-                            {/* İletişim */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                                {(customer?.phone || r.customerPhone) && <InfoRow icon={<Phone size={14} />} text={customer?.phone || r.customerPhone} T={T} />}
-                                {customer?.createdAt && <InfoRow icon={<CalendarClock size={14} />} text={`${new Date(customer.createdAt).toLocaleDateString('tr-TR')} tarihinden beri müşteri`} T={T} />}
-                            </div>
-
-                            {/* Paketler */}
-                            {pkgs.length > 0 && (
-                                <div style={{ marginBottom: 16 }}>
-                                    <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>Paketler</div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                        {pkgs.map(p => (
-                                            <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: 9, background: T.surface2, border: `1px solid ${T.border}` }}>
-                                                <span style={{ fontSize: 13, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 7 }}><Package size={14} style={{ color: T.orange }} />{p.name}</span>
-                                                <span style={{ fontSize: 12, color: T.muted, fontWeight: 700 }}>{p.totalSessions - p.usedSessions}/{p.totalSessions} kaldı</span>
+                                        {discount > 0 && (
+                                            <div className="sums">
+                                                <div className="sm"><span>Ara toplam</span><span>{tl(subtotal)}</span></div>
+                                                <div className="sm"><span>İndirim</span><span>−{tl(discount)}</span></div>
+                                                <div className="sm t2"><span>Toplam</span><span>{tl(net)}</span></div>
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                                        )}
+                                    </>
+                                )}
+                            </>
+                        )}
+                    </div>
 
-                            {/* Geçmiş randevular */}
-                            <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>Randevu geçmişi</div>
-                            {history.length === 0 ? (
-                                <div style={{ fontSize: 13, color: T.muted, padding: '10px 0' }}>Kayıtlı geçmiş yok.</div>
+                    {r.customerId && (
+                        <div className="sec">
+                            <div className="sh">
+                                <span className="ey">{K}</span>
+                                <button type="button" className="lk" onClick={() => { onClose(); navigate(`/customers?open=${encodeURIComponent(r.customerId!)}`); }}>{K} kartını aç<ArrowRight size={14} /></button>
+                            </div>
+                            {isNewCustomer ? (
+                                <p className="nw1"><b>Yeni {K.toLocaleLowerCase('tr')}</b> · ilk randevu · geçmiş kayıt yok</p>
                             ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                    {history.slice(0, 8).map(h => (
-                                        <div key={h.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: 9, background: T.surface2, border: `1px solid ${T.border}` }}>
-                                            <div style={{ minWidth: 0 }}>
-                                                <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.service}</div>
-                                                <div style={{ fontSize: 11, color: T.muted }}>{h.date} · {h.startTime}</div>
-                                            </div>
-                                            <span style={{ fontSize: 10.5, fontWeight: 700, color: T.muted2 }}>{h.status === 'completed' ? 'Tamamlandı' : h.status === 'cancelled' ? 'İptal' : 'Onaylı'}</span>
-                                        </div>
-                                    ))}
+                                <div className="stt">
+                                    <div className="sv"><span className="ey">Yaşam boyu değer</span><b>{tl(ltv)}</b></div>
+                                    <div className="sv"><span className="ey">Toplam randevu</span><b>{history.length}</b></div>
+                                    {finance.balance > 0 && <div className="sv"><span className="ey">Bakiye</span><b style={{ color: 'var(--rd)' }}>{tl(finance.balance)} borç</b></div>}
                                 </div>
                             )}
-
-                            {customer?.notes && (
-                                <div style={{ marginTop: 16 }}>
-                                    <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 6 }}>Not</div>
-                                    <div style={{ fontSize: 13, color: T.muted, background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 9, padding: '10px 12px' }}>{customer.notes}</div>
-                                </div>
-                            )}
-                        </>
+                            {activePkgs.map(p => {
+                                const left = Math.max(0, p.sessionCount - p.sessionsDone);
+                                return (
+                                    <div className="pk" key={p.id}>
+                                        <div className="r"><span>{p.title}</span><span>{left}/{p.sessionCount} kaldı</span></div>
+                                        <span className="bar"><i style={{ width: `${(left / p.sessionCount) * 100}%` }} /></span>
+                                    </div>
+                                );
+                            })}
+                            {pref && <div className="ln"><User size={15} className="ic" /><span>{pref}</span></div>}
+                            {(customer?.phone || r.customerPhone)
+                                ? <div className="ln"><Phone size={15} className="ic" /><span>{phoneTR(customer?.phone || r.customerPhone)}</span></div>
+                                : <div className="ln mu"><Phone size={15} className="ic" /><span>Telefon kayıtlı değil</span></div>}
+                            {customer?.createdAt && <div className="ln"><CalendarDays size={15} className="ic" /><span>{new Date(customer.createdAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })} tarihinden beri {K.toLocaleLowerCase('tr')}</span></div>}
+                            {customer?.notes && <div className="cn"><span className="ey">{K} notu</span>{customer.notes}</div>}
+                            {upcomingList.length > 0 && <><div className="hh">Yaklaşan</div>{upcomingList.map(histRow)}</>}
+                            {pastList.length > 0 && <><div className="hh">Geçmiş</div>{pastList.map(histRow)}</>}
+                        </div>
                     )}
                 </div>
 
-                {/* Alt şerit — iptal sade bir bağlantı; basınca pencerede onay ister */}
-                {tab === 'ozet' && phase !== 'cancelled' && !confirmCancel && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px 14px', borderTop: `1px solid ${T.border}` }}>
-                        {onEdit
-                            ? <button onClick={() => { onEdit(r); onClose(); }} style={linkCss}><Pencil size={14} /> Düzenle</button>
-                            : <span />}
-                        <button onClick={() => setConfirmCancel(true)} style={{ ...linkCss, color: 'var(--dc-red)' }}><Ban size={14} /> Randevuyu iptal et</button>
+                {/* E · iptal (alt şerit sade bir bağlantı; basınca onay yaprağı açılır) */}
+                <div className="dE">
+                    {phase !== 'cancelled'
+                        ? <button type="button" className="b36 rd" onClick={() => setConfirmCancel(true)}><Ban size={15} />Randevuyu iptal et</button>
+                        : <span />}
+                    <span className="kh"><kbd>Esc</kbd>kapatır</span>
+                </div>
+
+                {confirmCancel && (
+                    <div className="cf" role="alertdialog" aria-label="İptal onayı">
+                        <h4>Bu randevu iptal edilsin mi?</h4>
+                        <ul>{cancelLines.map(l => <li key={l}>{l}</li>)}</ul>
+                        {r.customerPhone && (
+                            <label className={`ck${canNotify ? '' : ' dis'}`}>
+                                <input type="checkbox" checked={canNotify && notifyCancel} disabled={!canNotify} onChange={(e) => setNotifyCancel(e.target.checked)} />
+                                <span className="bx"><Check size={14} /></span>
+                                <span className="ctx"><b>{kDat} WhatsApp’tan haber ver</b>{canNotify && <span>{phoneTR(r.customerPhone)}</span>}</span>
+                                {!canNotify && <span className="nc">WhatsApp bağlı değil</span>}
+                            </label>
+                        )}
+                        <div className="cfb">
+                            <button type="button" ref={keepRef} className="b44 o" onClick={() => setConfirmCancel(false)}>Vazgeç</button>
+                            <button type="button" className="b44 dg" onClick={cancelRes}><Ban size={16} />Randevuyu iptal et</button>
+                        </div>
                     </div>
                 )}
-            </div>
+            </section>
         </div>
     );
 };
-
-// ── Alt bileşenler ──
-function Row({ label, sub, amount, T, onDel }: { label: string; sub?: string; amount: number; T: ModalTheme; onDel?: () => void }) {
-    return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', borderRadius: 10, background: T.surface2, border: `1px solid ${T.border}` }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
-                {sub && <div style={{ fontSize: 11, color: T.muted }}>{sub}</div>}
-            </div>
-            <span style={{ fontSize: 14, fontWeight: 800 }}>{fmt(amount)} ₺</span>
-            {onDel && <button onClick={onDel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted2, padding: 2 }}><Trash2 size={15} /></button>}
-        </div>
-    );
-}
-function Stat({ label, value, accent, T }: { label: string; value: string; accent?: boolean; T: ModalTheme }) {
-    return (
-        <div style={{ flex: 1, padding: '13px 14px', borderRadius: 12, background: T.surface2, border: `1px solid ${T.border}` }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
-            <div style={{ marginTop: 6, fontSize: 20, fontWeight: 900, letterSpacing: '-0.03em', color: accent ? T.orange : T.ink }}>{value}</div>
-        </div>
-    );
-}
-function InfoRow({ icon, text, T }: { icon: React.ReactNode; text: string; T: ModalTheme }) {
-    return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: T.muted }}>
-            <span style={{ color: T.muted2, display: 'flex' }}>{icon}</span>{text}
-        </div>
-    );
-}

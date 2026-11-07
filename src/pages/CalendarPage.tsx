@@ -207,22 +207,15 @@ export const CalendarPage = () => {
 
     const routerNavigate = useNavigate();
 
-    // Randevu kartına tıklama davranışı. Güzellik salonu modülünde takvim
-    // hızlı-bakış popup'ı (AdisyonModal) kaldırıldı: tık doğrudan müşteri
-    // kartını açar (müşterisiz walk-in'de müşteri listesine düşer). Diğer
-    // sektörlerde eski davranış — modalı açar.
-    //
-    // O kaldırma Düzenle ve İPTAL'i de beraberinde götürmüştü: güzellikte
-    // randevu iptal edecek hiçbir yol kalmamıştı (2026-09-24'te fark edildi).
-    // Tık davranışı bilinçli, ona dokunulmadı; modal artık karttaki ⋯
-    // düğmesinden açılıyor (openReservationDetail).
-    const openReservation = useCallback((r: Reservation) => {
-        if (settings.sector === 'guzellik') {
-            routerNavigate(r.customerId ? `/customers?open=${encodeURIComponent(r.customerId)}` : '/customers');
-            return;
-        }
-        setAdisyonRes(r);
-    }, [settings.sector, routerNavigate]);
+    // Randevu kartına tıklama: her sektörde randevu penceresi (sağdan çekmece).
+    // Güzellikte tık eskiden müşteri kartına gidiyordu; yeni pencere müşteriyi
+    // de gösterdiği için kullanıcı kararıyla (2026-11-08) tık pencereyi açar,
+    // müşteri kartı karttaki ↗ düğmesinde (openCustomerCard) kaldı.
+    const openReservation = useCallback((r: Reservation) => setAdisyonRes(r), []);
+    /** Karttaki ↗ — müşteri kartı (müşterisiz walk-in'de müşteri listesi). */
+    const openCustomerCard = useCallback((r: Reservation) => {
+        routerNavigate(r.customerId ? `/customers?open=${encodeURIComponent(r.customerId)}` : '/customers');
+    }, [routerNavigate]);
 
     /** Karttaki ⋯ — sektör ne olursa olsun randevu detayını açar. */
     const openReservationDetail = useCallback((r: Reservation) => setAdisyonRes(r), []);
@@ -674,8 +667,8 @@ export const CalendarPage = () => {
         <div className={cn("dash-theme calendar-focus-page relative isolate flex-1 flex flex-col overflow-hidden bg-[var(--dc-page)]", dark && "dark")}>
             <div aria-hidden="true" className="pointer-events-none absolute -right-24 top-8 h-64 w-64 rounded-full border border-[#FF5A1F]/10 opacity-70" />
             <div aria-hidden="true" className="pointer-events-none absolute -right-10 top-24 h-36 w-36 rounded-full border-[24px] border-[#FF5A1F]/[0.035]" />
-            {/* Tek Satır Araç Çubuğu */}
-            <div className="relative z-[2] mx-3 mt-3 rounded-[18px] border border-[var(--dc-border)] bg-[var(--dc-surface)] px-3 py-3 shadow-[0_5px_18px_rgba(14,14,14,0.06)] animate-in fade-in slide-in-from-top-2 duration-500 motion-reduce:animate-none sm:mx-5 sm:px-5">
+            {/* Tek Satır Araç Çubuğu — randevu penceresinin perdesi bunun altından başlar (data-cal-topbar) */}
+            <div data-cal-topbar="" className="relative z-[2] mx-3 mt-3 rounded-[18px] border border-[var(--dc-border)] bg-[var(--dc-surface)] px-3 py-3 shadow-[0_5px_18px_rgba(14,14,14,0.06)] animate-in fade-in slide-in-from-top-2 duration-500 motion-reduce:animate-none sm:mx-5 sm:px-5">
                 <div className="flex flex-wrap items-center gap-3">
                     {/* Sol: Dönem navigasyonu */}
                     <div className="flex items-center gap-1">
@@ -1023,6 +1016,7 @@ export const CalendarPage = () => {
                                     resourceTypeLabel={resourceTypeLabel}
                                     workingHours={settings.workingHours || []}
                                     onOpen={(r) => openReservation(r)}
+                                    onCustomer={openCustomerCard}
                                     onDetail={openReservationDetail}
                                     onAddAt={(hour, columnId, groupBy, anchor) => {
                                         openNewAt(toISODate(currentDate), `${String(hour).padStart(2, '0')}:00`, anchor, {

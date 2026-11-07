@@ -138,9 +138,11 @@ const agendaGrid = read('../src/components/reservations/DayAgendaGrid.tsx');
 const calendarPage = read('../src/pages/CalendarPage.tsx');
 const adisyonModal = read('../src/components/reservations/AdisyonModal.tsx');
 
-test('güzellikte tık müşteri kartına gider — bu bilinçli, korunuyor', () => {
-    // Müşteri kartı artık Müşteriler'de o müşteri seçili açılan profil
-    assert.match(calendarPage, /settings\.sector === 'guzellik'[\s\S]{0,160}\/customers\?open=/);
+test('takvimde tık randevu penceresini açar; müşteri kartı ↗ düğmesinde (2026-11-08)', () => {
+    assert.match(calendarPage, /const openReservation = useCallback\(\(r: Reservation\) => setAdisyonRes\(r\), \[\]\);/);
+    assert.match(calendarPage, /const openCustomerCard = useCallback\(\(r: Reservation\) => \{\s*routerNavigate\(r\.customerId \? `\/customers\?open=/);
+    assert.match(calendarPage, /onCustomer=\{openCustomerCard\}/);
+    assert.match(agendaGrid, /\(onCustomer \?\? onOpen\)\(r\)/);
 });
 
 test('ama randevu detayına ULAŞILABİLİR bir kapı var', () => {

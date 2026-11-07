@@ -66,8 +66,10 @@ interface DayAgendaGridProps {
     staff: Staff[];
     resourceTypeLabel: string;
     workingHours: WorkingHours[];
-    /** Karttaki ↗ — müşteri kartı / adisyon */
+    /** Karta tık — randevu penceresi */
     onOpen: (r: Reservation) => void;
+    /** Karttaki ↗ — müşteri kartı. Verilmezse ↗ da onOpen'ı çağırır. */
+    onCustomer?: (r: Reservation) => void;
     /** Karttaki ⋯ — randevu detayı: Düzenle · Onayla · İptal · adisyon.
      *  Güzellikte tık müşteri kartına gidiyor ve bu işlemlerin başka kapısı
      *  yok; iptal buradan ulaşılıyor. Vermeyen çağıran için düğme çizilmez. */
@@ -80,7 +82,7 @@ interface DayAgendaGridProps {
 
 export function DayAgendaGrid({
     dateStr, today, reservations, resources, staff, resourceTypeLabel,
-    workingHours, onOpen, onDetail, onAddAt,
+    workingHours, onOpen, onCustomer, onDetail, onAddAt,
 }: DayAgendaGridProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const gridRef = useRef<HTMLDivElement>(null);
@@ -390,7 +392,7 @@ export function DayAgendaGrid({
                                             {/* Hover köşe aksiyonları */}
                                             <div className="absolute top-[7px] right-[7px] flex gap-0.5 opacity-0 group-hover/appt:opacity-100 group-focus-within/appt:opacity-100 transition-opacity">
                                                 <button type="button" title="Müşteri kartı" aria-label={`${r.customerName} · müşteri kartı`}
-                                                    onClick={(e) => { e.stopPropagation(); setHover(null); onOpen(r); }}
+                                                    onClick={(e) => { e.stopPropagation(); setHover(null); (onCustomer ?? onOpen)(r); }}
                                                     className="w-[22px] h-[22px] rounded-md grid place-items-center text-[var(--dc-muted)] bg-[var(--dc-surface)]/70 backdrop-blur-[2px] hover:bg-[var(--dc-surface2)] hover:text-[var(--dc-ink)] transition-colors">
                                                     <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M7 5h8v8M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
                                                 </button>
