@@ -45,6 +45,8 @@ export const TOOLS: ToolDef[] = [
         description:
             'Bir hizmet için boş saatleri getirir; müşteriye sonuçtaki suggested saatlerini öner. '
             + 'date null ise önümüzdeki boş günleri ve her birinin önerilen saatlerini döner. '
+            + 'Müşteri belirli bir saat söylediyse time alanına yaz: sonuçtaki requested o saatin boş olup '
+            + 'olmadığını ve en yakın boş saatleri söyler. '
             + 'Saat önermeden önce mutlaka bunu çağır; saat uydurma.',
         strict: true,
         input_schema: {
@@ -57,8 +59,9 @@ export const TOOLS: ToolDef[] = [
                     description: 'sabah: 12:00 öncesi · ogle: 12–17 · aksam: 17 sonrası.',
                 }),
                 staff_ref: nullable(STAFF_REF),
+                time: nullable({ ...TIME, description: 'Müşterinin istediği saat (HH:MM); söylemediyse null.' }),
             },
-            required: ['service_ref', 'date', 'part_of_day', 'staff_ref'],
+            required: ['service_ref', 'date', 'part_of_day', 'staff_ref', 'time'],
             additionalProperties: false,
         },
     },

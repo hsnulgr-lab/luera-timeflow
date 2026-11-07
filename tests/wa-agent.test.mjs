@@ -602,3 +602,22 @@ test('bilgi bankası: proxy\'de yalnız sahip/yönetici kaydeder, panel ve sunuc
     const sql = read('supabase/137_wa_bilgi_bankasi.sql');
     assert.match(sql, /ADD COLUMN IF NOT EXISTS knowledge JSONB NOT NULL DEFAULT '\{\}'::jsonb/);
 });
+
+test('find_slots: istenen saat ayrıca sorulur, liste kesilmez (canlı 13:30 hatası, 2026-11-07)', async () => {
+    const { requestedSlot } = await import('../supabase/functions/_shared/agent/guard.ts');
+    // 00:00–23:30, 30 dk ızgara: eskiden ilk 24 saat (00:00–11:30) dönüyordu
+    const day = Array.from({ length: 47 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`);
+    assert.deepEqual(requestedSlot(day, '13:30'), { time: '13:30', available: true, nearest: [] });
+    assert.deepEqual(requestedSlot(day, '13.30'), { time: '13:30', available: true, nearest: [] });
+    const busy = day.filter((t) => t !== '13:30' && t !== '14:00');
+    assert.deepEqual(requestedSlot(busy, '13:30'), { time: '13:30', available: false, nearest: ['12:00', '12:30', '13:00', '14:30'] });
+    assert.equal(requestedSlot(day, null), null);
+    assert.equal(requestedSlot(day, 'öğlen'), null);
+    const handlers = read('supabase/functions/wa-agent/handlers.ts');
+    assert.match(handlers, /all_times: times, total: times\.length/);
+    assert.doesNotMatch(handlers, /times\.slice\(0, 24\)/);
+    assert.match(handlers, /const requested = requestedSlot\(d\.times, str\(input\.time\)\);/);
+    const find = TOOLS.find((t) => t.name === 'find_slots');
+    assert.ok(find.input_schema.required.includes('time'));
+    assert.match(RULES, /Bir saatin dolu olduğunu yalnız requested ya da all_times'a bakarak söyle/);
+});

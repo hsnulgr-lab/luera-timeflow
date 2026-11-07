@@ -284,3 +284,25 @@ export function cleanHistory(history: unknown): unknown[] {
         .filter((m) => m && typeof m === 'object' && 'role' in (m as object))
         .map((m) => ({ ...(m as object), content: cleanContent((m as { content?: unknown }).content) }));
 }
+
+/**
+ * Müşterinin istediği saat boş mu? Liste tam gelir (kesilmez): canlıda
+ * find_slots yalnız ilk 24 saati döndürüyordu, 00:00'da açılan günde 13:30
+ * listede yoktu ve model "uygun yer yok" dedi (2026-11-07). Artık istenen saat
+ * ayrıca sorulur; boş değilse en yakın boş saatler verilir.
+ */
+export function requestedSlot(times: string[], wanted: string | null | undefined): {
+    time: string; available: boolean; nearest: string[];
+} | null {
+    const m = String(wanted ?? '').trim().match(/^(\d{1,2})[:.]?(\d{2})$/);
+    if (!m) return null;
+    const h = Number(m[1]); const mi = Number(m[2]);
+    if (h > 23 || mi > 59) return null;
+    const time = `${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}`;
+    if (times.includes(time)) return { time, available: true, nearest: [] };
+    const toM = (t: string) => { const [a, b] = t.split(':').map(Number); return a * 60 + b; };
+    const w = toM(time);
+    const nearest = [...times].sort((a, b) => Math.abs(toM(a) - w) - Math.abs(toM(b) - w) || toM(a) - toM(b))
+        .slice(0, 4).sort();
+    return { time, available: false, nearest };
+}

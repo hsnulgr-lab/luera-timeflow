@@ -23,7 +23,7 @@ import type { Profile } from '../_shared/agent/profile.ts';
 import type { PastVisit } from '../_shared/agent/customerCard.ts';
 import type { IstanbulClock } from '../_shared/agent/prompt.ts';
 import {
-    commitBlock, filterTimes, PROPOSAL_TTL_MS, refPrefix, shortRef, suggestTimes, type PartOfDay,
+    commitBlock, filterTimes, PROPOSAL_TTL_MS, refPrefix, requestedSlot, shortRef, suggestTimes, type PartOfDay,
 } from '../_shared/agent/guard.ts';
 
 const APP_ORIGIN = 'https://timeflow.lueratech.com';
@@ -212,12 +212,17 @@ async function findSlots(ctx: TurnCtx, input: Input) {
     const w = await loadWindow(ctx.admin, ctx.orgId, date, addDays(date, SEARCH_DAYS - 1));
     const d = daySlots(w, { ...slotInput(ctx, date, svc.duration), onlyStaffId: staffId });
     const times = filterTimes(d.times, part);
+    // İstenen saat gün bölümü süzgecinden bağımsız sorulur: "13:30" derken
+    // part_of_day 'sabah' gelse bile cevap doğru olsun.
+    const requested = requestedSlot(d.times, str(input.time));
     const out: Record<string, unknown> = {
         ok: true, service: svc.name, date, date_label: formatDateTr(date),
-        // Müşteriye bunlar önerilir; all_times yalnız müşteri başka saat
-        // sorarsa bakmak için.
+        ...(requested ? { requested } : {}),
+        // Müşteriye bunlar önerilir; all_times müşteri başka saat sorarsa
+        // bakmak için. KESİLMEZ: ilk 24'e kesilince öğleden sonrası "yok"
+        // sanılıyordu (2026-11-07).
         suggested: suggestTimes(times),
-        all_times: times.slice(0, 24), total: times.length,
+        all_times: times, total: times.length,
     };
     if (times.length === 0) {
         out.day_has_other_times = d.times.length > 0;
