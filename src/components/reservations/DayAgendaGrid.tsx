@@ -70,10 +70,6 @@ interface DayAgendaGridProps {
     onOpen: (r: Reservation) => void;
     /** Karttaki ↗ — müşteri kartı. Verilmezse ↗ da onOpen'ı çağırır. */
     onCustomer?: (r: Reservation) => void;
-    /** Karttaki ⋯ — randevu detayı: Düzenle · Onayla · İptal · adisyon.
-     *  Güzellikte tık müşteri kartına gidiyor ve bu işlemlerin başka kapısı
-     *  yok; iptal buradan ulaşılıyor. Vermeyen çağıran için düğme çizilmez. */
-    onDetail?: (r: Reservation) => void;
     /** Boş saate tıklama — yeni seans */
     /** anchor: tıklanan hücre — takvim mini pencereyi onun yanında açar */
     onAddAt: (hour: number, columnId: string | null, groupBy: 'resource' | 'staff', anchor?: DOMRect) => void;
@@ -82,7 +78,7 @@ interface DayAgendaGridProps {
 
 export function DayAgendaGrid({
     dateStr, today, reservations, resources, staff, resourceTypeLabel,
-    workingHours, onOpen, onCustomer, onDetail, onAddAt,
+    workingHours, onOpen, onCustomer, onAddAt,
 }: DayAgendaGridProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const gridRef = useRef<HTMLDivElement>(null);
@@ -396,13 +392,6 @@ export function DayAgendaGrid({
                                                     className="w-[22px] h-[22px] rounded-md grid place-items-center text-[var(--dc-muted)] bg-[var(--dc-surface)]/70 backdrop-blur-[2px] hover:bg-[var(--dc-surface2)] hover:text-[var(--dc-ink)] transition-colors">
                                                     <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M7 5h8v8M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
                                                 </button>
-                                                {onDetail && (
-                                                    <button type="button" title="Randevu detayı" aria-label={`${r.customerName} · randevu detayı`}
-                                                        onClick={(e) => { e.stopPropagation(); setHover(null); onDetail(r); }}
-                                                        className="w-[22px] h-[22px] rounded-md grid place-items-center text-[var(--dc-muted)] bg-[var(--dc-surface)]/70 backdrop-blur-[2px] hover:bg-[var(--dc-surface2)] hover:text-[var(--dc-ink)] transition-colors">
-                                                        <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><circle cx="4.6" cy="10" r="1.45" fill="currentColor" /><circle cx="10" cy="10" r="1.45" fill="currentColor" /><circle cx="15.4" cy="10" r="1.45" fill="currentColor" /></svg>
-                                                    </button>
-                                                )}
                                             </div>
                                             {/* Süre tutamağı (görsel) */}
                                             {tier === 'full' && (

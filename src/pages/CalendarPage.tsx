@@ -217,9 +217,6 @@ export const CalendarPage = () => {
         routerNavigate(r.customerId ? `/customers?open=${encodeURIComponent(r.customerId)}` : '/customers');
     }, [routerNavigate]);
 
-    /** Karttaki ⋯ — sektör ne olursa olsun randevu detayını açar. */
-    const openReservationDetail = useCallback((r: Reservation) => setAdisyonRes(r), []);
-
     // Seçili (kilitli) müşterinin tam kaydı — modal içinde bağlam göstermek için
     // (medikal uyarı, son ziyaret, kontrol tarihi, diş şeması kısayolu)
     const lockedCustomer = useMemo(
@@ -1017,7 +1014,6 @@ export const CalendarPage = () => {
                                     workingHours={settings.workingHours || []}
                                     onOpen={(r) => openReservation(r)}
                                     onCustomer={openCustomerCard}
-                                    onDetail={openReservationDetail}
                                     onAddAt={(hour, columnId, groupBy, anchor) => {
                                         openNewAt(toISODate(currentDate), `${String(hour).padStart(2, '0')}:00`, anchor, {
                                             ...(groupBy === 'resource' ? { resourceId: columnId } : {}),

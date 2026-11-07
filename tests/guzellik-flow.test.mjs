@@ -145,13 +145,13 @@ test('takvimde tık randevu penceresini açar; müşteri kartı ↗ düğmesinde
     assert.match(agendaGrid, /\(onCustomer \?\? onOpen\)\(r\)/);
 });
 
-test('ama randevu detayına ULAŞILABİLİR bir kapı var', () => {
-    // Kapı ızgaradaki ⋯ düğmesi. `onDetail` bağlı değilse düğme çizilmez ve
-    // güzellik yine iptalsiz kalır — bu yüzden bağlantı da denetleniyor.
-    assert.match(agendaGrid, /onDetail\?: \(r: Reservation\) => void;/);
-    assert.match(agendaGrid, /onClick=\{\(e\) => \{ e\.stopPropagation\(\); setHover\(null\); onDetail\(r\); \}\}/);
-    assert.match(calendarPage, /onDetail=\{openReservationDetail\}/);
-    assert.match(calendarPage, /const openReservationDetail = useCallback\(\(r: Reservation\) => setAdisyonRes\(r\), \[\]\)/);
+test('kartta tek kapı: tık pencereyi açar, ⋯ düğmesi yok (2026-11-08)', () => {
+    // Eskiden güzellikte tık müşteri kartına gidiyordu ve iptale yalnız ⋯ ile
+    // ulaşılıyordu. Artık tık her sektörde randevu penceresini açtığı için ⋯
+    // aynı işi ikinci kez yapıyordu; kaldırıldı.
+    assert.doesNotMatch(agendaGrid, /onDetail/);
+    assert.doesNotMatch(calendarPage, /openReservationDetail/);
+    assert.match(agendaGrid, /onClick=\{\(\) => \{ setHover\(null\); onOpen\(r\); \}\}/);
 });
 
 test('detay modalı SEKTÖRE GÖRE kapatılmamış', () => {
