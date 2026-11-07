@@ -119,3 +119,15 @@ test('gönderen uçlar ortak şablonu çağırır, kendi metnini yazmaz', () => 
     const tpl = read('src/services/waTemplates.ts');
     assert.doesNotMatch(tpl, /Merhaba \$\{|👋/);
 });
+
+test('panelden iptal: tek ses şablonu, kota dışı, Geri Al süresi dolunca gider', () => {
+    const t = M.cancelledByBusiness(CTX, { service: 'ağda', dateLabel: 'Yarın, 8 Kasım Pazar', time: '17:00' });
+    assert.equal(t, 'Merhaba Nisa Hanım ✨\n*Test Salon 2* olarak randevunuzu iptal ettik.\n\n'
+        + '*Hizmet:* ağda\n*Tarih:* Yarın, 8 Kasım Pazar\n*Saat:* 17:00\n\nYeni bir randevu için bu mesaja yazmanız yeterli.');
+    assert.match(read('supabase/functions/_shared/wa.ts'), /'feedback', 'cancellation'\]\);/);
+    const modal = read('src/components/reservations/AdisyonModal.tsx');
+    assert.match(modal, /useState\(true\);\n    const canNotify/);
+    assert.match(modal, /if \(undone\) return;/);
+    assert.match(modal, /sendWhatsApp\(r\.customerPhone, text, 'cancellation'/);
+    assert.doesNotMatch(modal, /yakında, otomatik mesaj/);
+});

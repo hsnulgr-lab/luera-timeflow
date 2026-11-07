@@ -4,6 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { apptPhase, primaryAction } from '@/lib/appointmentFlow';
 import { toast } from 'sonner';
 import { useReservations } from '@/hooks/useReservations';
+import { useWhatsApp } from '@/hooks/useWhatsApp';
+import { sendWhatsApp } from '@/services/whatsapp';
+import { buildCancelMessage } from '@/services/waTemplates';
+import { commsForSector } from '@/lib/sectorProfiles';
+
+/** İptalden sonra "Geri Al" süresi; WhatsApp iptal mesajı bu süre dolunca gider. */
+const CANCEL_UNDO_MS = 8000;
 import { usePayments } from '@/hooks/usePayments';
 import { useProducts } from '@/hooks/useProducts';
 import { useCustomers } from '@/hooks/useCustomers';
@@ -179,11 +186,33 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
     };
     // İptal pencerenin içinde onay ister — tek tıkla yanlışlıkla iptal olmasın
     const [confirmCancel, setConfirmCancel] = useState(false);
+    const { isConnected: waOn } = useWhatsApp();
+    // İptalde müşteriye haber: varsayılan AÇIK (kullanıcı kararı, 2026-11-08).
+    const [notifyCancel, setNotifyCancel] = useState(true);
+    const canNotify = waOn && Boolean(r.customerPhone);
     const cancelRes = async () => {
         const prev = r.status;
         const updated = await updateReservation(r.id, { status: 'cancelled' });
         if (!updated) return;
-        toast('Randevu iptal edildi', { action: { label: 'Geri Al', onClick: () => updateReservation(r.id, { status: prev }) } });
+        // Mesaj "Geri Al" süresi dolunca gider: geri alınan iptal için müşteriye
+        // "iptal ettik" yazılmasın. Pencere kapansa da zamanlayıcı çalışır.
+        const notify = notifyCancel && canNotify;
+        let undone = false;
+        const timer = notify ? window.setTimeout(() => {
+            if (undone) return;
+            const text = buildCancelMessage({
+                customerName: r.customerName, date: r.date, startTime: r.startTime, service: r.service,
+                businessName: settings.businessName, comms: commsForSector(settings.sector),
+            });
+            void sendWhatsApp(r.customerPhone, text, 'cancellation', r.customerId || undefined).then((res) => {
+                if (!res.ok && res.reason !== 'not_connected') toast.error('İptal mesajı gönderilemedi', { description: 'Randevu iptal edildi; müşteriye ayrıca haber verin.' });
+            });
+        }, CANCEL_UNDO_MS) : null;
+        toast('Randevu iptal edildi', {
+            description: notify ? "Müşteriye birkaç saniye içinde WhatsApp'tan haber verilecek." : undefined,
+            duration: CANCEL_UNDO_MS,
+            action: { label: 'Geri Al', onClick: () => { undone = true; if (timer) window.clearTimeout(timer); void updateReservation(r.id, { status: prev }); } },
+        });
         onClose();
     };
     const openDentalVisit = () => {
@@ -331,10 +360,12 @@ export const AdisyonModal = ({ reservation: r, onClose, onEdit }: Props) => {
                                     <div style={{ fontSize: 13, color: T.muted, marginTop: 3, lineHeight: 1.45 }}>
                                         Saat boşa çıkar.{r.customFields?.paket_plan_id ? ' Paket hakkı kullanılmamış sayılır.' : ''}{isPaid ? ' Alınan ödeme Kasa\'da kalır.' : ''}
                                     </div>
-                                    {/* Otomatik WhatsApp iptal mesajı entegrasyonla gelecek (kullanıcı kararı, 2026-10-24) */}
-                                    <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, fontSize: 13, fontWeight: 600, color: T.muted2 }}>
-                                        <input type="checkbox" disabled /> Müşteriye WhatsApp'tan haber ver · yakında, otomatik mesaj
-                                    </label>
+                                    {r.customerPhone && (
+                                        <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, fontSize: 13, fontWeight: 600, color: canNotify ? T.ink : T.muted2 }}>
+                                            <input type="checkbox" checked={canNotify && notifyCancel} disabled={!canNotify} onChange={(e) => setNotifyCancel(e.target.checked)} />
+                                            Müşteriye WhatsApp'tan haber ver{canNotify ? '' : ' · WhatsApp bağlı değil'}
+                                        </label>
+                                    )}
                                     <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                                         <button onClick={() => setConfirmCancel(false)} style={{ ...btnCss, flex: 1 }}>Vazgeç</button>
                                         <button onClick={cancelRes} style={{ ...btnCss, flex: 1, background: 'var(--dc-red)', borderColor: 'var(--dc-red)', color: '#fff' }}><Ban size={14} /> İptal et</button>

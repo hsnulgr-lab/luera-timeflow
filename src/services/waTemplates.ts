@@ -72,6 +72,22 @@ export function buildConfirmationMessage(params: {
     });
 }
 
+/** Panelden iptal — "Müşteriye haber ver" işaretliyse (2026-11-08). */
+export function buildCancelMessage(params: {
+    customerName: string;
+    date: string;
+    startTime: string;
+    service: string;
+    businessName: string;
+    comms?: SectorComms;
+}): string {
+    return M.cancelledByBusiness(ctx(params.customerName, params.businessName, params.comms), {
+        service: params.service,
+        dateLabel: bookingDateLabel(params.date, todayISO()),
+        time: params.startTime.slice(0, 5),
+    });
+}
+
 // ─── Google değerlendirme daveti ─────────────────────────────────────────────
 
 export function buildReviewMessage(params: {

@@ -220,6 +220,16 @@ export function cancelledByCustomer(c: Ctx, o: {
         + `Yeni bir randevu için buraya yazmanız yeterli.`;
 }
 
+/**
+ * İşletme randevuyu panelden iptal etti ("Müşteriye haber ver" işaretliyken).
+ * Kimin istediği bilinmez (müşteri telefonla da istemiş olabilir), bu yüzden
+ * gerekçe ya da özür yok; yalnız bilgi ve yeni randevu yolu.
+ */
+export function cancelledByBusiness(c: Ctx, o: { service: string; dateLabel: string; time: string }): string {
+    return `${helloLine(c)}\n*${c.businessName}* olarak randevunuzu iptal ettik.\n\n`
+        + `${detailBlock(c, o)}\n\nYeni bir randevu için bu mesaja yazmanız yeterli.`;
+}
+
 /** Müşteri randevusunu linkten başka bir saate taşıdı. */
 export function rescheduledByCustomer(c: Ctx, o: {
     service: string; dateLabel: string; time: string;

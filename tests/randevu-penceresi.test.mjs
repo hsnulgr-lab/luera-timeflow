@@ -38,7 +38,7 @@ test('iptal tek tıkla olmaz — pencerede onay ister', () => {
     // Alt şeritteki bağlantı yalnız onayı açar
     assert.match(modal, /onClick=\{\(\) => setConfirmCancel\(true\)\}[^>]*>[\s\S]{0,80}Randevuyu iptal et/);
     // Asıl iptal onay kutusundaki düğmede
-    assert.match(modal, /Bu randevu iptal edilsin mi\?[\s\S]{0,1200}onClick=\{cancelRes\}/);
+    assert.match(modal, /Bu randevu iptal edilsin mi\?[\s\S]{0,1800}onClick=\{cancelRes\}/);
 });
 
 test('takvim detay paneli takvimin sol kenarını aşmaz', () => {

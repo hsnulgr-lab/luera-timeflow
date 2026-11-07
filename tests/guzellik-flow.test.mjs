@@ -165,7 +165,7 @@ test('modalın içinde iptal GERİ ALINABİLİR', () => {
      * basılan bir iptal, randevunun sessizce yok olması demek olurdu.
      */
     assert.match(adisyonModal, /status: 'cancelled'/);
-    assert.match(adisyonModal, /toast\('Randevu iptal edildi', \{ action: \{ label: 'Geri Al'/);
+    assert.match(adisyonModal, /toast\('Randevu iptal edildi', \{[\s\S]{0,250}action: \{ label: 'Geri Al'/);
 });
 
 test('ızgaradaki iki köşe düğmesi de KLAVYEYLE görünür oluyor', () => {

@@ -20,7 +20,9 @@ export type WaKind =
     | 'ai_draft' | 'manual' | 'booking' | 'inbound' | 'optout' | 'cooldown'
     // Zamanlayıcı (131): dürtme ve memnuniyet sorusu işletmenin başlattığı
     // mesajdır (kotaya girer); memnuniyet cevabına teşekkür konuşmanın parçası.
-    | 'nudge' | 'satisfaction' | 'feedback';
+    | 'nudge' | 'satisfaction' | 'feedback'
+    // İşletmenin panelden iptali (2026-11-08): işlemin karşılığı, kota dışı.
+    | 'cancellation';
 
 export type SendReason =
     | 'not_connected' | 'opt_out' | 'quota' | 'invalid_phone' | 'failed';
@@ -40,7 +42,7 @@ const PROMO: ReadonlySet<string> = new Set(['winback', 'renewal', 'recall']);
 // Kota dışı tutulanlar: kullanıcının elle tetiklediği, konuşmanın parçası olan
 // ya da işlemin karşılığı olanlar. Randevu onayı da buradadır — müşteri az önce
 // randevu aldı, kota yüzünden "kaydınız oluşturuldu" mesajı yutulmamalı.
-const UNMETERED: ReadonlySet<string> = new Set(['booking', 'inbound', 'optout', 'manual', 'confirmation', 'cooldown', 'feedback']);
+const UNMETERED: ReadonlySet<string> = new Set(['booking', 'inbound', 'optout', 'manual', 'confirmation', 'cooldown', 'feedback', 'cancellation']);
 
 const PER_PHONE_DAILY = 4;   // kişi başına 24 saatte toplam giden mesaj
 const PER_ORG_HOURLY  = 120; // org başına saatte giden mesaj

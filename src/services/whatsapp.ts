@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 // adresine gidip sessizce false dönüyordu. Artık her hata bir sebep taşıyor.
 
 export type WaKind =
-    | 'confirmation' | 'queue_join' | 'queue_ready' | 'rebook' | 'ai_draft' | 'manual';
+    | 'confirmation' | 'queue_join' | 'queue_ready' | 'rebook' | 'ai_draft' | 'manual' | 'cancellation';
 
 export type WaFailReason =
     | 'not_connected' | 'opt_out' | 'quota' | 'invalid_phone' | 'failed';
