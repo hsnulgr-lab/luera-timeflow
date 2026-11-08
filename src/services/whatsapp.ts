@@ -43,6 +43,13 @@ const PROXY_ERROR_TR: Record<string, string> = {
     forbidden_org: 'Bu işletme için yetkiniz yok.',
     org_lookup_failed: 'İşletme bilginiz okunamadı, tekrar deneyin.',
     server_error: 'Sunucuda beklenmeyen bir hata oluştu, tekrar deneyin.',
+    // 139: gönderim ve asistan ayarı sınırları (whatsapp-proxy)
+    invalid_kind: 'Bu mesaj türü panelden gönderilemez.',
+    text_too_long: 'Mesaj çok uzun (en çok 4000 karakter).',
+    invalid_test_number: 'Deneme numaralarından biri geçerli bir telefon numarası değil.',
+    too_many_test_numbers: 'En çok 10 deneme numarası eklenebilir.',
+    invalid_answer_mode: 'Geçersiz seçim.',
+    save_failed: 'Kaydedilemedi, tekrar deneyin.',
 };
 
 async function call<T>(body: Record<string, unknown>): Promise<T | null> {
@@ -108,6 +115,41 @@ export function waHealth() { return call<WaHealth>({ action: 'health' }); }
 /** Asistanın bilgi bankası (137). Sınırlar sunucuda; kaydedilen temiz hâl döner. */
 export function waSetKnowledge(knowledge: import('@/lib/waKnowledge').WaKnowledge) {
     return call<{ ok: boolean; knowledge: import('@/lib/waKnowledge').WaKnowledge }>({ action: 'knowledge', knowledge });
+}
+
+/** Kimlere cevap verilir (139): agent_config.answer_mode. */
+export type WaAnswerMode = 'customers_and_new' | 'customers_only' | 'everyone';
+
+export interface WaAgentState {
+    ok: boolean;
+    /** features.agent_v2 — akıllı asistan (Claude). */
+    enabled: boolean;
+    /** features.scheduler_v2 — randevu başına zamanlanan mesajlar (131). */
+    scheduler: boolean;
+    answer_mode: WaAnswerMode;
+    /** Deneme listesi doluyken listede olmayanlara: kalıplı bot ya da cevap yok. */
+    others: 'old' | 'silent';
+    test_numbers: string[];
+    spent_usd: number;
+    budget_usd: number;
+    /** Zamanlayıcı yeni açıldıysa planlanan randevu sayısı. */
+    backfilled: number | null;
+}
+
+export interface WaAgentPatch {
+    enabled?: boolean;
+    scheduler?: boolean;
+    answer_mode?: WaAnswerMode;
+    others?: 'old' | 'silent';
+    test_numbers?: string[];
+}
+
+/**
+ * Asistan ve zamanlayıcı ayarları — yalnız işletme sahibi (proxy `agent`).
+ * Yamasız çağrı okur. Bütçe, model ve efor buradan değişmez.
+ */
+export function waAgent(patch?: WaAgentPatch) {
+    return call<WaAgentState>(patch ? { action: 'agent', agent: patch } : { action: 'agent' });
 }
 
 export function waSetFeatures(features: Partial<Record<'confirmation' | 'review' | 'winback' | 'renewal' | 'recall' | 'assistant', boolean>>) {

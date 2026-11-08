@@ -353,6 +353,23 @@ textarea.ay-input.addr { min-height: 72px; font-weight: 600; line-height: 1.45; 
 .ay-seg button { height: 40px; padding: 0 18px; border-radius: 10px; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--tx2); }
 .ay-seg button[aria-checked="true"] { font-weight: 800; color: var(--tx); background: var(--card) !important; box-shadow: 0 1px 2px rgba(0,0,0,.08), inset 0 0 0 1px var(--bd2); }
 .ay-seg.wide button { padding: 0 20px; }
+
+/* Kimlere cevap versin (139): başlık + açıklamalı dikey seçim */
+.ay-pick { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.ay-pick > button {
+  display: grid; grid-template-columns: 20px minmax(0,1fr); gap: 12px; align-items: start; width: 100%; text-align: left;
+  padding: 14px 16px; border-radius: 14px; border: 1px solid var(--bd2); background: var(--card);
+}
+.ay-pick > button[aria-checked="true"] { border-color: var(--tx); box-shadow: inset 0 0 0 1px var(--tx); }
+.ay-pick > button:disabled { cursor: default; }
+.ay-pick .dot { width: 20px; height: 20px; margin-top: 1px; border-radius: 50%; border: 2px solid var(--bd2); display: grid; place-items: center; }
+.ay-pick [aria-checked="true"] .dot { border-color: var(--tx); }
+.ay-pick [aria-checked="true"] .dot::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--tx); }
+.ay-pick b { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15.5px; font-weight: 700; color: var(--tx); }
+.ay-pick b .ay-tag { height: 22px; font-size: 12px; }
+.ay-pick small { display: block; margin-top: 3px; font-size: 14px; line-height: 1.45; color: var(--tx2); text-wrap: pretty; }
+.ay-meter { display: block; height: 6px; border-radius: 3px; background: var(--s3); overflow: hidden; }
+.ay-meter > i { display: block; height: 100%; border-radius: 3px; background: var(--tx); }
 .ay-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .ay-chip {
   min-width: 52px; height: 44px; padding: 0 12px; border-radius: 11px; display: flex; align-items: center; justify-content: center;

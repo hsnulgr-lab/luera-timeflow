@@ -403,7 +403,8 @@ test('whatsapp-booking: ajan yalnız bayrakla, kuyruğa yazılamazsa eski bot de
     assert.match(src, /from\('wa_inbox'\)\.insert\(/);
     assert.match(src, /if \(!inboxErr\) return ok\(\{ queued: 'agent' \}\);/);
     // Sahip telefondan yazınca ajan susar; bizim mesajımız log'dan tanınır.
-    assert.match(src, /pauseForOwner\(admin, orgId, phone, providerMsgId, text\)/);
+    // 139: aynı yerde numara "tanıdık" yazılır (ajan kapalıyken de).
+    assert.match(src, /ownerTookOver\(admin, orgId, phone, providerMsgId, text, featureOn\(orgWa, 'agent_v2', false\)\)/);
     assert.match(src, /eq\('provider_msg_id', providerMsgId\)/);
 });
 
@@ -589,7 +590,7 @@ test('bilgi bankası: sınırlar uygulanır, yarım soru atılır, profilde gör
 
 test('bilgi bankası: proxy\'de yalnız sahip/yönetici kaydeder, panel ve sunucu sınırları aynı', async () => {
     const proxy = read('supabase/functions/whatsapp-proxy/index.ts');
-    assert.match(proxy, /action === 'knowledge'\) && role === 'member'/);
+    assert.match(proxy, /action === 'knowledge' \|\| action === 'agent'\) && role === 'member'/);
     assert.match(proxy, /const knowledge = sanitizeKnowledge\(body\.knowledge\);/);
     const server = await import('../supabase/functions/_shared/agent/knowledge.ts');
     const client = await import('../src/lib/waKnowledge.ts');

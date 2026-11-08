@@ -23,11 +23,15 @@ import {
     build24hMessage, build2hMessage, buildConfirmationMessage, buildDiscountLine, buildRebookInvite, buildRebookMessage,
     buildRecallMessage, buildRenewalMessage, buildReviewMessage, buildWinbackMessage,
 } from '@/services/waTemplates';
-import { WA_FAIL_TEXT, lastProxyError, sendWhatsApp, waConnect, waDisconnect, waHealth, waSetFeatures, waSetKnowledge, waState, type WaHealth } from '@/services/whatsapp';
+import {
+    WA_FAIL_TEXT, lastProxyError, sendWhatsApp, waAgent, waConnect, waDisconnect, waHealth, waSetFeatures, waSetKnowledge, waState,
+    type WaAgentPatch, type WaAgentState, type WaAnswerMode, type WaHealth,
+} from '@/services/whatsapp';
 import { KNOWLEDGE_LIMITS, type FaqItem } from '@/lib/waKnowledge';
+import { normalizePhone } from '@/lib/phone';
 import { sinceText } from '../ayarlarModel';
 import { useTaslak, type Taslak } from '../useTaslak';
-import { Dots, Head, I, Modal, SaveBar, Switch } from '../parcalar';
+import { Dots, Head, I, Modal, SaveBar, Seg, Switch, SwitchRow } from '../parcalar';
 import { useSwitchSave } from '../useSwitchSave';
 
 type FeatureKey = 'confirmation' | 'review' | 'winback' | 'renewal' | 'recall' | 'assistant';
@@ -144,8 +148,9 @@ export function WhatsApp() {
     const sendTest = async () => {
         if (testBusy) return;
         setTestBusy(true); setTestResult(null);
+        // Elle mesaj türüyle (139): onay mesajı kapalı işletmede de hattı sınar.
         const res = await sendWhatsApp(testPhone,
-            `${settings.businessName} · WhatsApp test mesajı ✅\n\nBu mesajı aldıysanız randevu onayları da gönderilebiliyor demektir.`, 'confirmation');
+            `${settings.businessName} · WhatsApp test mesajı ✅\n\nBu mesajı aldıysanız hat çalışıyor; hatırlatma ve onaylar da bu hattan gider.`, 'manual');
         setTestBusy(false);
         setTestResult(res.ok
             ? { ok: true, text: 'Gönderildi. Telefonu kontrol edin.' }
@@ -158,6 +163,28 @@ export function WhatsApp() {
         const res = await waSetFeatures({ [key]: next });
         if (res?.ok) { void refresh(); return true; }
         return false;
+    };
+
+    // ── Asistan ve zamanlayıcı ayarları (139) ──
+    // Yalnız sahip okuyabilir; ekip üyesinde proxy 403 döner ve bölüm çıkmaz.
+    const [agent, setAgent] = useState<WaAgentState | null>(null);
+    useEffect(() => {
+        if (loading || !isConnected) return;
+        let alive = true;
+        void (async () => { const a = await waAgent(); if (alive) setAgent(a); })();
+        return () => { alive = false; };
+    }, [loading, isConnected]);
+    const saveAgent = async (patch: WaAgentPatch): Promise<WaAgentState | null> => {
+        const res = await waAgent(patch);
+        if (!res?.ok) { if (lastProxyError) toast.error(lastProxyError); return null; }
+        setAgent(res);
+        void refresh();
+        return res;
+    };
+    const setScheduler = async (next: boolean) => {
+        const res = await saveAgent({ scheduler: next });
+        if (res && next && res.backfilled) toast.success(`${res.backfilled} randevunun mesajları planlandı`);
+        return Boolean(res);
     };
 
     // ── Taslak: kartların içindeki ayarlar + mesaj dili ──
@@ -400,7 +427,7 @@ export function WhatsApp() {
                         ? <span role="status" style={{ fontSize: 14, fontWeight: 700, color: testResult.ok ? 'var(--grt)' : 'var(--rdt)' }}>
                             {testResult.text}{testResult.detail && <span className="mono" style={{ fontWeight: 400, fontSize: 12.5, color: 'var(--tx2)' }}> · {testResult.detail}</span>}
                         </span>
-                        : <span className="ay-help">Randevu onay mesajıyla aynı yoldan gider.</span>}
+                        : <span className="ay-help">Hatırlatma ve onaylarla aynı hattan gider.</span>}
                 </div>
             </div>
         );
@@ -435,6 +462,7 @@ export function WhatsApp() {
                     <section aria-label="AI asistan" style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 40 }}>
                         <div className="ay-kicker">2 · AI ASİSTAN</div>
                         <AsistanSatiri on={f.assistant} onSave={setFeature('assistant')} />
+                        {agent && <AsistanAyarlari a={agent} assistantOn={f.assistant} onSave={async (p) => Boolean(await saveAgent(p))} />}
                     </section>
                 )}
 
@@ -443,7 +471,15 @@ export function WhatsApp() {
                 <section aria-label="Gönderilen mesajlar" style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 40 }}>
                     <div className="ay-kicker">{isConnected && !ui ? '4' : '2'} · GÖNDERİLEN MESAJLAR</div>
                     {isConnected ? (
-                        <p className="ay-help" style={{ marginTop: -4 }}>Baloncuklar örnek müşteriyle doldurulmuş önizlemedir.</p>
+                        <>
+                            <p className="ay-help" style={{ marginTop: -4 }}>Baloncuklar örnek müşteriyle doldurulmuş önizlemedir.</p>
+                            {agent && !ui && (
+                                <SwitchRow title="Akıllı zamanlama" value={agent.scheduler} onSave={setScheduler}
+                                    desc={agent.scheduler
+                                        ? 'Hatırlatma, memnuniyet sorusu ve tekrar randevu daveti her randevu için ayrı zamanlanır; randevu değişince plan da değişir.'
+                                        : 'Hatırlatmalar yarım saatte bir toplu taranarak gönderilir. Açınca ileri tarihli randevuların mesajları hemen planlanır.'} />
+                            )}
+                        </>
                     ) : (
                         <div role="status" style={{ fontSize: 15.5, fontWeight: 700 }}>WhatsApp bağlı değil — bu mesajların hiçbiri gitmiyor.</div>
                     )}
@@ -518,6 +554,148 @@ function AsistanSatiri({ on, onSave }: { on: boolean; onSave: (v: boolean) => Pr
             {sw.status === 'saved' && <span className="ay-saved" role="status" style={{ paddingTop: 4 }}><I n="check" />Kaydedildi</span>}
             <span className="ay-state" style={{ paddingTop: 4 }}>{shown ? 'Açık' : 'Kapalı'}</span>
             <Switch checked={shown} label="AI asistan" busy={sw.status === 'saving'} onChange={() => sw.run(!on, onSave)} />
+        </div>
+    );
+}
+
+const ANSWER_MODES: { v: WaAnswerMode; t: string; d: string; tag?: string }[] = [
+    { v: 'customers_and_new', t: 'Müşterilerim ve ilk kez yazanlar', tag: 'Önerilen',
+        d: 'Bu hatta daha önce yazıştığınız ama müşteriniz olmayan kişilere (arkadaş, aile, tedarikçi) bot cevap vermez.' },
+    { v: 'customers_only', t: 'Yalnız kayıtlı müşterilerim',
+        d: 'Müşteri listenizde olmayan kimseye bot cevap vermez; yeni gelenleri siz karşılarsınız.' },
+    { v: 'everyone', t: 'Herkes',
+        d: 'Hat yalnız işletmenize aitse seçin. Kişisel numaranızsa arkadaşlarınıza da bot cevap verir.' },
+];
+
+/**
+ * Kimlere cevap verilir + akıllı asistan + deneme numaraları (139). Hepsi
+ * anında kaydedilir (proxy `agent`); sayfanın Kaydet çubuğuna girmez.
+ * Bot anahtarı kapalıyken sönük durur.
+ */
+function AsistanAyarlari({ a, assistantOn, onSave }: {
+    a: WaAgentState; assistantOn: boolean; onSave: (p: WaAgentPatch) => Promise<boolean>;
+}) {
+    // İyimser gösterim: kayıt sürerken seçilen; sunucu onaylayınca a.answer_mode geçerli.
+    const [pending, setPending] = useState<WaAnswerMode | null>(null);
+    const mode = pending ?? a.answer_mode;
+    const [modeSt, setModeSt] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const timer = useRef<number | undefined>(undefined);
+    useEffect(() => () => window.clearTimeout(timer.current), []);
+    const pick = async (v: WaAnswerMode) => {
+        if (v === mode || modeSt === 'saving' || !assistantOn) return;
+        setPending(v); setModeSt('saving');
+        const ok = await onSave({ answer_mode: v });
+        setPending(null);
+        if (ok) {
+            setModeSt('saved');
+            timer.current = window.setTimeout(() => setModeSt('idle'), 2000);
+        } else {
+            setModeSt('error');
+        }
+    };
+    const pct = a.budget_usd > 0 ? Math.min(100, Math.round((a.spent_usd / a.budget_usd) * 100)) : 0;
+    const [advOpen, setAdvOpen] = useState(false);
+
+    return (
+        <>
+        {!assistantOn && <span className="ay-help" style={{ paddingTop: 14 }}>Bu ayarlar bot gelen mesajlara cevap verirken geçerli.</span>}
+        <div style={{ display: 'flex', flexDirection: 'column', opacity: assistantOn ? 1 : 0.5 }} aria-disabled={!assistantOn || undefined}>
+            <div className="ay-stack" style={{ padding: '18px 0', borderTop: 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <span className="ay-lbl sm" id="ay-kime">Kimlere cevap versin</span>
+                    {modeSt === 'saved' && <span className="ay-saved" role="status"><I n="check" />Kaydedildi</span>}
+                    {modeSt === 'error' && <span className="ay-errline" role="alert"><I n="alert" />Kaydedilemedi — tekrar deneyin</span>}
+                </div>
+                <span className="ay-help sm">Bot sustuğunda da mesaj kaydedilir; siz telefonunuzdan cevaplarsınız.</span>
+                <div role="radiogroup" aria-labelledby="ay-kime" className="ay-pick">
+                    {ANSWER_MODES.map((m) => (
+                        <button key={m.v} type="button" role="radio" aria-checked={mode === m.v}
+                            disabled={!assistantOn || modeSt === 'saving'} onClick={() => void pick(m.v)}>
+                            <span className="dot" aria-hidden="true" />
+                            <span>
+                                <b>{m.t}{m.tag && <span className="ay-tag">{m.tag}</span>}</b>
+                                <small>{m.d}</small>
+                            </span>
+                        </button>
+                    ))}
+                </div>
+                {mode !== 'everyone' && (
+                    <span className="ay-help sm" style={{ textWrap: 'pretty' }}>
+                        Müşteriniz olmayan birine telefonunuzdan elle yazarsanız bot o kişiye bundan sonra cevap vermez.
+                    </span>
+                )}
+            </div>
+
+            <SwitchRow title="Akıllı asistan" value={a.enabled} disabled={!assistantOn}
+                onSave={(v) => onSave({ enabled: v })}
+                desc={a.enabled
+                    ? 'Müşteriyle doğal dille konuşur: sorularını işletme bilgilerinizden cevaplar, uygun saatleri sunar, onayını alınca randevuyu oluşturur.'
+                    : 'Kapalıyken kalıplı randevu botu cevap verir.'}
+                extra={a.enabled && (
+                    <span style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8, maxWidth: 360 }}>
+                        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--tx2)' }}>Bu ayki kullanım · %{pct}</span>
+                        <span className="ay-meter" aria-hidden="true"><i style={{ width: `${pct}%` }} /></span>
+                        {pct >= 100 && (
+                            <span style={{ fontSize: 14, fontWeight: 700 }}>Bu ayın kullanım hakkı doldu; ay sonuna kadar kalıplı bot cevap veriyor.</span>
+                        )}
+                    </span>
+                )} />
+
+            <button type="button" aria-expanded={advOpen} className="ay-fold" onClick={() => setAdvOpen((v) => !v)}>
+                <I n="chr" />
+                <span style={{ fontSize: 15.5, fontWeight: 700 }}>Deneme numaraları</span>
+                {a.test_numbers.length > 0 && <span className="ay-tag inv">Deneme açık · {a.test_numbers.length}</span>}
+            </button>
+            {advOpen && <DenemeNumaralari a={a} disabled={!assistantOn} onSave={onSave} />}
+        </div>
+        </>
+    );
+}
+
+/** 905321112233 → 0532 111 22 33 (yurt dışı numara olduğu gibi). */
+function showPhone(n: string): string {
+    return /^905\d{9}$/.test(n) ? `0${n.slice(2, 5)} ${n.slice(5, 8)} ${n.slice(8, 10)} ${n.slice(10)}` : n;
+}
+
+/** Akıllı asistanı yalnız birkaç numarayla denemek için (agent_config.test_numbers). */
+function DenemeNumaralari({ a, disabled, onSave }: {
+    a: WaAgentState; disabled: boolean; onSave: (p: WaAgentPatch) => Promise<boolean>;
+}) {
+    const [text, setText] = useState(a.test_numbers.map(showPhone).join('\n'));
+    const [others, setOthers] = useState(a.others);
+    const [busy, setBusy] = useState(false);
+    const [st, setSt] = useState<'idle' | 'saved' | 'error'>('idle');
+    const list = text.split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean);
+    // Karşılaştırma numara biçiminden bağımsız: sunucu normalize ederek saklar.
+    const same = (x: string[], y: string[]) => x.map((n) => normalizePhone(n) ?? n).join() === y.map((n) => normalizePhone(n) ?? n).join();
+    const changed = !same(list, a.test_numbers) || others !== a.others;
+    const save = async () => {
+        setBusy(true); setSt('idle');
+        const ok = await onSave({ test_numbers: list, others });
+        setBusy(false); setSt(ok ? 'saved' : 'error');
+    };
+    return (
+        <div className="ay-stack" style={{ padding: '14px 0 18px', gap: 10, borderTop: 'none' }}>
+            <span className="ay-help sm" style={{ maxWidth: 600, textWrap: 'pretty' }}>
+                Doluysa akıllı asistan yalnız bu numaralarla konuşur; işletmeye açmadan önce denemek içindir. Boşaltınca herkese açılır. En çok 10 numara, her satıra bir tane.
+            </span>
+            <textarea className="ay-input mono" aria-label="Deneme numaraları" rows={3} style={{ maxWidth: 360, fontSize: 15 }}
+                placeholder={'0532 000 00 00\n0505 000 00 00'} value={text} disabled={disabled}
+                onChange={(e) => { setText(e.target.value); setSt('idle'); }} />
+            {list.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <span className="ay-lbl sm">Listede olmayanlara</span>
+                    <Seg label="Listede olmayanlara" value={others} onChange={(v) => { setOthers(v); setSt('idle'); }}
+                        options={[{ v: 'old', t: 'Kalıplı bot cevap versin' }, { v: 'silent', t: 'Kimse cevap vermesin' }]} />
+                </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button type="button" className="ay-btn" disabled={disabled || busy || !changed} onClick={() => void save()}>
+                    {busy ? 'Kaydediliyor…' : 'Kaydet'}
+                </button>
+                {st === 'saved' && !changed && <span className="ay-saved" role="status"><I n="check" />Kaydedildi</span>}
+                {st === 'error' && <span className="ay-errline" role="alert"><I n="alert" />Kaydedilemedi</span>}
+            </div>
         </div>
     );
 }

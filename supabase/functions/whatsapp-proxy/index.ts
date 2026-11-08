@@ -5,6 +5,9 @@ import {
 } from '../_shared/wa.ts';
 import { resolveOrg } from '../_shared/org.ts';
 import { sanitizeKnowledge } from '../_shared/agent/knowledge.ts';
+import { ANSWER_MODES, answerMode } from '../_shared/agent/audience.ts';
+import { DEFAULT_MONTHLY_BUDGET_USD } from '../_shared/agent/guard.ts';
+import { normalizePhone } from '../_shared/phone.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -26,9 +29,21 @@ const corsHeaders = {
  *   - Bağlantı durumu org_whatsapp'ta (org başına tek satır, 070). Eskiden
  *     settings'teydi ama settings kullanıcı başına tek satır.
  *
- * Action'lar: connect | state | disconnect | send | health
+ * Action'lar: connect | state | disconnect | send | health | features | knowledge | agent
  */
-type Action = 'connect' | 'state' | 'disconnect' | 'send' | 'health' | 'features' | 'knowledge';
+type Action = 'connect' | 'state' | 'disconnect' | 'send' | 'health' | 'features' | 'knowledge' | 'agent';
+
+// Panelin ve telefon uygulamasının gerçekten gönderdiği türler (139). Liste
+// dışı tür reddedilir: kota dışı bir türle sınırsız gönderim ya da sahte bir
+// "reminder_24h" ile müşterinin sonraki "Hayır"ının randevuyu iptal ettirmesi
+// eskiden mümkündü. Telefon: confirmation + manual (mobile/src/lib/managerWrite.ts).
+const PANEL_KINDS: ReadonlySet<string> = new Set([
+    'confirmation', 'queue_join', 'queue_ready', 'rebook', 'ai_draft', 'manual', 'cancellation',
+]);
+const MAX_TEXT = 4000;
+// Elle mesaj kota dışı; işletme başına saatte bundan fazlası gitmez.
+const MANUAL_PER_HOUR = 60;
+const MAX_TEST_NUMBERS = 10;
 
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
@@ -61,7 +76,7 @@ Deno.serve(async (req: Request) => {
 
         // Bağlantıyı kurmak/koparmak ve otomatik mesaj anahtarları org sahibinin
         // kararı — "member" rolündeki bir personel hesabı bunları değiştiremez.
-        if ((action === 'connect' || action === 'disconnect' || action === 'features' || action === 'knowledge') && role === 'member') {
+        if ((action === 'connect' || action === 'disconnect' || action === 'features' || action === 'knowledge' || action === 'agent') && role === 'member') {
             return json({ error: 'owner_required' }, 403);
         }
 
@@ -98,19 +113,95 @@ Deno.serve(async (req: Request) => {
             return json({ ok: true, knowledge }, 200);
         }
 
+        // Asistan ve zamanlayıcı ayarları (139). Gövdede `agent` yoksa yalnız
+        // okur. Bütçe, model ve efor istemciden DEĞİŞTİRİLEMEZ (operatörde).
+        if (action === 'agent') {
+            const { data: row } = await admin.from('org_whatsapp')
+                .select('features, agent_config').eq('organization_id', orgId).maybeSingle();
+            const features: Record<string, unknown> = { ...(row?.features ?? {}) };
+            const cfg: Record<string, unknown> = { ...(row?.agent_config ?? {}) };
+            const patch = (body.agent && typeof body.agent === 'object') ? body.agent as Record<string, unknown> : null;
+            let backfilled: number | null = null;
+            if (patch) {
+                const schedulerWasOn = features.scheduler_v2 === true;
+                if (typeof patch.enabled === 'boolean') features.agent_v2 = patch.enabled;
+                if (typeof patch.scheduler === 'boolean') features.scheduler_v2 = patch.scheduler;
+                if (patch.answer_mode !== undefined) {
+                    if (!(ANSWER_MODES as readonly string[]).includes(String(patch.answer_mode))) return json({ error: 'invalid_answer_mode' }, 400);
+                    cfg.answer_mode = patch.answer_mode;
+                }
+                if (patch.others !== undefined) {
+                    if (patch.others !== 'old' && patch.others !== 'silent') return json({ error: 'invalid_others' }, 400);
+                    cfg.others = patch.others;
+                }
+                if (patch.test_numbers !== undefined) {
+                    if (!Array.isArray(patch.test_numbers)) return json({ error: 'invalid_test_number' }, 400);
+                    const list: string[] = [];
+                    for (const raw of patch.test_numbers) {
+                        const p = normalizePhone(String(raw ?? ''));
+                        if (!p) return json({ error: 'invalid_test_number' }, 400);
+                        if (!list.includes(p)) list.push(p);
+                    }
+                    if (list.length > MAX_TEST_NUMBERS) return json({ error: 'too_many_test_numbers' }, 400);
+                    cfg.test_numbers = list;
+                }
+                const { error: upErr } = await admin.from('org_whatsapp')
+                    .update({ features, agent_config: cfg, updated_at: new Date().toISOString() })
+                    .eq('organization_id', orgId);
+                if (upErr) return json({ ok: false, error: 'save_failed' }, 500);
+                // Zamanlayıcı yeni açıldı: ileri tarihli randevuların işleri
+                // planlanır (131'in tetikleyicisi yalnız yeni/değişen randevuya bakar).
+                if (!schedulerWasOn && features.scheduler_v2 === true) {
+                    const { data: n, error: bfErr } = await admin.rpc('wa_backfill_jobs', { p_org: orgId });
+                    if (bfErr) console.error('wa_backfill_jobs', bfErr);
+                    backfilled = bfErr ? null : Number(n) || 0;
+                }
+            }
+            const { data: spent } = await admin.rpc('wa_agent_spend', { p_org: orgId });
+            const budget = Number(cfg.monthly_budget_usd ?? DEFAULT_MONTHLY_BUDGET_USD);
+            return json({
+                ok: true,
+                enabled: features.agent_v2 === true,
+                scheduler: features.scheduler_v2 === true,
+                answer_mode: answerMode(cfg.answer_mode),
+                others: cfg.others === 'silent' ? 'silent' : 'old',
+                test_numbers: Array.isArray(cfg.test_numbers) ? cfg.test_numbers : [],
+                spent_usd: Number(spent) || 0,
+                budget_usd: Number.isFinite(budget) ? budget : DEFAULT_MONTHLY_BUDGET_USD,
+                backfilled,
+            }, 200);
+        }
+
         if (action === 'send') {
             const phone = String(body.phone || '').trim();
             const text = String(body.text || '');
             if (!phone || !text) return json({ error: 'phone ve text gerekli' }, 400);
-            const kind = (body.kind as WaKind) || 'manual';
+            const kind = String(body.kind || 'manual');
+            if (!PANEL_KINDS.has(kind)) return json({ error: 'invalid_kind' }, 400);
+            if (text.length > MAX_TEXT) return json({ error: 'text_too_long' }, 400);
             // Randevu onayı işletme tarafından kapatılabilir; kapalıysa panelden
             // gelen istek de sessizce atlanır (tek anahtar, üç kaynak).
             if (kind === 'confirmation' && !featureOn(org, 'confirmation')) {
                 return json({ ok: false, reason: 'failed' }, 200);
             }
+            // Müşteri kimliği bu işletmenin değilse yok sayılır: DUR kontrolü
+            // numaradan yapılır, log'a başka işletmenin kimliği yazılmaz.
+            let customerId: string | null = null;
+            if (body.customerId) {
+                const { data: c } = await admin.from('customers').select('id')
+                    .eq('id', String(body.customerId)).eq('organization_id', orgId).maybeSingle();
+                customerId = c?.id ?? null;
+            }
+            if (kind === 'manual') {
+                const { count } = await admin.from('wa_message_log')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('organization_id', orgId).eq('direction', 'out').eq('kind', 'manual')
+                    .gte('created_at', new Date(Date.now() - 3600_000).toISOString());
+                if ((count ?? 0) >= MANUAL_PER_HOUR) return json({ ok: false, reason: 'quota' }, 200);
+            }
             const res = await sendWA(admin, {
-                org, phone, text, kind,
-                customerId: body.customerId ?? null,
+                org, phone, text, kind: kind as WaKind,
+                customerId,
             });
             return json(res, res.ok ? 200 : 200); // reason'ı okuyabilsin diye 200
         }

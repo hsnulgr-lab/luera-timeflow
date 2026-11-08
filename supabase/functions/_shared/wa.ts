@@ -10,6 +10,7 @@
 
 import { normalizePhone } from './phone.ts';
 import { pickCustomer } from './booking/identity.ts';
+import { answerDecision, answerMode, hadPriorChat, isTestNumber, messageRecords } from './agent/audience.ts';
 
 // deno-lint-ignore no-explicit-any
 export type Admin = any; // service_role SupabaseClient
@@ -35,6 +36,8 @@ export interface OrgWa {
     features: Record<string, boolean>;
     /** Zamanlayıcı ayarları (131); yalnız gerektiğinde okunur. */
     schedule_config?: Record<string, unknown>;
+    /** Asistan ayarları (130/139); yalnız gerektiğinde okunur. */
+    agent_config?: Record<string, unknown> | null;
 }
 
 // Promosyon niteliğindeki mesajlar — kişi başına günde 1 taneden fazlası gitmez.
@@ -473,18 +476,127 @@ export async function drainOutbox(admin: Admin, limit = 50): Promise<{ sent: num
     return tally;
 }
 
-/** Müşteri "DUR" demiş mi? Numara ham kayıtlı olduğu için varyantlarla eşleşir. */
+/**
+ * "DUR" denmiş mi? Önce numaranın kendisi (139: kayıtsız numaranın DUR'u da
+ * burada; aynı numaranın ikinci müşteri kaydı da kapsanır), sonra müşteri
+ * işareti. Verilen müşteri kimliği bu işletmenin değilse (panelden yanlış ya
+ * da uydurma kimlik) numaradan bakılır — eskiden kontrol sessizce atlanıyordu.
+ * 139 uygulanmadıysa tablo hatası yok sayılır, müşteri işareti geçerli.
+ */
 export async function isOptedOut(
     admin: Admin, orgId: string, normalizedPhone: string, customerId?: string | null,
 ): Promise<boolean> {
+    const { data: byPhone, error: phoneErr } = await admin
+        .from('wa_opt_out_phones').select('phone')
+        .eq('organization_id', orgId).eq('phone', normalizedPhone).maybeSingle();
+    if (!phoneErr && byPhone) return true;
     if (customerId) {
         const { data } = await admin
             .from('customers').select('wa_opt_out')
             .eq('id', customerId).eq('organization_id', orgId).maybeSingle();
-        return Boolean(data?.wa_opt_out);
+        if (data) return Boolean(data.wa_opt_out);
     }
     const c = await findCustomerByPhone(admin, orgId, normalizedPhone);
     return Boolean(c?.wa_opt_out);
+}
+
+/** "DUR" (on=true) ya da "BAŞLAT" (on=false) numaraya yazılır (139). */
+export async function setPhoneOptOut(admin: Admin, orgId: string, phone: string, on: boolean): Promise<void> {
+    const q = on
+        ? admin.from('wa_opt_out_phones').upsert({ organization_id: orgId, phone }, { onConflict: 'organization_id,phone' })
+        : admin.from('wa_opt_out_phones').delete().eq('organization_id', orgId).eq('phone', phone);
+    const { error } = await q;
+    if (error) console.error('wa_opt_out_phones', error.code ?? error.message);
+}
+
+/** Numara bu işletmede "DUR" listesinde mi (yalnız numara tablosu)? */
+export async function phoneOptedOut(admin: Admin, orgId: string, phone: string): Promise<boolean> {
+    const { data, error } = await admin.from('wa_opt_out_phones').select('phone')
+        .eq('organization_id', orgId).eq('phone', phone).maybeSingle();
+    return !error && Boolean(data);
+}
+
+// ── Kimlere cevap verilir (139) ─────────────────────────────────────────────
+
+/**
+ * Numara için kararı yazar. owner_typed her zaman üstüne yazar: sahip
+ * telefondan elle yazdıysa o kişiyle kendisi ilgileniyor demektir.
+ */
+export async function rememberContact(
+    admin: Admin, orgId: string, phone: string, known: boolean,
+    source: 'owner_typed' | 'prior_chat' | 'first_contact',
+): Promise<void> {
+    const { error } = await admin.from('wa_contacts').upsert({
+        organization_id: orgId, phone, known, source, updated_at: new Date().toISOString(),
+    }, { onConflict: 'organization_id,phone' });
+    if (error) console.error('wa_contacts', error.code ?? error.message);
+}
+
+/**
+ * Numara bu hatta bottan önce yazışmış mı? Evolution'ın mesaj geçmişine bakar.
+ * null = bakılamadı (ağ, yetki, tanınmayan biçim) — karar verilmez.
+ */
+async function priorChat(admin: Admin, org: OrgWa, phone: string, remoteJid: string): Promise<boolean | null> {
+    if (!org.instance) return null;
+    const url = await getSecret(admin, 'EVOLUTION_API_URL');
+    const key = await getSecret(admin, 'EVOLUTION_API_KEY');
+    if (!url || !key) return null;
+
+    // Numaranın bizde ilk görüldüğü an: yeni numarada şu anki mesaj.
+    const { data: first } = await admin.from('wa_message_log').select('created_at')
+        .eq('organization_id', org.organization_id).eq('phone', phone)
+        .order('created_at', { ascending: true }).limit(1).maybeSingle();
+    const firstSeen = first?.created_at ? Date.parse(first.created_at) : Date.now();
+
+    const jids = Array.from(new Set([remoteJid, `${phone}@s.whatsapp.net`].filter((j) => j && !j.includes('@g.us'))));
+    let looked = false;
+    for (const jid of jids) {
+        try {
+            const res = await fetch(`${url}/chat/findMessages/${org.instance}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', apikey: key },
+                body: JSON.stringify({ where: { key: { remoteJid: jid } }, page: 1, offset: 50 }),
+                signal: AbortSignal.timeout(8000),
+            });
+            if (!res.ok) { console.log('findMessages', res.status); continue; }
+            looked = true;
+            const records = messageRecords(await res.json().catch(() => null));
+            if (hadPriorChat(records, firstSeen)) return true;
+        } catch (e) {
+            console.log('findMessages hata', String(e).slice(0, 120));
+        }
+    }
+    return looked ? false : null;
+}
+
+/**
+ * Gelen mesaja cevap verilsin mi? Müşteri kaydı her zaman önce gelir; müşteri
+ * olmayan numara için karar bir kez verilir ve saklanır. Karar verilemezse
+ * (Evolution'a ulaşılamadı) cevap verilir — bugünkü davranış — ve bir sonraki
+ * mesajda yeniden bakılır. 139 uygulanmadıysa tablo hatası yine "cevap ver"e
+ * düşer: göç ile fonksiyon yüklemesinin sırası önemli değil.
+ */
+export async function audienceGate(admin: Admin, org: OrgWa, o: {
+    phone: string; remoteJid: string; isCustomer: boolean;
+}): Promise<'answer' | 'silent'> {
+    const cfg = (org.agent_config ?? {}) as Record<string, unknown>;
+    const mode = answerMode(cfg.answer_mode);
+    const base = { mode, isCustomer: o.isCustomer, isTestNumber: isTestNumber(cfg.test_numbers, o.phone) };
+    let decision = answerDecision({ ...base, known: null });
+    if (decision !== 'check') return decision;
+
+    const { data: row, error } = await admin.from('wa_contacts').select('known')
+        .eq('organization_id', org.organization_id).eq('phone', o.phone).maybeSingle();
+    if (error) return 'answer';
+    if (row) {
+        decision = answerDecision({ ...base, known: Boolean(row.known) });
+        return decision === 'silent' ? 'silent' : 'answer';
+    }
+
+    const prior = await priorChat(admin, org, o.phone, o.remoteJid);
+    if (prior === null) return 'answer';
+    await rememberContact(admin, org.organization_id, o.phone, prior, prior ? 'prior_chat' : 'first_contact');
+    return prior ? 'silent' : 'answer';
 }
 
 /**

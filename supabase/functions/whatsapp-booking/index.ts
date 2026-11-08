@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
-    featureOn, findCustomerByPhone, lidToPhone, logMessage, sendWA as sendWhatsApp,
+    audienceGate, featureOn, findCustomerByPhone, lidToPhone, logMessage, phoneOptedOut, rememberContact,
+    sendWA as sendWhatsApp, setPhoneOptOut,
     type Admin, type OrgWa,
 } from '../_shared/wa.ts';
 import { normalizePhone } from '../_shared/phone.ts';
@@ -93,14 +94,17 @@ function mediaLabel(m: WaMessage | undefined): string {
 }
 
 /**
- * Salonun telefonundan bu müşteriye elle yazıldı → ajan o konuşmada bir süre
- * susar; sahip devraldı demektir. Bizim gönderdiğimiz mesaj da fromMe olarak
- * geri geliyor: log'da varsa sahibin değil, botun mesajıdır. Gönderim log'a
- * Evolution cevap verdikten SONRA yazıldığı için webhook ondan önce gelebilir;
- * bu yüzden bir kez bekleyip tekrar bakılır.
+ * Salonun telefonundan bu numaraya elle yazıldı → sahip devraldı demektir:
+ *   - ajan o konuşmada bir süre susar (130, yalnız ajan açıkken),
+ *   - numara "tanıdık" yazılır (139): müşteri değilse bot ona bundan sonra
+ *     cevap vermez (kimlere cevap versin · customers_and_new / customers_only).
+ * Bizim gönderdiğimiz mesaj da fromMe olarak geri geliyor: log'da varsa
+ * sahibin değil, botun mesajıdır. Gönderim log'a Evolution cevap verdikten
+ * SONRA yazıldığı için webhook ondan önce gelebilir; bu yüzden bir kez
+ * bekleyip tekrar bakılır.
  */
-async function pauseForOwner(
-    admin: Admin, orgId: string, phone: string, providerMsgId: string, body: string,
+async function ownerTookOver(
+    admin: Admin, orgId: string, phone: string, providerMsgId: string, body: string, agentOn: boolean,
 ): Promise<void> {
     const sentByUs = async (): Promise<boolean> => {
         if (providerMsgId) {
@@ -122,6 +126,8 @@ async function pauseForOwner(
     if (await sentByUs()) return;
     await new Promise((r) => setTimeout(r, 1500));
     if (await sentByUs()) return;
+    await rememberContact(admin, orgId, phone, true, 'owner_typed');
+    if (!agentOn) return;
     const now = new Date();
     await admin.from('wa_conversations').upsert({
         organization_id: orgId, phone,
@@ -213,7 +219,7 @@ Deno.serve(async (req: Request) => {
         // olduğu için çok üyeli org'da eşleşme belirsizdi.
         const { data: orgWaRow } = await admin
             .from('org_whatsapp')
-            .select('organization_id, instance, status, webhook_secret, features')
+            .select('organization_id, instance, status, webhook_secret, features, agent_config')
             .eq('instance', instance)
             .maybeSingle();
         if (!orgWaRow?.organization_id) return ok({ skipped: 'org yok' });
@@ -258,7 +264,7 @@ Deno.serve(async (req: Request) => {
         }
 
         if (ownerTyped) {
-            if (featureOn(orgWa, 'agent_v2', false)) await pauseForOwner(admin, orgId, phone, providerMsgId, text);
+            await ownerTookOver(admin, orgId, phone, providerMsgId, text, featureOn(orgWa, 'agent_v2', false));
             return ok({ skipped: 'from_me' });
         }
 
@@ -327,18 +333,24 @@ Deno.serve(async (req: Request) => {
         // Niyet tespiti _shared/booking/intent'te; "randevumu iptal et" ile
         // "DUR" birbirine karışmasın diye opt-out yalnız tek kelimede yakalanır.
         const topIntent = msgKind === 'text' ? detectIntent(text) : 'other';
+        // DUR numaraya da yazılır (139): kayıtsız numaranın DUR'u eskiden
+        // kayboluyordu, aynı numaranın ikinci müşteri kaydı kampanya alıyordu.
         if (topIntent === 'optout') {
             if (known?.id) {
                 await admin.from('customers')
                     .update({ wa_opt_out: true, wa_opt_out_at: new Date().toISOString() })
                     .eq('id', known.id).eq('organization_id', orgId);
             }
+            await setPhoneOptOut(admin, orgId, phone, true);
             return reply(M.optedOut(msgCtx()), 'optout');
         }
-        if (topIntent === 'optin' && known?.wa_opt_out) {
-            await admin.from('customers')
-                .update({ wa_opt_out: false, wa_opt_out_at: null })
-                .eq('id', known.id).eq('organization_id', orgId);
+        if (topIntent === 'optin' && (known?.wa_opt_out || await phoneOptedOut(admin, orgId, phone))) {
+            if (known?.wa_opt_out) {
+                await admin.from('customers')
+                    .update({ wa_opt_out: false, wa_opt_out_at: null })
+                    .eq('id', known.id).eq('organization_id', orgId);
+            }
+            await setPhoneOptOut(admin, orgId, phone, false);
             return reply(M.optedIn(msgCtx()), 'optout');
         }
 
@@ -374,6 +386,14 @@ Deno.serve(async (req: Request) => {
 
         if (!featureOn(orgWa, 'assistant', false)) return ok({ skipped: 'assistant_off' });
 
+        // ── Kimlere cevap versin (139) ───────────────────────────────────────
+        // Hat sahibin kişisel numarasıysa arkadaşa, aileye bot cevap vermesin.
+        // Hem ajan hem eski bot için; mesaj yukarıda kaydedildi, sahip
+        // telefonundan görür. Müşteri kaydı her zaman önce gelir.
+        if (await audienceGate(admin, orgWa, { phone, remoteJid, isCustomer: Boolean(known?.id) }) === 'silent') {
+            return ok({ skipped: 'audience' });
+        }
+
         // ── Sekreter v2 · Claude ajanı (130) ─────────────────────────────────
         // Bayrak yalnız seçilen işletmede açık; diğerlerinde aşağıdaki eski
         // akış aynen sürer. Ajanın cevabı burada YAZILMAZ: mesaj kuyruğa girer,
@@ -381,8 +401,7 @@ Deno.serve(async (req: Request) => {
         // Kuyruğa yazılamazsa (göç eksik, bağlantı) ya da Claude'a son deneme
         // ulaşamadıysa (bakiye, yetki) eski bot devralır — müşteri cevapsız kalmaz.
         if (featureOn(orgWa, 'agent_v2', false)) {
-            const [{ data: cfgRow }, { data: spent }, { count: lastHour }, { data: lastRun }] = await Promise.all([
-                admin.from('org_whatsapp').select('agent_config').eq('organization_id', orgId).maybeSingle(),
+            const [{ data: spent }, { count: lastHour }, { data: lastRun }] = await Promise.all([
                 admin.rpc('wa_agent_spend', { p_org: orgId }),
                 admin.from('wa_message_log')
                     .select('id', { count: 'exact', head: true })
@@ -394,7 +413,7 @@ Deno.serve(async (req: Request) => {
             ]);
             const route = agentRoute({
                 enabled: true,
-                config: (cfgRow?.agent_config ?? null) as AgentConfig | null,
+                config: (orgWa.agent_config ?? null) as AgentConfig | null,
                 phone,
                 spentUsd: Number(spent) || 0,
                 down: agentLooksDown(lastRun, Date.now()),
