@@ -131,6 +131,7 @@ test('silme üç korumayı da taşıyor', () => {
 test('silme ile İPTAL ayrı iki iş', () => {
     // İptal edilen randevu kayıtta kalır, silinen kalmaz. Kart ikisini ayrı
     // satırda soruyor; birini ötekine çevirmek tasarımı da veriyi de bozardı.
-    assert.match(detail, /onCancel=\{\(\) => \{ void commit\(\{ \.\.\.appointment, status: 'cancelled' \}\); \}\}/);
+    // 1.0.2: iptal yazılınca (ve yalnız o zaman) müşteriye haber gidebilir.
+    assert.match(detail, /onCancel=\{\(\{ notify \}\) => \{\s*void commit\(\{ \.\.\.appointment, status: 'cancelled' \}\)\.then\(\(ok\) => \{[\s\S]{0,200}if \(ok && notify\) void sendCancelNotice\(appointment\);/);
     assert.doesNotMatch(write.slice(write.indexOf('export async function deleteAppointment')), /status: 'cancelled'/);
 });

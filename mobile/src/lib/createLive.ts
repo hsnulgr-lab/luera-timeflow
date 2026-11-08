@@ -15,7 +15,8 @@
  *   • SON SÖZ sunucunun: 060 çakışma, 076 uygunluk tetikleyicisi
  */
 
-import { addDaysISO, dayNameLong, formatDayMonth, hhmm } from './calendar.ts';
+import { addDaysISO, dayNameLong, formatDayMonth, hhmm, todayISO } from './calendar.ts';
+import { waConfirmation } from './waText.ts';
 import type { CatalogService } from './cashBuild.ts';
 import type { CustomerOption, ServiceOption, StaffOption } from './createFlow.ts';
 import { initialsOf } from './text.ts';
@@ -44,6 +45,7 @@ export function serviceOptionsOf(catalog: readonly CatalogService[]): ServiceOpt
             price: service.price ?? null,
             color: service.color ?? DEFAULT_SERVICE_COLOR,
             tags: service.tags ?? [],
+            ...(service.prepNote ? { prepNote: service.prepNote } : null),
         }));
 }
 
@@ -477,11 +479,11 @@ export function trDate(dateISO: string): string {
 }
 
 /**
- * Müşteriye giden onay — masaüstünün `buildConfirmationMessage`inin AYNISI.
- *
- * Aynı müşteri bir randevuyu masaüstünden, bir sonrakini telefondan alırsa
- * iki farklı metin görmemeli. Ekrandaki önizleme de bu metni gösteriyor:
- * müdür gidecek olanı görür.
+ * Müşteriye giden onay — masaüstünün `buildConfirmationMessage`ı, TEK SES
+ * (1.0.2, 2026-11-09): kalıp sunucununkinin birebir kopyası (`waText.ts`).
+ * Hanım/Bey hitabı, sektör tonu (settings.comms) ve hizmetin hazırlık notu
+ * masaüstündekiyle aynı. Ekrandaki önizleme de bu metni gösteriyor: müdür
+ * gidecek olanı görür.
  */
 export function confirmationText(params: {
     customerName: string;
@@ -491,20 +493,14 @@ export function confirmationText(params: {
     businessName: string;
     staffName?: string | null;
     mapsUrl?: string | null;
-    sector?: string | null;
+    /** settings.comms (066); yoksa nötr ton. */
+    comms?: unknown;
+    /** Hizmetin hazırlık notu (138). */
+    prepNote?: string | null;
+    /** "Bugün"/"Yarın" öneki için; verilmezse telefonun bugünü. */
+    todayISO?: string;
 }): string {
-    const firstName = (params.customerName || '').split(' ')[0];
-    const comms = SECTOR_COMMS[params.sector || 'genel'] ?? SECTOR_COMMS.genel;
-    return (
-        `Merhaba ${firstName} 👋\n\n`
-        + `*${params.businessName}* — ${comms.serviceWord} kaydınız oluşturuldu ✅\n\n`
-        + `📅 ${trDate(params.dateISO)}\n`
-        + `🕐 Saat *${params.startTime.slice(0, 5)}*\n`
-        + `💠 ${params.service}`
-        + (params.staffName ? `\n👤 ${params.staffName}` : '')
-        + `\n\nDeğişiklik gerekirse bu mesaja yanıt vermeniz yeterli. Görüşmek üzere! ${comms.emoji}`
-        + (params.mapsUrl ? `\n\n📍 Konum: ${params.mapsUrl}` : '')
-    );
+    return waConfirmation({ ...params, todayISO: params.todayISO ?? todayISO() });
 }
 
 /** Proxy'nin gönderim cevabı — masaüstünün `WaSendResult`u. */

@@ -6,6 +6,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { Num } from './ui';
 import { SheetGrab } from './Sheet';
+import { Checkbox } from './ProfileParts';
 import { feedback } from '../lib/feedback';
 import {
     NOTE_HINT, NOTE_SCOPE, NOTE_TITLE, SERVICE_SHEET_TITLE, confirmCopy,
@@ -331,16 +332,21 @@ export function NoteSheet({ appointment, onSave }: {
 
 // ── D · İki onay, aynı iskelet, farklı ağırlık ──────────────────────────────
 
-export function ConfirmDialog({ visible, action, appointment, staffName, onDismiss, onConfirm }: {
+export function ConfirmDialog({ visible, action, appointment, staffName, notify = null, onDismiss, onConfirm }: {
     visible: boolean;
     action: DestructiveAction;
     appointment: Appt;
     staffName?: string | null;
+    /**
+     * İptalde "Müşteriye WhatsApp'tan haber ver" kutusu (1.0.2). Yalnız
+     * numarası olan müşteride verilir; masaüstündeki gibi işaretli gelir.
+     */
+    notify?: { checked: boolean; onToggle: () => void } | null;
     onDismiss: () => void;
     onConfirm: () => void;
 }) {
     const { c, dark, reduceMotion } = useTheme();
-    const copy = confirmCopy(action, appointment, staffName);
+    const copy = confirmCopy(action, appointment, staffName, Boolean(notify));
     const enter = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -441,6 +447,14 @@ export function ConfirmDialog({ visible, action, appointment, staffName, onDismi
                                     {copy.line}
                                 </Text>
                             </View>
+
+                            {action === 'cancel' && notify ? (
+                                <Checkbox
+                                    checked={notify.checked}
+                                    label="Müşteriye WhatsApp'tan haber ver"
+                                    onToggle={notify.onToggle}
+                                />
+                            ) : null}
 
                             <View style={{ gap: apptCardMetrics.dlgBtnGap }}>
                                 {/* Dolu buton KALICI olanı değil GÜVENLİ olanı taşır. */}

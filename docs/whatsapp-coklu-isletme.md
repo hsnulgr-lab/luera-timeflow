@@ -45,10 +45,27 @@ Eksikler kurulum, güvenlik ve ölçek tarafındaydı. Faz 1 ve 2 bunları kapat
   - asistanın aylık kullanımı %80'e ve %100'e gelince sahibe bildirim.
 
 ## Faz 3 · telefon uygulaması (1.0.2 yayınıyla)
-- Onay mesajı ortak kalıba (`bookingConfirmation`): hazırlık notu ve hitapla.
-- Telefondan iptal edince "müşteriye haber ver" seçeneği (masaüstündeki gibi, işaretli gelir).
-- WhatsApp bağlama ekranı (QR). Şu an yalnız masaüstünde var.
-- Devretme bildirimi müşteri kartına gitsin. Şu an `wa.me`'ye gidiyor; bu ancak müdürün telefonu işletmenin hattıysa doğru.
+- **Onay mesajı masaüstüyle tek ses (kod hazır, 2026-11-09).**
+  - Sunucunun kalıpları `mobile/src/lib/waShared/` altında birebir kopya; eşitlemek için `node mobile/scripts/sync-wa-shared.mjs`.
+  - Telefona özgü katman `mobile/src/lib/waText.ts`.
+  - Mesajın tonu `settings.comms`'tan, hazırlık notu katalogdan (`prep_note`) geliyor.
+  - `tests/mobil-wa-tek-ses.test.mjs`: kopyalar kaynakla aynı; telefonun metni sunucununkiyle aynı.
+- **Telefondan iptalde müşteriye haber (kod hazır):**
+  - iptal penceresinde "Müşteriye WhatsApp'tan haber ver" kutusu (işaretli gelir),
+  - mesaj yalnız iptal gerçekten yazılınca gider,
+  - tür `cancellation`, metin masaüstüyle aynı.
+- **Devretme bildirimi:** dokunulmadı.
+  - Telefonda bugün müşterinin WhatsApp sohbetini (`wa.me`) açıyor. Hat sahibin kişisel numarasıysa bu doğru: sahip hemen yazar.
+  - Yanlış olduğu durum: müdürün telefonu işletmenin hattı değilse. Kullanıcı kararı bekliyor.
+- **WhatsApp bağlama ekranı (QR):** ayrı oturum, tasarım gerekiyor.
+  - Bilgisayarı olmayan tek kişilik salon bugün hattını bağlayamıyor.
+  - Ekran: durum, QR ya da eşleştirme kodu, bağlantıyı kes.
+  - Sunucu tarafı hazır: `whatsapp-proxy` connect/state/disconnect, telefon da çağırabilir.
+- **Yayın öncesi:**
+  - Expo Go'da deneme (onay metni + iptal kutusu),
+  - `npm run start:prod` (üretim kipi),
+  - EAS derlemesi.
+  - Üretim paketi telefonsuz derlemeyle doğrulandı (`expo export`, 2026-11-09).
 
 ## Faz 4 · 10+ işletmede alınacak kararlar (kod yok)
 1. **WhatsApp sunucusu:** Tek bir Evolution sunucusu var ve resmî olmayan API ile çalışıyor (Baileys; ban riski).

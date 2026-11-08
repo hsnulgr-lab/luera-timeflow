@@ -664,6 +664,13 @@ export const destructiveOptions: DestructiveOption[] = [
     },
 ];
 
+/**
+ * İptal penceresinde "Müşteriye WhatsApp'tan haber ver" kutusu varken (1.0.2):
+ * haber konusunu cümle değil KUTU söyler. Cümle yine bir şey vaat etmez —
+ * işaretli kutu bile gönderimin sonucunu garanti etmez (hat düşük olabilir).
+ */
+export const CANCEL_BODY_WITH_NOTIFY = 'Randevu takvimde kalır, “iptal edildi” diye işaretlenir.';
+
 /** Sayfada kalan tek ipucu — iki satırlık cümle KARAR ANINA taşındı. */
 export const CANCEL_HINT = 'Takvimde kalır, iptal işaretlenir';
 export const DELETE_HINT = 'Geri alınamaz';
@@ -689,6 +696,8 @@ export function confirmCopy(
     action: DestructiveAction,
     appointment: Appt,
     staffName?: string | null,
+    /** İptal penceresinde haber kutusu var mı (numaralı müşteri, 1.0.2). */
+    notifyOffered = false,
 ): ConfirmCopy {
     const option = destructiveOptions.find((item) => item.action === action);
     const parts = [
@@ -700,7 +709,7 @@ export function confirmCopy(
     return {
         action,
         title: action === 'cancel' ? 'Randevu iptal edilsin mi?' : 'Randevu silinsin mi?',
-        body: option?.body ?? '',
+        body: action === 'cancel' && notifyOffered ? CANCEL_BODY_WITH_NOTIFY : option?.body ?? '',
         name: appointment.customer_name,
         line: parts.join(' · '),
         confirm: option?.title ?? '',

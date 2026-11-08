@@ -10,7 +10,7 @@ import { Empty } from '../../../src/components/ui';
 import { useManagerAppointment } from '../../../src/lib/managerAppointment';
 import { orgDurum } from '../../../src/lib/managerDurum';
 import { useInSoloShell } from '../../../src/lib/shellRoot';
-import { deleteAppointment, updateAppointment } from '../../../src/lib/managerWrite';
+import { deleteAppointment, sendCancelNotice, updateAppointment } from '../../../src/lib/managerWrite';
 import {
     STALE_LINE, STALE_TITLE, writablePatch, type WriteOutcome,
 } from '../../../src/lib/managerWriteMap';
@@ -303,7 +303,13 @@ export default function ManagerAppointment() {
                             : new Date().toISOString();
                         void commit({ ...appointment, customer_arrived_at: stamp });
                     }}
-                    onCancel={() => { void commit({ ...appointment, status: 'cancelled' }); }}
+                    onCancel={({ notify }) => {
+                        void commit({ ...appointment, status: 'cancelled' }).then((ok) => {
+                            // Haber yalnız iptal GERÇEKTEN yazıldıysa: reddedilen
+                            // bir iptal için müşteriye "iptal ettik" denmez.
+                            if (ok && notify) void sendCancelNotice(appointment);
+                        });
+                    }}
                     onDelete={() => { void remove(); }}
                 />
             ) : state === 'error' ? (

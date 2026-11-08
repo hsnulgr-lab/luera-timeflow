@@ -71,13 +71,16 @@ export function AppointmentDetail({
     onUpdate?: (next: Appt) => void;
     onAttendance?: (arrived: boolean) => void;
     /** Onaydan SONRA çağrılır. */
-    onCancel?: () => void;
+    /** notify: müşteriye WhatsApp'tan iptal haberi gitsin mi (1.0.2). */
+    onCancel?: (options: { notify: boolean }) => void;
     /** Onaydan SONRA çağrılır. */
     onDelete?: () => void;
 }) {
     const { c, reduceMotion } = useTheme();
     const router = useRouter();
     const [confirming, setConfirming] = useState<DestructiveAction | null>(null);
+    // İptalde müşteriye haber (1.0.2): masaüstündeki gibi işaretli gelir.
+    const [notifyCancel, setNotifyCancel] = useState(true);
 
     /*
      * ALT SAYFALAR iOS'un sayfası (2026-10-13): "Hizmeti değiştir" ve "Notu
@@ -268,11 +271,15 @@ export function AppointmentDetail({
                 action={confirming ?? 'cancel'}
                 appointment={appointment}
                 staffName={solo ? null : staffName}
+                notify={appointment.customer_phone
+                    ? { checked: notifyCancel, onToggle: () => setNotifyCancel((v) => !v) }
+                    : null}
                 onDismiss={() => setConfirming(null)}
                 onConfirm={() => {
                     const action = confirming;
                     setConfirming(null);
-                    if (action === 'cancel') onCancel?.(); else onDelete?.();
+                    if (action === 'cancel') onCancel?.({ notify: Boolean(appointment.customer_phone) && notifyCancel });
+                    else onDelete?.();
                 }}
             />
         </View>

@@ -510,7 +510,11 @@ export async function fetchServices(): Promise<CatalogService[]> {
         .returns<Record<string, unknown>[]>();
     // `tags` 076'da geldi. Kolon yoksa katalog KAPANMIYOR — yalnız kapalı
     // hizmet kararı ad desenine düşüyor (masaüstünün etiketsiz yolu).
-    let { data, error } = await read('id, name, duration, price, color, tags');
+    // `prep_note` 138'de geldi (onay mesajının hazırlık satırı); yoksa onsuz.
+    let { data, error } = await read('id, name, duration, price, color, tags, prep_note');
+    if (error && (error as { code?: string }).code === UNDEFINED_COLUMN) {
+        ({ data, error } = await read('id, name, duration, price, color, tags'));
+    }
     if (error && (error as { code?: string }).code === UNDEFINED_COLUMN) {
         ({ data, error } = await read('id, name, duration, price, color'));
     }
@@ -667,6 +671,8 @@ export interface CreateSettings {
     mapsUrl: string | null;
     /** Sektörün kontrendikasyon kuralları (076) — kapalı hizmet kararı. */
     riskRules: EligibilityRule[];
+    /** settings.comms (066): müşteriye giden mesajların tonu; yoksa nötr. */
+    comms: unknown;
 }
 
 /**
@@ -680,7 +686,7 @@ export interface CreateSettings {
 export async function fetchCreateSettings(): Promise<CreateSettings> {
     const organizationId = await orgIdOrThrow();
     const [settings, org] = await Promise.all([
-        fetchOrgSettings('business_name, sector, working_hours, webhook_url, risk_rules'),
+        fetchOrgSettings('business_name, sector, working_hours, webhook_url, risk_rules, comms'),
         supabase.from('organizations').select('maps_url').eq('id', organizationId).maybeSingle()
             .returns<{ maps_url?: string | null } | null>(),
     ]);
@@ -693,6 +699,7 @@ export async function fetchCreateSettings(): Promise<CreateSettings> {
         webhookUrl: /^https?:\/\//i.test(hook) ? hook : null,
         mapsUrl: org.data?.maps_url?.trim() || null,
         riskRules: Array.isArray(settings?.risk_rules) ? settings.risk_rules as EligibilityRule[] : [],
+        comms: settings?.comms ?? null,
     };
 }
 

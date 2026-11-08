@@ -274,7 +274,7 @@ test('defter: aktif müşteriler, 24 aylık geliş penceresi, sayfalı okuma', (
 
 test('ayarlar ada göre isteniyor — PIN taşıyan satırın tamamı değil', () => {
     const fn = source.slice(source.indexOf('export async function fetchCreateSettings'), source.indexOf('export async function fetchCustomerById'));
-    assert.match(fn, /fetchOrgSettings\('business_name, sector, working_hours, webhook_url, risk_rules'\)/);
+    assert.match(fn, /fetchOrgSettings\('business_name, sector, working_hours, webhook_url, risk_rules, comms'\)/);
     assert.doesNotMatch(source, /fetchOrgSettings\('\*'\)/);
     assert.match(fn, /\/\^https\?:\\\/\\\/\/i\.test\(hook\)/);
 });
@@ -291,19 +291,16 @@ test('ön dolgu kaybolmasın: akış bağlam okunmadan kurulmuyor', () => {
 // Masaüstü 2026-11-07'de tek sese geçti (_shared/booking/messages.ts →
 // bookingConfirmation). Telefonun kopyası mağaza derlemesiyle (1.0.2)
 // geçecek; o zamana kadar telefonun kendi metni kilitli.
-test('telefonun onay metni (1.0.2\'de tek sese geçecek)', () => {
+test('telefonun onay metni masaüstüyle tek ses (1.0.2)', () => {
+    // Ayrıntılı eşitlik: tests/mobil-wa-tek-ses.test.mjs. Burada akışın metni.
     const text = confirmationText({
         customerName: 'Zeynep Kaya', dateISO: '2026-09-16', startTime: '10:30:00', service: 'Saç boyama',
-        businessName: 'Luera Kuaför', staffName: 'Merve', mapsUrl: 'https://maps.example/x', sector: 'kuafor',
+        businessName: 'Luera Kuaför', staffName: 'Merve', mapsUrl: 'https://maps.example/x', todayISO: '2026-09-10',
     });
     assert.equal(text,
-        'Merhaba Zeynep 👋\n\n'
-        + '*Luera Kuaför* — işlem kaydınız oluşturuldu ✅\n\n'
-        + '📅 16 Eylül Çarşamba\n'
-        + '🕐 Saat *10:30*\n'
-        + '💠 Saç boyama\n👤 Merve'
-        + '\n\nDeğişiklik gerekirse bu mesaja yanıt vermeniz yeterli. Görüşmek üzere! 💇'
-        + '\n\n📍 Konum: https://maps.example/x');
+        'Merhaba Zeynep Hanım 🗓️\n*Luera Kuaför* olarak randevunuzu oluşturduk.\n\n'
+        + '*Hizmet:* Saç boyama\n*Tarih:* 16 Eylül Çarşamba\n*Saat:* 10:30\n*Uzman:* Merve\n\n'
+        + 'Sizi bekliyoruz. Değişiklik gerekirse bu mesaja yazmanız yeterli.\n\n*Konum:* https://maps.example/x');
     assert.equal(trDate('2026-07-27'), '27 Temmuz Pazartesi');
 });
 

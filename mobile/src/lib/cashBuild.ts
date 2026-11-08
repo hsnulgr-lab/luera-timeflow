@@ -81,6 +81,8 @@ export interface CatalogService {
     color?: string;
     /** Uygunluk etiketleri (076): `lazer`, `medikal`… Kapalı hizmet kararı bunlarla. */
     tags?: string[];
+    /** Gelmeden önce yapılacaklar (138); onay mesajında *Hazırlık:* satırı. */
+    prepNote?: string;
 }
 
 // ── Katalog ─────────────────────────────────────────────────────────────────
@@ -122,6 +124,7 @@ export function catalogOf(raw: unknown): CatalogService[] {
             ...(Array.isArray(row.tags)
                 ? { tags: row.tags.filter((tag): tag is string => typeof tag === 'string' && tag.length > 0) }
                 : null),
+            ...(typeof row.prep_note === 'string' && row.prep_note.trim() ? { prepNote: row.prep_note.trim() } : null),
         });
     }
     return out;

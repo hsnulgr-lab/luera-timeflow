@@ -68,6 +68,8 @@ export interface ServiceOption {
     color: string;
     /** Uygunluk etiketleri (076). */
     tags?: string[];
+    /** Hizmetin hazırlık notu (138); onay mesajında. */
+    prepNote?: string;
     /**
      * Paketten seans (`createPackage.planOption`). Varsa randevu pakete
      * bağlanır: bitirince hak düşer, Kasa hizmeti ₺0 sayar.

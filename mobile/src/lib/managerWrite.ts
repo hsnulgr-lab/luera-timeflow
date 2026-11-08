@@ -32,7 +32,9 @@ import {
 } from './planPayment.ts';
 import type { DaySchedule, NotificationKey, SalonService } from './managerProfile.ts';
 import { prefsPatchOf } from './notificationPrefs.ts';
-import { fetchPackageTypes, fetchServices, type HoursRow, type PrefsRow } from './managerSource';
+import { fetchOrgSettings, fetchPackageTypes, fetchServices, type HoursRow, type PrefsRow } from './managerSource';
+import { waCancellation } from './waText.ts';
+import { todayISO } from './calendar.ts';
 import { typePatchOf, type PackageType } from './packageBook.ts';
 import {
     servicePatchOf, workingHoursOf, type SettingsOutcome,
@@ -389,6 +391,47 @@ export async function sendWaNudge(input: {
                 text: input.text,
                 kind: 'manual',
                 customerId: input.customerId,
+                orgId: choice.ok ? choice.id : undefined,
+            },
+        });
+        if (error) return 'failed';
+        return waResultOf(data as { ok?: boolean; reason?: string; queued?: boolean } | null);
+    } catch {
+        return 'failed';
+    }
+}
+
+/**
+ * Telefondan iptalde müşteriye haber (1.0.2, 2026-11-09) — masaüstündeki
+ * "Müşteriye haber ver" kutusunun karşılığı. Eskiden telefondan iptal edilen
+ * randevu için müşteriye hiçbir şey gitmiyordu; aynı salon masaüstünden iptal
+ * edince haber veriyordu.
+ *
+ * Metin masaüstündekinin aynısı (`waText.waCancellation`; işletme adı ve ton
+ * sahibin ayar satırından). Tür `cancellation`: işlemin karşılığı, kotaya
+ * girmez (sunucunun izin listesinde). Sonuç fırlatılmaz.
+ */
+export async function sendCancelNotice(appointment: Appt): Promise<WaResult> {
+    if (!appointment.customer_phone) return 'invalid_phone';
+    try {
+        const settings = await fetchOrgSettings('business_name, comms');
+        const text = waCancellation({
+            customerName: appointment.customer_name,
+            dateISO: appointment.date,
+            startTime: appointment.start_time,
+            service: appointment.service,
+            businessName: String(settings?.business_name ?? '').trim(),
+            comms: settings?.comms ?? null,
+            todayISO: todayISO(),
+        });
+        const choice = await resolveOrg();
+        const { data, error } = await supabase.functions.invoke('whatsapp-proxy', {
+            body: {
+                action: 'send',
+                phone: appointment.customer_phone,
+                text,
+                kind: 'cancellation',
+                customerId: appointment.customer_id,
                 orgId: choice.ok ? choice.id : undefined,
             },
         });

@@ -806,7 +806,8 @@ export function CreateFlow({
             businessName: context.settings.businessName,
             staffName: person?.name ?? null,
             mapsUrl: context.settings.mapsUrl,
-            sector: context.settings.sector,
+            comms: context.settings.comms,
+            prepNote: draft.service?.prepNote ?? null,
         });
         return (
             <ConfirmScreen
