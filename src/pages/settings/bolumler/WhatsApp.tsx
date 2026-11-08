@@ -653,7 +653,9 @@ function AsistanAyarlari({ a, assistantOn, onSave }: {
 }
 
 /** 905321112233 → 0532 111 22 33 (yurt dışı numara olduğu gibi). */
-function showPhone(n: string): string {
+function showPhone(raw: string): string {
+    // Eski kayıtlar 0552…, yeniler 90552… biçiminde; ikisi de aynı görünsün.
+    const n = normalizePhone(raw) ?? raw;
     return /^905\d{9}$/.test(n) ? `0${n.slice(2, 5)} ${n.slice(5, 8)} ${n.slice(8, 10)} ${n.slice(10)}` : n;
 }
 

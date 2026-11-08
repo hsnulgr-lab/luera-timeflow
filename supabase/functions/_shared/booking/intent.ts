@@ -143,6 +143,28 @@ export function inboundKind(payload: {
 }
 
 /** Gizli kimlik (…@lid, cihaz eki atılır); numaralı JID'de ''. */
+/**
+ * Gizli kimlikli sohbetin numarası, Evolution'ın mesaj geçmişinden (2026-11-09).
+ * Hat yeniden bağlanınca yeni mesajlar numarasız (yalnız …@lid) gelebiliyor ve
+ * Evolution'ın numara ön belleği de boş dönüyor; ama aynı sohbetin eski
+ * mesajlarında numara çoğu zaman saklı (`remoteJidAlt`). `chat/findMessages`
+ * cevabı → ilk bulunan numara (…@s.whatsapp.net), yoksa ''. Saf.
+ */
+export function phoneJidFromHistory(json: unknown): string {
+    const j = json as Record<string, unknown> | unknown[] | null;
+    const m = j && !Array.isArray(j) ? (j as Record<string, unknown>).messages : j;
+    const recs = Array.isArray(m) ? m
+        : (m && typeof m === 'object' && Array.isArray((m as Record<string, unknown>).records)) ? (m as Record<string, unknown>).records as unknown[]
+        : [];
+    for (const r of recs) {
+        if (!r || typeof r !== 'object') continue;
+        const rec = r as { key?: Parameters<typeof senderJid>[0]; senderPn?: string };
+        const pn = senderJid(rec.key, rec);
+        if (pn) return pn;
+    }
+    return '';
+}
+
 export function lidOf(remoteJid?: string): string {
     return remoteJid && remoteJid.endsWith('@lid') ? remoteJid.split('@')[0].split(':')[0] : '';
 }

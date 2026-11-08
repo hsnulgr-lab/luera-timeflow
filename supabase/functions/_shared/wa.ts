@@ -11,6 +11,7 @@
 import { normalizePhone } from './phone.ts';
 import { pickCustomer } from './booking/identity.ts';
 import { answerDecision, answerMode, hadPriorChat, isTestNumber, messageRecords } from './agent/audience.ts';
+import { phoneJidFromHistory } from './booking/intent.ts';
 
 // deno-lint-ignore no-explicit-any
 export type Admin = any; // service_role SupabaseClient
@@ -327,17 +328,30 @@ export async function lidToPhone(admin: Admin, org: OrgWa, lid: string): Promise
     const url = await getSecret(admin, 'EVOLUTION_API_URL');
     const key = await getSecret(admin, 'EVOLUTION_API_KEY');
     if (!url || !key) return null;
+    const headers = { 'Content-Type': 'application/json', apikey: key };
     try {
         const res = await fetch(`${url}/chat/whatsappNumbers/${org.instance}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', apikey: key },
+            method: 'POST', headers,
             body: JSON.stringify({ numbers: [`${lid}@lid`] }),
             signal: AbortSignal.timeout(8000),
         });
+        if (res.ok) {
+            const rows = await res.json().catch(() => null);
+            const jid = Array.isArray(rows) ? String(rows[0]?.jid ?? '') : '';
+            if (jid.endsWith('@s.whatsapp.net')) return normalizePhone(jid.split('@')[0].split(':')[0]);
+        }
+    } catch { /* geçmişe bak */ }
+    // Ön bellek bilmiyor: aynı sohbetin eski mesajlarında numara saklı olabilir
+    // (canlı 2026-11-09: yeniden bağlanan hatta 4 sohbetin 4'ünde de vardı).
+    try {
+        const res = await fetch(`${url}/chat/findMessages/${org.instance}`, {
+            method: 'POST', headers,
+            body: JSON.stringify({ where: { key: { remoteJid: `${lid}@lid` } }, page: 1, offset: 100 }),
+            signal: AbortSignal.timeout(8000),
+        });
         if (!res.ok) return null;
-        const rows = await res.json().catch(() => null);
-        const jid = Array.isArray(rows) ? String(rows[0]?.jid ?? '') : '';
-        return jid.endsWith('@s.whatsapp.net') ? normalizePhone(jid.split('@')[0].split(':')[0]) : null;
+        const jid = phoneJidFromHistory(await res.json().catch(() => null));
+        return jid ? normalizePhone(jid.split('@')[0].split(':')[0]) : null;
     } catch {
         return null;
     }
