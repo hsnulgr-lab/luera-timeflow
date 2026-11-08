@@ -220,8 +220,9 @@ test('davet: zamanlayıcı açıkken kasada gitmez; gönderirken kapanış, iler
     assert.match(fn, /isUnhappy\(fb\.rating\)/);
     assert.match(fn, /'ileri randevusu var'/);
     assert.match(fn, /update\(\{ rebook_sent: true \}\)/);
-    // Ayar sahibin satırından okunur (settings kullanıcı başına).
-    assert.match(src, /\.eq\('user_id', ownerId\)/);
+    // Ayar sahibin satırından okunur (settings kullanıcı başına) — ortak
+    // okuyucu, işletme filtresiyle (_shared/org.ts, 2026-11-08).
+    assert.match(src, /ownerSettings\(admin, orgId, 'business_name, comms, rebook_enabled, rebook_note', org\?\.owner_id \?\? null\)/);
 });
 
 test('göç 132: kapanış (tamamlandı + ödendi) erken çıkıştan önce yakalanır, 1,5 saat sonra', () => {

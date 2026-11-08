@@ -34,6 +34,17 @@ export interface OwnerNotice {
  * bildirimler ise TAM adı, ad bilinmeyince de TELEFON NUMARASINI yazıyordu.
  * Ad yoksa "Müşteri" — numara kilit ekranına çıkmaz.
  */
+/**
+ * "Müşteri sizinle görüşmek istiyor" bildiriminin adresi. Masaüstünde
+ * /mesajlar o numaranın müşteri kartını açar (yoksa WhatsApp'a yönlendirir);
+ * telefon uygulaması etiketteki numaradan (handoff-<numara>) gider, adresin
+ * sorgusuna bakmaz. Eskiden adreste numara yoktu ve masaüstünde böyle bir
+ * sayfa olmadığı için bildirim ana sayfaya düşüyordu (2026-11-08).
+ */
+export function handoffUrl(phone: string): string {
+    return `/mesajlar?phone=${encodeURIComponent(phone)}`;
+}
+
 export function firstNameOf(full: string | null | undefined): string {
     return String(full ?? '').trim().split(/\s+/)[0] || 'Müşteri';
 }

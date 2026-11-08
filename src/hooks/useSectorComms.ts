@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { readOwnerSettings } from '@/lib/ownerSettings';
 import { useAuth } from '@/contexts/AuthContext';
 import { commsForSector, type SectorComms } from '@/lib/sectorProfiles';
 
@@ -27,8 +28,8 @@ export function useSectorComms(sector: string) {
         if (!orgId) return;
         let alive = true;
         (async () => {
-            const { data, error } = await supabase
-                .from('settings').select('comms').eq('organization_id', orgId).maybeSingle();
+            // Sahibin satırı (lib/ownerSettings): çok girişli işletmede maybeSingle hata veriyordu.
+            const { data, error } = await readOwnerSettings<{ comms: unknown }>(orgId, 'comms');
             if (!alive) return;
             if (error) {
                 if (error.code === '42703' || error.code === 'PGRST204') setAvailable(false);

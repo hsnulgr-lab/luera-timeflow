@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { cardlessTrialDaysLeft, computeAccess, DEFAULT_TRIAL_DAYS, safeTrialDays, shownEnd, type EntitlementRow } from '../_shared/entitlement.ts';
 import { dodoApi, dodoFetch } from '../_shared/dodo.ts';
-import { resolveOrg } from '../_shared/org.ts';
+import { ownerSettings, resolveOrg } from '../_shared/org.ts';
 import { getSecret } from '../_shared/wa.ts';
 import { isUpgrade, MAX_STAFF, teamSize } from './paket.ts';
 
@@ -222,8 +222,7 @@ Deno.serve(async (req: Request) => {
                     return json({ error: 'change_pending' }, 409);
                 }
             }
-            const { data: s } = await admin.from('settings').select('business_name')
-                .eq('organization_id', orgId).maybeSingle();
+            const s = await ownerSettings(admin, orgId, 'business_name');
             const res = await dodoFetch(api, `/subscriptions/${encodeURIComponent(subscriptionId)}/change-plan`, {
                 method: 'POST',
                 body: JSON.stringify({
@@ -338,11 +337,7 @@ Deno.serve(async (req: Request) => {
         }
 
         // İşletme adı (checkout'ta müşteri adı olarak)
-        const { data: settingsRow } = await admin
-            .from('settings')
-            .select('business_name')
-            .eq('organization_id', orgId)
-            .maybeSingle();
+        const settingsRow = await ownerSettings(admin, orgId, 'business_name');
 
         // ── Deneme hakkı ─────────────────────────────────────────────────────
         // Yalnız DAHA ÖNCE hiç aboneliği olmamış org deneme alır. Aksi hâlde

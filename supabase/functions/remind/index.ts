@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { ownerSettings, pickOwnerRows } from '../_shared/org.ts';
 import {
     drainOutbox, featureOn, getOrgWa, getSecret, linkedOrgs, sendWA, verifyConnection,
     type OrgWa, type WaKind,
@@ -18,6 +19,8 @@ const corsHeaders = {
 
 // Turkey UTC+3
 const TZ_OFFSET_MIN = 3 * 60;
+// İşletme döngüsünün süresi; dolunca kalan işletmeler sonraki çalışmaya (140).
+const ORG_LOOP_BUDGET_MS = 40_000;
 
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
@@ -102,12 +105,7 @@ Deno.serve(async (req: Request) => {
                 return new Response(JSON.stringify({ error: 'Hasta veya telefon bulunamadı' }),
                     { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
             }
-            const { data: orgSettings } = await supabase
-                .from('settings')
-                .select('business_name, comms')
-                .eq('organization_id', cust.organization_id)
-                .limit(1)
-                .maybeSingle();
+            const orgSettings = await ownerSettings(supabase, cust.organization_id, 'business_name, comms');
             // Bağlantı org_whatsapp'ta (070) — settings kullanıcı başına tek satır
             // olduğu için oradan okumak çok üyeli org'da belirsizdi.
             const orgWa = await getOrgWa(supabase, cust.organization_id);
@@ -171,19 +169,22 @@ Deno.serve(async (req: Request) => {
         // Değerlendirme daveti ve indirimli winback için org ayarları
         const orgExtras = new Map<string, { reviewUrl: string | null; discountPercent: number; discountDays: number }>();
         if (orgIds.length > 0) {
-            const { data: settingsRows } = await supabase
-                .from('settings')
-                .select('organization_id, business_name, comms, sector')
-                .in('organization_id', orgIds);
-            for (const s of settingsRows ?? []) {
-                if (!settingsByOrg.has(s.organization_id)) {
-                    settingsByOrg.set(s.organization_id, { business_name: s.business_name, comms: s.comms, sector: s.sector ?? null });
-                }
+            const [{ data: settingsRows }, { data: orgRows }] = await Promise.all([
+                supabase
+                    .from('settings')
+                    .select('organization_id, user_id, created_at, business_name, comms, sector')
+                    .in('organization_id', orgIds),
+                supabase
+                    .from('organizations')
+                    .select('id, owner_id, maps_url, google_review_url, winback_discount_percent, winback_discount_days')
+                    .in('id', orgIds),
+            ]);
+            // Sahibin satırı, yoksa en eskisi (_shared/org.ts). Eskiden ilk gelen
+            // satır kazanıyordu: çok girişli işletmede sıra rastgeleydi.
+            const ownerByOrg = new Map<string, string | null>((orgRows ?? []).map((o: any) => [o.id, o.owner_id ?? null]));
+            for (const [orgId, s] of pickOwnerRows(settingsRows ?? [], ownerByOrg)) {
+                settingsByOrg.set(orgId, { business_name: s.business_name, comms: s.comms, sector: s.sector ?? null });
             }
-            const { data: orgRows } = await supabase
-                .from('organizations')
-                .select('id, maps_url, google_review_url, winback_discount_percent, winback_discount_days')
-                .in('id', orgIds);
             for (const o of orgRows ?? []) {
                 if (o.maps_url) mapsUrlByOrg.set(o.id, o.maps_url);
                 orgExtras.set(o.id, {
@@ -195,7 +196,24 @@ Deno.serve(async (req: Request) => {
         }
 
         let skippedOrgs = 0;
+        // Zaman bütçesi (2026-11-08): işletmeler tek çalışmada sırayla geziliyor
+        // ve süre sınırı yoktu; çok işletmede çalışma yarıda kesilince listenin
+        // sonu hiç sıra almıyordu. Sıra en uzun süredir işlenmeyenden başlar
+        // (org_whatsapp.campaign_run_at, 140); bütçe dolunca kalanlar bir
+        // sonraki çalışmaya (30 dk) kalır. 140 yoksa eski sıra.
+        const loopStarted = Date.now();
+        let deferredOrgs = 0;
+        {
+            const { data: runRows, error: runErr } = await supabase.from('org_whatsapp')
+                .select('organization_id, campaign_run_at').in('organization_id', orgIds);
+            if (!runErr) {
+                const lastRun = new Map<string, number>((runRows ?? []).map((r: any) =>
+                    [r.organization_id, r.campaign_run_at ? Date.parse(r.campaign_run_at) : 0]));
+                orgList.sort((a, b) => (lastRun.get(a.organization_id) ?? 0) - (lastRun.get(b.organization_id) ?? 0));
+            }
+        }
         for (const orgWa of orgList) {
+            if (Date.now() - loopStarted > ORG_LOOP_BUDGET_MS) { deferredOrgs++; continue; }
             const organization_id = orgWa.organization_id;
             // Abonelik kapısı. Cron her org'u geziyor; aboneliği bitmiş bir
             // org'a hatırlatma göndermek hem ürünü bedava kullandırmak hem de
@@ -311,10 +329,14 @@ Deno.serve(async (req: Request) => {
                     .eq('organization_id', organization_id)
                     .not('recall_date', 'is', null)
                     .not('phone', 'is', null)
+                    .eq('wa_opt_out', false)
                     .gte('recall_date', recallFloor)
                     .lte('recall_date', plus2Str)
                     .order('recall_date', { ascending: true })
-                    .limit(200);
+                    // Zaten hatırlatılanlar kodda elenir (iki kolon karşılaştırması
+                    // sorguda yazılamıyor); tavan, pencere dolu olsa da yeni
+                    // gelenler görülsün diye geniş (2026-11-08).
+                    .limit(1000);
 
                 let recallBudget = 30;
                 for (const c of recallList ?? []) {
@@ -384,15 +406,20 @@ Deno.serve(async (req: Request) => {
                     .neq('status', 'cancelled');
                 const hasFuture = new Set((futureRes ?? []).map((r: any) => r.customer_id).filter(Boolean));
 
+                // "Son 90 günde gönderildi" ve DUR sorguda elenir (2026-11-08):
+                // eskiden en eski 60 müşteri alınıp sonra kodda eleniyordu; 60'ın
+                // hepsi zaten mesaj almışsa kampanya ~90 gün hiç gitmiyordu.
                 const { data: winbackList } = await supabase
                     .from('customers')
                     .select('id, name, phone, last_visit, winback_sent_at')
                     .eq('organization_id', organization_id)
                     .not('phone', 'is', null)
                     .not('last_visit', 'is', null)
+                    .eq('wa_opt_out', false)
+                    .or(`winback_sent_at.is.null,winback_sent_at.lt.${resend90}`)
                     .lte('last_visit', cutoff60)
                     .order('last_visit', { ascending: true })
-                    .limit(60);
+                    .limit(200);
 
                 let budget = 15;
                 for (const c of winbackList ?? []) {
@@ -474,6 +501,9 @@ Deno.serve(async (req: Request) => {
                     }
                 }
             }
+            // Bu işletmenin turu bitti: sıra bir sonraki çalışmada en sona (140).
+            await supabase.from('org_whatsapp').update({ campaign_run_at: new Date().toISOString() })
+                .eq('organization_id', organization_id).then(() => {}, () => {});
         }
 
         // ── Yaklaşan randevu push'u (WhatsApp'tan bağımsız, tüm org'lar) ──────
@@ -536,7 +566,7 @@ Deno.serve(async (req: Request) => {
             }
         }
 
-        console.log(`Remind: outbox=${outbox.sent}/${outbox.requeued}/${outbox.dropped} 24h=${sent24h} 2h=${sent2h} recall=${sentRecall} review=${sentReview} winback=${sentWinback} renewal=${sentRenewal} push=${sentPush} errors=${errors.length} abonesiz=${skippedOrgs}${sendableHour ? '' : ' (sessiz saat)'}`);
+        console.log(`Remind: outbox=${outbox.sent}/${outbox.requeued}/${outbox.dropped} 24h=${sent24h} 2h=${sent2h} recall=${sentRecall} review=${sentReview} winback=${sentWinback} renewal=${sentRenewal} push=${sentPush} errors=${errors.length} abonesiz=${skippedOrgs} ertelenen=${deferredOrgs}${sendableHour ? '' : ' (sessiz saat)'}`);
         return new Response(
             JSON.stringify({ success: true, outbox, purged: purged ?? 0, sent24h, sent2h, sentRecall, sentWinback, sentRenewal, sentPush, errors }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { ownerSettings } from '../_shared/org.ts';
 import {
     audienceGate, featureOn, findCustomerByPhone, lidToPhone, logMessage, phoneOptedOut, rememberContact,
     sendWA as sendWhatsApp, setPhoneOptOut,
@@ -23,7 +24,7 @@ import {
 } from '../_shared/booking/inquiry.ts';
 import { computeBalance, formatTL } from '../_shared/booking/finance.ts';
 import { packageRights, type PackageResInput } from '../_shared/booking/packages.ts';
-import { announceFreedSlot, firstNameOf, notifyOwner } from '../_shared/notify.ts';
+import { announceFreedSlot, firstNameOf, handoffUrl, notifyOwner } from '../_shared/notify.ts';
 import { checkAccess } from '../_shared/entitlement.ts';
 import { eligibilityBlock, isReservationConflict } from '../_shared/booking/reservationErrors.ts';
 import { agentLooksDown, agentRoute, type AgentConfig } from '../_shared/agent/guard.ts';
@@ -279,12 +280,8 @@ Deno.serve(async (req: Request) => {
             if (seenErr?.code === '23505') return ok({ skipped: 'duplicate' });
         }
 
-        const { data: setting } = await admin
-            .from('settings')
-            .select('business_name, working_hours, slot_duration, comms')
-            .eq('organization_id', orgId)
-            .limit(1)
-            .maybeSingle();
+        // Sahibin satırı (_shared/org.ts); limit(1) çok girişli işletmede rastgeleydi.
+        const setting = await ownerSettings(admin, orgId, 'business_name, working_hours, slot_duration, comms');
         const orgHours: WH[] = setting?.working_hours || [];
         const slotDuration: number = setting?.slot_duration || 30;
         const businessName: string = setting?.business_name || 'İşletme';
@@ -944,7 +941,7 @@ Deno.serve(async (req: Request) => {
                 notifyOwner(admin, orgId, {
                     title: 'Müşteri sizinle görüşmek istiyor',
                     body: `${firstNameOf(known?.name)}: "${text.slice(0, 120)}"`,
-                    url: '/mesajlar',
+                    url: handoffUrl(phone),
                     tag: `handoff-${phone}`,
                 });
                 return reply(M.handoff(msgCtx(), orgPhone));
@@ -1262,7 +1259,7 @@ Deno.serve(async (req: Request) => {
         }
 
         // Webhook (LeadFlow) — settings.webhook_url
-        const { data: wh } = await admin.from('settings').select('webhook_url').eq('organization_id', orgId).maybeSingle();
+        const wh = await ownerSettings(admin, orgId, 'webhook_url', org?.owner_id ?? null);
         if (wh?.webhook_url) {
             fetch(wh.webhook_url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ event: 'reservation.created', source: 'timeflow', timestamp: new Date().toISOString(),

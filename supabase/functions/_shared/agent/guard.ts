@@ -50,6 +50,28 @@ export function agentLooksDown(
 }
 
 /**
+ * Turun hatası "asistan çalışmıyor" mu? (wa-saglik · dış izleme) Modelin kendi
+ * sonuçları ve bozuk istek (api_400) değil; yalnız Claude'a ulaşılamaması.
+ */
+export function agentDownError(error: string | null | undefined): string | null {
+    if (!error || !/^(api_(?!400$)|exception$)/.test(error)) return null;
+    return error;
+}
+
+/**
+ * Bu tur aylık bütçenin %80'ini ya da tamamını geçirdi mi? Geçirdiyse sahibe
+ * bir kez bildirim gider (tur öncesi altında, sonrası üstünde). spentAfter bu
+ * turun maliyeti dahil.
+ */
+export function budgetCrossed(spentAfter: number, cost: number, budget: number): 80 | 100 | null {
+    if (!(budget > 0) || !(cost > 0)) return null;
+    const before = spentAfter - cost;
+    if (before < budget && spentAfter >= budget) return 100;
+    if (before < budget * 0.8 && spentAfter >= budget * 0.8) return 80;
+    return null;
+}
+
+/**
  * Gelen mesaj ajana mı, eski bota mı gider? Bayrak kapalıysa her zaman eski
  * bot — diğer işletmeler hiçbir şey fark etmez. Tavan dolunca ya da Claude'a
  * ulaşılamıyorsa da eski bota düşülür: müşteri cevapsız kalmaz, yalnız sohbet

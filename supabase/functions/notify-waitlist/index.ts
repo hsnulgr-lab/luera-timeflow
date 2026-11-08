@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { ownerSettings } from '../_shared/org.ts';
 import { checkAccess } from '../_shared/entitlement.ts';
 import { featureOn, getOrgWa, sendWA } from '../_shared/wa.ts';
 import { identify, deny } from '../_shared/auth.ts';
@@ -52,10 +53,8 @@ Deno.serve(async (req: Request) => {
 
         // Org slug + işletme adı. settings kullanıcı başına tek satır olduğu
         // için limit(1) ile tek satır alıyoruz; bağlantı bilgisi org_whatsapp'ta.
-        const [{ data: org }, { data: settings }] = await Promise.all([
-            supabase.from('organizations').select('slug, name').eq('id', organization_id).maybeSingle(),
-            supabase.from('settings').select('business_name, comms').eq('organization_id', organization_id).limit(1).maybeSingle(),
-        ]);
+        const { data: org } = await supabase.from('organizations').select('slug, name, owner_id').eq('id', organization_id).maybeSingle();
+        const settings = await ownerSettings(supabase, organization_id, 'business_name, comms', org?.owner_id ?? null);
         if (!org?.slug) return json({ error: 'İşletme/slug bulunamadı' }, 404);
 
         const orgWa = await getOrgWa(supabase, organization_id);

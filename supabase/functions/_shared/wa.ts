@@ -362,6 +362,9 @@ async function deliver(admin: Admin, o: {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'apikey': o.key },
                 body: JSON.stringify({ number: o.phone, text: o.text }),
+                // Takılı bir çağrı bütün remind turunu bekletmesin (2026-11-08).
+                // Uzun tutuldu: süre dolup yeniden denenirse mesaj iki kez gidebilir.
+                signal: AbortSignal.timeout(15_000),
             });
             ok = res.ok;
             if (res.ok) {
@@ -658,6 +661,7 @@ export async function verifyConnection(admin: Admin, org: OrgWa): Promise<boolea
     try {
         const res = await fetch(`${url}/instance/connectionState/${org.instance}`, {
             headers: { 'Content-Type': 'application/json', 'apikey': key },
+            signal: AbortSignal.timeout(8000),
         });
         if (res.ok) state = (await res.json())?.instance?.state ?? 'close';
     } catch {

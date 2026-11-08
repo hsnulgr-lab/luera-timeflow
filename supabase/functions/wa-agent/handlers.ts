@@ -18,7 +18,7 @@ import { addDays, daySlots, loadWindow, type StaffHours, type WindowData } from 
 import { computeBalance, formatTL } from '../_shared/booking/finance.ts';
 import { packageRights, type PackageResInput } from '../_shared/booking/packages.ts';
 import { eligibilityBlock, isReservationConflict } from '../_shared/booking/reservationErrors.ts';
-import { announceFreedSlot, firstNameOf, notifyOwner } from '../_shared/notify.ts';
+import { announceFreedSlot, firstNameOf, handoffUrl, notifyOwner } from '../_shared/notify.ts';
 import type { Profile } from '../_shared/agent/profile.ts';
 import type { PastVisit } from '../_shared/agent/customerCard.ts';
 import type { IstanbulClock } from '../_shared/agent/prompt.ts';
@@ -667,7 +667,7 @@ function requestHuman(ctx: TurnCtx, input: Input) {
     notifyOwner(ctx.admin, ctx.orgId, {
         title: 'Müşteri sizinle görüşmek istiyor',
         body: `${firstNameOf(ctx.customer?.name ?? ctx.pushName)}: ${reason}`,
-        url: '/mesajlar',
+        url: handoffUrl(ctx.phone),
         tag: `handoff-${ctx.phone}`,
     });
     return { ok: true, business_phone: ctx.businessPhone };

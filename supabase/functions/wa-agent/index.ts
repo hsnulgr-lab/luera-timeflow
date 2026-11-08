@@ -1,4 +1,5 @@
 import Anthropic from 'npm:@anthropic-ai/sdk@0.137.0';
+import { ownerSettings } from '../_shared/org.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { deny, identify } from '../_shared/auth.ts';
 import { findCustomerByPhone, getSecret, sendWA, type Admin, type OrgWa } from '../_shared/wa.ts';
@@ -7,7 +8,7 @@ import { foldTr } from '../_shared/booking/dates.ts';
 import { detectConfirm, detectIntent } from '../_shared/booking/intent.ts';
 import * as M from '../_shared/booking/messages.ts';
 import { formatDateTr, type WorkingHour } from '../_shared/booking/slots.ts';
-import { firstNameOf, notifyOwner } from '../_shared/notify.ts';
+import { firstNameOf, handoffUrl, notifyOwner } from '../_shared/notify.ts';
 import { buildProfile, fnv1a } from '../_shared/agent/profile.ts';
 import { sanitizeKnowledge } from '../_shared/agent/knowledge.ts';
 import {
@@ -16,7 +17,7 @@ import {
 } from '../_shared/agent/prompt.ts';
 import { TOOLS } from '../_shared/agent/tools.ts';
 import {
-    cleanContent, cleanHistory, costUsd, echoAfterTemplate, needsNewEpisode, stopAfterCommit, sanitizeForWhatsApp, shortRef, supportsMidSystem,
+    budgetCrossed, cleanContent, cleanHistory, costUsd, DEFAULT_MONTHLY_BUDGET_USD, echoAfterTemplate, needsNewEpisode, stopAfterCommit, sanitizeForWhatsApp, shortRef, supportsMidSystem,
     type AgentConfig, type UsageTotals,
 } from '../_shared/agent/guard.ts';
 import { loadPackagesAndBalance, loadPastVisits, loadUpcoming, openProposal, runTool, type TurnCtx } from './handlers.ts';
@@ -244,10 +245,9 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
     // Sahip telefondan bu müşteriye yazdı: devraldı, bot karışmaz.
     if (conv.paused_until && Date.parse(conv.paused_until) > Date.now()) { await markProcessed(); return; }
 
-    const [{ data: settings }, { data: org }, { data: services }, { data: staffRows }, serviceNotes] = await Promise.all([
-        admin.from('settings')
-            .select('business_name, working_hours, slot_duration, comms, webhook_url')
-            .eq('organization_id', orgId).limit(1).maybeSingle(),
+    const [settings, { data: org }, { data: services }, { data: staffRows }, serviceNotes] = await Promise.all([
+        // Sahibin satırı (_shared/org.ts); limit(1) çok girişli işletmede rastgeleydi.
+        ownerSettings(admin, orgId, 'business_name, working_hours, slot_duration, comms, webhook_url'),
         admin.from('organizations')
             .select('name, owner_id, booking_auto_confirm, address, public_phone, maps_url')
             .eq('id', orgId).maybeSingle(),
@@ -306,7 +306,7 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
             notifyOwner(admin, orgId, {
                 title: 'Müşteri sizinle görüşmek istiyor',
                 body: `${firstNameOf(known?.name ?? pushName)}: dijital asistanla devam etmek istemedi`,
-                url: '/mesajlar',
+                url: handoffUrl(phone),
                 tag: `handoff-${phone}`,
             });
             await saveState({ ...state, consent_asked: false, consent_pending: null, consent_declined_at: nowIso() });
@@ -572,7 +572,7 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
             notifyOwner(admin, orgId, {
                 title: 'Müşteri sizinle görüşmek istiyor',
                 body: `${firstNameOf(known?.name ?? pushName)}: asistan bu isteği yanıtlayamadı`,
-                url: '/mesajlar',
+                url: handoffUrl(phone),
                 tag: `handoff-${phone}`,
             });
         }
@@ -614,6 +614,27 @@ async function processBatch(admin: Admin, orgId: string, phone: string, rows: In
         duration_ms: Date.now() - t0,
         error,
     });
+
+    // Aylık kullanım %80'e ve %100'e gelince sahibe bir kez haber (2026-11-08):
+    // tavan dolunca bot sessizce kalıplı bota düşüyordu.
+    const cost = costUsd(model, usage);
+    if (cost > 0) {
+        const { data: spent } = await admin.rpc('wa_agent_spend', { p_org: orgId });
+        const crossed = budgetCrossed(Number(spent) || 0, cost, Number(cfg.monthly_budget_usd ?? DEFAULT_MONTHLY_BUDGET_USD));
+        if (crossed) {
+            await notifyOwner(admin, orgId, crossed === 100 ? {
+                title: 'Asistanın bu ayki kullanım hakkı doldu',
+                body: 'Ay sonuna kadar gelen mesajlara kalıplı randevu botu cevap veriyor.',
+                url: '/settings/whatsapp',
+                tag: 'agent-budget-100',
+            } : {
+                title: 'Asistanın bu ayki kullanımı %80\'e ulaştı',
+                body: 'Hak dolunca ay sonuna kadar kalıplı randevu botu cevap verir.',
+                url: '/settings/whatsapp',
+                tag: 'agent-budget-80',
+            });
+        }
+    }
 }
 
 interface AgentBlock {

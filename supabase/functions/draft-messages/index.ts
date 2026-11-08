@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { ownerSettings } from '../_shared/org.ts';
 import { checkAccess } from '../_shared/entitlement.ts';
 import { requireUserOrg } from '../_shared/auth.ts';
 import { NAME_RULE, NAME_TOKEN, fillName, firstNameOf } from './aiName.ts';
@@ -45,12 +46,7 @@ Deno.serve(async (req: Request) => {
         // Abonelik kapısı: taslak üretimi model çağırıyor, faturası bize.
         const access = await checkAccess(supabase, organization_id);
         if (!access.ok) return deny(403, 'Aboneliğiniz aktif değil', corsHeaders);
-        const { data: settings } = await supabase
-            .from('settings')
-            .select('business_name')
-            .eq('organization_id', organization_id)
-            .limit(1)
-            .maybeSingle();
+        const settings = await ownerSettings(supabase, organization_id, 'business_name');
         const businessName = settings?.business_name || 'İşletmemiz';
 
         const groqKey = await getGroqKey(supabase);

@@ -16,6 +16,8 @@ dönüşte ölü kaldı ve ~45 dk kimse fark etmedi. İzleme bu yüzden Hostinge
 | Masaüstü | `timeflow.lueratech.com` | 200 + `id="root"` |
 | Luera sitesi | `lueratech.com` | 200 |
 | Dodo ucu (30 dk'da bir, anahtar varsa) | Dodo `GET /webhooks` → TimeFlow'un `…/dodo-webhook` ucu | var, `disabled` değil, filtre abonelik olaylarını alıyor |
+| WhatsApp sunucusu (10 dk'da bir, `WA_IZLE`) | `wa-saglik` → Evolution (VPS 2) kök adresi | `evolution: true` |
+| Akıllı asistan (10 dk'da bir, `WA_IZLE`) | `wa-saglik` → son asistan turu Claude'a ulaştı mı | `agent_error: null` (`api_credit` = kredi bitti) |
 
 ## Ne zaman bildirim gelir
 

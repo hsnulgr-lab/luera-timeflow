@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { deny, identify } from '../_shared/auth.ts';
+import { ownerSettings } from '../_shared/org.ts';
 import { featureOn, sendWA, type Admin, type OrgWa, type SendResult, type WaKind } from '../_shared/wa.ts';
 import { checkAccess } from '../_shared/entitlement.ts';
 import { normalizePhone } from '../_shared/phone.ts';
@@ -151,7 +152,7 @@ async function loadOrg(admin: Admin, orgId: string): Promise<OrgCtx | null> {
     ]);
     if (!orgWa) return null;
     const [settings, access, notes] = await Promise.all([
-        ownerSettings(admin, orgId, org?.owner_id ?? null), checkAccess(admin, orgId), loadServiceNotes(admin, orgId),
+        ownerSettings(admin, orgId, 'business_name, comms, rebook_enabled, rebook_note', org?.owner_id ?? null), checkAccess(admin, orgId), loadServiceNotes(admin, orgId),
     ]);
     return {
         orgWa: orgWa as OrgWa,
@@ -163,22 +164,6 @@ async function loadOrg(admin: Admin, orgId: string): Promise<OrgCtx | null> {
         bookingUrl: org?.slug ? `${APP_ORIGIN}/book/${org.slug}` : null,
         notes,
     };
-}
-
-/**
- * settings satırı kullanıcı başına: çok üyeli org'da birden çok satır olur,
- * doğrusu SAHİBİNİNKİ (staff-api, send-push ve mobil de böyle okur). Sahibin
- * satırı yoksa en eskisi — yanlış olabilir ama kararlı.
- */
-async function ownerSettings(admin: Admin, orgId: string, ownerId: string | null) {
-    const cols = 'business_name, comms, rebook_enabled, rebook_note';
-    if (ownerId) {
-        const { data } = await admin.from('settings').select(cols).eq('user_id', ownerId).maybeSingle();
-        if (data) return data;
-    }
-    const { data } = await admin.from('settings').select(cols)
-        .eq('organization_id', orgId).order('created_at', { ascending: true }).limit(1).maybeSingle();
-    return data;
 }
 
 /** "Yarın, 30 Ekim Cuma" · hafta içi/uzak tarihte yalnız tarih. */

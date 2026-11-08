@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
+import { MesajlarYonlendir, TakvimYonlendir } from '@/pages/PushYonlendir';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ReservationsProvider } from '@/contexts/ReservationsProvider';
 import { ModulesProvider } from '@/contexts/ModulesProvider';
@@ -173,6 +174,9 @@ function App() {
             <Route path="analytics" element={<ModuleRoute module="analiz"><AnalyticsPage /></ModuleRoute>} />
             <Route path="settings/*" element={<Adaptive mobile={<MobileSettings />} desktop={<AyarlarKabuk />} />} />
             <Route path="kurulum" element={<SetupWizardPage />} />
+            {/* Bildirim adresleri (sunucu ve telefon uygulaması bunları yolluyor). */}
+            <Route path="mesajlar" element={<MesajlarYonlendir />} />
+            <Route path="takvim" element={<TakvimYonlendir />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

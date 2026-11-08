@@ -86,7 +86,53 @@ export function kontroller(env) {
         // Anahtar yoksa kontrol hiç yok: kurulum bitene kadar alarm üretmesin.
         ...(env.DODO_READONLY_KEY ? [dodoKontrolu(env, sb)] : []),
         ...(env.YEDEK ? [yedekKontrolu(env)] : []),
+        // WhatsApp tarafı (2026-11-08): wrangler.toml WA_IZLE ile açılır.
+        ...(env.WA_IZLE ? waKontrolleri(env, sb) : []),
     ];
+}
+
+/**
+ * WhatsApp sunucusu ve akıllı asistan (2026-11-08).
+ *
+ * Anthropic kredisi bittiğinde ya da WhatsApp sunucusu (Evolution, VPS 2)
+ * düştüğünde bütün işletmelerde bot sessizce eski bota ya da dolgu cevaba
+ * düşüyordu; kimse uyarılmıyordu. İkisi de `wa-saglik` ucundan okunur (yalnız
+ * evet/hayır; işletme ya da numara yok). On dakikada bir. Uç açılamazsa
+ * (yüklenmemiş, VPS 1 kapalı) bilinmiyor: VPS 1'in kendi kontrolleri çalar.
+ */
+function waKontrolleri(env, sb) {
+    const ortak = { url: `${sb}/functions/v1/wa-saglik`, headers: { apikey: env.SUPABASE_ANON_KEY }, aralikDk: 10 };
+    return [
+        {
+            id: 'wa-sunucu', ad: 'WhatsApp sunucusu', grup: 'vps2', onem: 'acil', ...ortak,
+            baslik: 'WhatsApp sunucusu yanıt vermiyor — mesajlar gitmiyor',
+            etki: 'Hiçbir işletmede hatırlatma, onay ve bot cevabı gitmiyor; gelen mesajlar işlenmiyor.',
+            yap: "Claude'a \"WhatsApp sunucusu alarmı\" yaz. Hostinger panelinde VPS 2'nin açık olduğuna bak.",
+            degerlendir: (status, metin) => waSaglikDurumu(status, metin, 'evolution'),
+        },
+        {
+            id: 'asistan', ad: 'Akıllı asistan', grup: 'asistan', onem: 'yuksek', ...ortak,
+            baslik: "Akıllı asistan Claude'a ulaşamıyor",
+            etki: 'Asistanı açık işletmelerde müşteriler kalıplı bota ya da "birazdan döneceğiz" cevabına düşüyor. Randevular ve hatırlatmalar etkilenmiyor.',
+            yap: "Anthropic konsolunda kredi bakiyesine bak (en sık sebep bitmiş kredi). Sonra Claude'a \"asistan alarmı\" yaz.",
+            degerlendir: (status, metin) => waSaglikDurumu(status, metin, 'asistan'),
+        },
+    ];
+}
+
+/** `wa-saglik` cevabı → { ok, ayrinti } ya da { bilinmiyor, ayrinti }. */
+export function waSaglikDurumu(status, metin, alan) {
+    if (status !== 200) return { bilinmiyor: true, ayrinti: `sağlık ucu cevap vermedi (HTTP ${status})` };
+    let j;
+    try { j = JSON.parse(metin); } catch { return { bilinmiyor: true, ayrinti: 'sağlık cevabı okunamadı' }; }
+    if (alan === 'evolution') {
+        if (j?.evolution === true) return { ok: true, ayrinti: '' };
+        if (j?.evolution === false) return { ok: false, ayrinti: 'WhatsApp sunucusuna (VPS 2) ulaşılamıyor' };
+        return { bilinmiyor: true, ayrinti: 'WhatsApp sunucusu ayarlı değil' };
+    }
+    const e = j?.agent_error;
+    if (!e) return { ok: true, ayrinti: '' };
+    return { ok: false, ayrinti: e === 'api_credit' ? 'Anthropic kredisi bitmiş' : `Claude'a ulaşılamıyor (${e})` };
 }
 
 /** Gece yedeği 04:00 UTC'de; bir günlük gecikme + pay. */

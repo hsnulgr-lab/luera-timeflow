@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo, createContext, useCo
 import { toast } from 'sonner';
 import { commsForSector, profileForSector } from '@/lib/sectorProfiles';
 import { supabase } from '@/lib/supabase';
+import { orgOwnerId } from '@/lib/ownerSettings';
 import { loadFailed, useOnReconnect } from '@/lib/baglantiUyarisi';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModuleGate } from '@/hooks/useModules';
@@ -207,6 +208,8 @@ function useReservationsState() {
     const webhookUrlRef = useRef<string | undefined>(undefined);
     const customerResolvePromisesRef = useRef<Map<string, Promise<string | null>>>(new Map());
     const settingsRequestRef = useRef(0);
+    // Okunan ayar satırının sahibi (işletme sahibi); kayıt da o satıra gider.
+    const settingsUserRef = useRef<string | null>(null);
     useEffect(() => { webhookUrlRef.current = settings.webhookUrl; }, [settings.webhookUrl]);
 
     // Güncelleme ÖNCESİ satırı okumak için — updateReservation, kaydın bu
@@ -335,11 +338,18 @@ function useReservationsState() {
             if (cachedSettings) setSettings(cachedSettings);
         }
 
+        // Ayar satırı işletme SAHİBİNİN (lib/ownerSettings): settings kullanıcı
+        // başına bir satır; ekip üyesi kendi boş satırını değil sahibinkini görür
+        // ve kaydeder. Sahip okunamazsa eski davranış: kendi satırı.
+        const settingsUserId = (await orgOwnerId(resolvedOrgId)) ?? user.id;
+        settingsUserRef.current = settingsUserId;
+        if (requestId !== settingsRequestRef.current) return;
+
         // maybeSingle: çoklu satırda .single() patlardı; yokken null döner
         const { data: settingsData, error: settingsErr } = await supabase
             .from('settings')
             .select('*')
-            .eq('user_id', user.id)
+            .eq('user_id', settingsUserId)
             .maybeSingle();
 
         if (requestId !== settingsRequestRef.current) return;
@@ -419,8 +429,10 @@ function useReservationsState() {
             void syncSectorRules(resolvedOrgId, fresh.sector || 'genel', settingsData.risk_rules);
         } else {
             // Fallback: handle_new_user trigger bu kaydı oluşturur,
-            // ama organizasyon bulunabilirse manuel oluştur
-            if (resolvedOrgId) {
+            // ama organizasyon bulunabilirse manuel oluştur. Yalnız sahip (ya da
+            // sahibi okunamadıysa kendisi) için: ekip üyesi adına varsayılan
+            // değerlerle ikinci bir satır açılmaz (2026-11-08).
+            if (resolvedOrgId && settingsUserId === user.id) {
                 await supabase.from('settings').insert({
                     user_id: user.id,
                     organization_id: resolvedOrgId,
@@ -1058,7 +1070,7 @@ function useReservationsState() {
         const { error: settingsError } = await supabase
             .from('settings')
             .upsert({
-                user_id: user.id,
+                user_id: settingsUserRef.current ?? user.id,
                 organization_id: orgId,
                 business_name: newSettings.businessName,
                 slot_duration: newSettings.slotDuration,

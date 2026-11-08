@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { ownerSettings } from '../_shared/org.ts';
 import { checkAccess } from '../_shared/entitlement.ts';
 import { getOrgWa, sendWA } from '../_shared/wa.ts';
 import * as M from '../_shared/booking/messages.ts';
@@ -70,10 +71,8 @@ Deno.serve(async (req: Request) => {
         }
 
         // Org + settings
-        const [{ data: org }, { data: settings }] = await Promise.all([
-            supabase.from('organizations').select('name').eq('id', orgId).maybeSingle(),
-            supabase.from('settings').select('business_name, working_hours, slot_duration, comms').eq('organization_id', orgId).maybeSingle(),
-        ]);
+        const { data: org } = await supabase.from('organizations').select('name, owner_id').eq('id', orgId).maybeSingle();
+        const settings = await ownerSettings(supabase, orgId, 'business_name, working_hours, slot_duration, comms', org?.owner_id ?? null);
         const businessName = settings?.business_name || org?.name || 'İşletme';
         // Müşteriye giden mesajlar bota değil bu akışa aitti ve kendi ağzıyla
         // konuşuyordu. Aynı müşteri aynı gün hem bottan hem linkten mesaj

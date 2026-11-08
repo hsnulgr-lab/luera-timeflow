@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { ownerSettings } from '../_shared/org.ts';
 import { getOrgWa, sendWA, type Admin } from '../_shared/wa.ts';
 import { checkAccess } from '../_shared/entitlement.ts';
 import { minToTime, staffSlots, timeToMin, weekdayOf, type WorkingHour } from '../_shared/booking/slots.ts';
@@ -175,11 +176,9 @@ Deno.serve(async (req: Request) => {
         }
 
         // Settings (çalışma saatleri, slot, işletme adı, whatsapp)
-        const { data: settings } = await supabase
-            .from('settings')
-            .select('business_name, working_hours, slot_duration, webhook_url, comms')
-            .eq('organization_id', orgId)
-            .maybeSingle();
+        // Sahibin satırı (_shared/org.ts): çok girişli işletmede maybeSingle
+        // null dönüyor ve sayfa hiç boş saat göstermiyordu.
+        const settings = await ownerSettings(supabase, orgId, 'business_name, working_hours, slot_duration, webhook_url, comms', org.owner_id ?? null);
 
         const orgHours: WH[] = settings?.working_hours || [];
         const slotDuration: number = settings?.slot_duration || 30;
