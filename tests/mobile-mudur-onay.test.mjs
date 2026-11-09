@@ -198,10 +198,9 @@ test('hareketi azalt: hiçbir şey ölçeklenmez, kaymaz, dönmez', () => {
     assert.match(tokens, /enterReduced:\s*160/);
 });
 
-test('ekranın TEK cam yüzeyi kontrol bloğu', () => {
-    // Kart, tik ve şeritler asla cam değil: tek bir <Glass> var.
-    assert.equal((screen.match(/<Glass\b/g) ?? []).length, 1);
-    assert.equal((screen.match(/<\/Glass>/g) ?? []).length, 1);
+test('ekranda cam yüzey yok (2026-11-10: kontrol bloğunun gri kalıbı kaldırıldı)', () => {
+    // Kullanıcı kararı: düğmeler doğrudan zeminde. Kart, tik ve şeritler de cam değil.
+    assert.equal((screen.match(/<Glass\b/g) ?? []).length, 0);
     // Blur taklidi de yok.
     assert.ok(!/BlurView|blurRadius/.test(screen));
 });

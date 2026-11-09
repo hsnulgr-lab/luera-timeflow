@@ -192,3 +192,14 @@ test('kesme: Vazgeç dolu ve üstte, Bağlantıyı kes kırmızı çerçeveli ve
     assert.ok(cut.indexOf('label="Vazgeç" variant="nt"') < cut.indexOf('label="Bağlantıyı kes" variant="rd"'));
     assert.match(cut, /Bağlantı kesilince hatırlatmalar ve mesajlar gitmez\./);
 });
+
+test('onay ekranı: içerik düğme kutusuna değecekse küçük ölçülere geçer (kart örtülmez)', () => {
+    const confirm = src('mobile/src/components/ConfirmScreen.tsx');
+    assert.match(confirm, /const short = small \|\| height < M\.shortHeight \|\| crowded;/);
+    assert.match(confirm, /const dockTop = f\.root - bottomInset - M\.dockLift - f\.dock;/);
+    assert.match(confirm, /if \(topInset \+ f\.cardBottom > dockTop - M\.dockGap\) setCrowdedIn\(state\);/);
+    // Hâle bağlı: sonraki hâl (Mesaj gönderildi) yeniden ölçülür, önizleme kesilmez.
+    assert.match(confirm, /const crowded = crowdedIn === state;/);
+    // Üç ölçüm de gerçek yerleşimden: kök, kart, kutu.
+    assert.equal((confirm.match(/checkFit\(\); \}/g) ?? []).length + (confirm.match(/checkFit\(\);\n/g) ?? []).length >= 3, true);
+});

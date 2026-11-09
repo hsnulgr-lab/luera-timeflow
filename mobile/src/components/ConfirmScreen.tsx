@@ -6,7 +6,6 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { Glass } from './Glass';
 import { CheckIcon } from './ApptParts';
 import { feedback } from '../lib/feedback';
 import {
@@ -66,9 +65,29 @@ export function ConfirmScreen({
     const { fontScale, height } = useWindowDimensions();
     const ink = dark ? confirmInk.dark : confirmInk.light;
     const ax = fontScale > M.axFontScale;
-    const short = small || height < M.shortHeight;
-
     const [state, setState] = useState<ConfirmState>('idle');
+
+    /*
+     * KALABALIK EKRAN (2026-11-10, telefonda görüldü). Mesaj gitmeyince kartın
+     * üstüne "Randevu duruyor" şeridi giriyor ve içerik yüzen düğme kutusunun
+     * altına uzanıyordu: kutu kartın son satırını ("90 dk") örtüyordu. Kutu
+     * sabit; içerik ona değecekse ekran küçük telefon ölçülerine geçer (halka
+     * 116→92, üst boşluk 64→26 — ~90 pt). Geçiş HÂLE bağlı: o hâl içinde geri
+     * dönmez (küçülünce sığar, büyüyünce taşar, ekran titrerdi), ama sonraki
+     * hâl yeniden ölçülür — "Mesaj gönderildi" önizlemesi önceki hâlden
+     * taşınan küçük ölçüyle "yaz…" diye kesiliyordu (telefonda görüldü).
+     */
+    const [crowdedIn, setCrowdedIn] = useState<ConfirmState | null>(null);
+    const crowded = crowdedIn === state;
+    const fit = useRef({ root: 0, dock: 0, cardBottom: 0 });
+    const checkFit = () => {
+        const f = fit.current;
+        if (crowded || !f.root || !f.dock || !f.cardBottom) return;
+        const dockTop = f.root - bottomInset - M.dockLift - f.dock;
+        if (topInset + f.cardBottom > dockTop - M.dockGap) setCrowdedIn(state);
+    };
+    const short = small || height < M.shortHeight || crowded;
+
     const [failReason, setFailReason] = useState<WaFailReason | null>(null);
     const [reduceMotion, setReduceMotion] = useState(true);
     const [screenReader, setScreenReader] = useState(false);
@@ -239,7 +258,10 @@ export function ConfirmScreen({
     const mini = state === 'sent';
 
     return (
-        <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: topInset }}>
+        <View
+            onLayout={(e) => { fit.current.root = e.nativeEvent.layout.height; checkFit(); }}
+            style={{ flex: 1, backgroundColor: c.bg, paddingTop: topInset }}
+        >
             <View style={{ flex: 1, paddingHorizontal: M.bodyX }}>
                 {/* ── Kahraman: halka + tik + başlık ───────────────────── */}
                 <View style={{
@@ -307,7 +329,13 @@ export function ConfirmScreen({
                 </View>
 
                 {/* ── Kanıt ────────────────────────────────────────────── */}
-                <Animated.View style={{
+                <Animated.View
+                    onLayout={(e) => {
+                        const { y, height: h } = e.nativeEvent.layout;
+                        fit.current.cardBottom = y + h;
+                        checkFit();
+                    }}
+                    style={{
                     opacity: enter.card,
                     transform: reduceMotion ? [] : [{
                         translateY: enter.card.interpolate({
@@ -341,19 +369,18 @@ export function ConfirmScreen({
                 </Animated.View>
             </View>
 
-            {/* ── Tek cam yüzey: yüzen kontrol bloğu ───────────────────── */}
+            {/* ── Yüzen kontrol bloğu ─────────────────────────────────────
+                CAM YÜZEY KALDIRILDI (2026-11-10, kullanıcı kararı, telefonda):
+                düğmelerin arkasındaki gri kalıp "Sonra"yı ağır gösteriyordu.
+                Düğmeler doğrudan zeminde; içerik artık kutuya değmediği için
+                (kalabalık ekran kuralı) ayırıcı bir yüzeye gerek kalmadı. */}
             <Animated.View
                 pointerEvents="box-none"
+                onLayout={(e) => { fit.current.dock = e.nativeEvent.layout.height; checkFit(); }}
                 style={{
                     position: 'absolute',
                     left: M.dockX, right: M.dockX,
                     bottom: bottomInset + M.dockLift,
-                    borderRadius: M.dockRadius,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 10 },
-                    shadowRadius: 26,
-                    shadowOpacity: 0.2,
-                    elevation: 8,
                     opacity: enter.dock,
                     transform: reduceMotion ? [] : [{
                         translateY: enter.dock.interpolate({
@@ -362,7 +389,7 @@ export function ConfirmScreen({
                     }],
                 }}
             >
-                <Glass interactive effect="regular" style={{ ...dockStyle, position: 'relative', left: 0, right: 0, bottom: 0 }}>
+                <View style={{ ...dockStyle, position: 'relative', left: 0, right: 0, bottom: 0 }}>
                     <PrimaryButton
                         label={copy.primary}
                         state={state}
@@ -407,7 +434,7 @@ export function ConfirmScreen({
                             ) : copy.note}
                         </Text>
                     ) : null}
-                </Glass>
+                </View>
             </Animated.View>
         </View>
     );
@@ -585,11 +612,13 @@ function EvidenceCard({ appointment, staffName, staffInitials, solo, price, comp
                 flexDirection: ax ? 'column' : 'row',
                 alignItems: ax ? 'flex-start' : 'center',
                 gap: ax ? 12 : 12,
-                paddingTop: skipCustomer ? 0 : M.whenPadTop,
+                // Müşteri satırı yoksa da üst pay kalır: "Mesaj gönderildi"de
+                // gün etiketi kartın çerçevesine yapışıyordu (telefonda görüldü).
+                paddingTop: M.whenPadTop,
                 paddingBottom: M.whenPadBottom,
                 borderTopWidth: skipCustomer ? 0 : 1, borderTopColor: c.bd,
             }}>
-                <View style={{ flex: ax ? undefined : 1, gap: 3 }}>
+                <View style={{ flex: ax ? undefined : 1, gap: 4 }}>
                     <Text style={{
                         color: c.tx2, fontSize: ax ? 19 : M.whenDay,
                         fontFamily: font.bold, fontWeight: '700',
@@ -600,7 +629,9 @@ function EvidenceCard({ appointment, staffName, staffInitials, solo, price, comp
                         color: c.tx,
                         fontSize: ax ? M.whenRangeAx : short ? M.whenRangeSmall : M.whenRange,
                         fontWeight: '600', letterSpacing: M.whenRange * -0.03,
-                        lineHeight: M.whenRange,
+                        // Satır yüksekliği yazıyla birlikte küçülür: sabit 32'de
+                        // küçük ölçüdeki rakamlar kutusunda kayık duruyordu.
+                        lineHeight: Math.round((ax ? M.whenRangeAx : short ? M.whenRangeSmall : M.whenRange) * 1.12),
                     }]}>
                         {rangeText(appointment)}
                     </Text>
