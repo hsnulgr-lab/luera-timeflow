@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SheetGrab } from '../../../src/components/Sheet';
 import { WaButton, WarnLine } from '../../../src/components/WaLinkParts';
 import { disconnectWa } from '../../../src/lib/waLinkSource';
 import { feedback } from '../../../src/lib/feedback';
-import { font, useTheme } from '../../../src/theme';
+import { apptCardMetrics, font, useTheme } from '../../../src/theme';
 
 /**
  * WhatsApp › Bağlantıyı kes — onay (Müdür 37 · F2 · kes).
@@ -20,7 +19,6 @@ import { font, useTheme } from '../../../src/theme';
 export default function WhatsAppCutSheet() {
     const { c } = useTheme();
     const router = useRouter();
-    const insets = useSafeAreaInsets();
     const [busy, setBusy] = useState(false);
     const [problem, setProblem] = useState(false);
 
@@ -46,7 +44,10 @@ export default function WhatsAppCutSheet() {
                 </Text>
                 {problem ? <WarnLine title="Kesilemedi." body="İnternetinizi kontrol edip tekrar deneyin." size={14.5} /> : null}
             </View>
-            <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: Math.max(insets.bottom, 16) + 14, gap: 10 }}>
+            {/* Alt pay öbür içerik boyundaki sayfalarla aynı (`sheetPadBottom`);
+                güvenli alanı sistemin sayfası zaten bırakıyor — üstüne eklenince
+                altta boş bir şerit kalıyordu (telefonda görüldü). */}
+            <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: apptCardMetrics.sheetPadBottom, gap: 10 }}>
                 <WaButton label="Vazgeç" variant="nt" onPress={() => router.back()} disabled={busy} />
                 <WaButton label="Bağlantıyı kes" variant="rd" busy={busy} onPress={() => { void cut(); }} />
             </View>

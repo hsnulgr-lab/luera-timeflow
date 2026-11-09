@@ -356,8 +356,9 @@ function TestCard({ inputRef }: { inputRef: React.RefObject<TextInput | null> })
                     placeholderTextColor={c.tx3}
                     keyboardType="phone-pad"
                     textContentType="telephoneNumber"
-                    returnKeyType="send"
-                    onSubmitEditing={() => { void send(); }}
+                    // returnKeyType YOK: sayı klavyesinde iOS onu İngilizce
+                    // "Send" balonu olarak çiziyordu (telefonda görüldü).
+                    // Gönder düğmesi alanın hemen yanında.
                     accessibilityLabel="Test mesajının gideceği numara"
                     style={{
                         flex: 1, minWidth: 0, height: 50, borderRadius: 16, backgroundColor: c.fld, borderWidth: 1, borderColor: c.bd,
