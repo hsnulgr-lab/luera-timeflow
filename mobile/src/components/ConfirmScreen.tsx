@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
     AccessibilityInfo, Animated, AppState, Easing, Pressable, Text, View,
     useWindowDimensions, type ViewStyle,
@@ -17,6 +18,8 @@ import { formatDayLong, type Appt } from '../lib/calendar';
 import { confirmInk, confirmMetrics, font, numeric, useTheme, type ConfirmInk } from '../theme';
 import { upperTR } from '../lib/text';
 import { waRetryable, type WaFailReason } from '../lib/createLive';
+import { linkedSince } from '../state/waLink';
+import { WaIcon } from './WaLinkParts';
 
 /**
  * Müdür 16 — randevu oluşturuldu onayı.
@@ -74,7 +77,20 @@ export function ConfirmScreen({
 
     const phone = phoneText(appointment);
     const hasPhone = !phone.missing;
-    const copy = confirmCopy(state, hasPhone, failReason);
+
+    /*
+     * Müdür 37 · A3 → A3b. Hat bağlı değil diye mesaj gitmediyse ana düğme
+     * bağlama penceresini açar; pencere bağlayıp kapanınca bu ekrana dönülür
+     * ve ana düğme "Mesajı gönder" olur. Mesaj kendiliğinden gitmez.
+     */
+    const router = useRouter();
+    const [linkOpenedAt, setLinkOpenedAt] = useState<number | null>(null);
+    const [linked, setLinked] = useState(false);
+    useFocusEffect(useCallback(() => {
+        if (linkOpenedAt !== null && linkedSince(linkOpenedAt)) setLinked(true);
+    }, [linkOpenedAt]));
+    const lineOff = state === 'failed' && failReason === 'not_connected';
+    const copy = confirmCopy(state, hasPhone, failReason, lineOff && linked);
 
     // ── Erişilebilirlik tercihleri ─────────────────────────────────────────
     useEffect(() => {
@@ -179,6 +195,7 @@ export function ConfirmScreen({
             return;
         }
         feedback.selection();
+        setLinked(false);
         setState('sending');
         void onSend().then((result) => {
             if (result.ok) {
@@ -198,9 +215,15 @@ export function ConfirmScreen({
      * yeniden göndermeye çalışıp pasif kalıyordu), kalıcı bir sebeple
      * gönderilemediyse "Tamam" kapatır. Geri kalanında gönderir.
      */
-    const primary = state === 'sent' || (state === 'failed' && !waRetryable(failReason))
-        ? onDone
-        : send;
+    const openLink = () => {
+        setLinkOpenedAt(Date.now());
+        router.push('/(manager-flow)/whatsapp-bagla?from=confirm');
+    };
+    const primary = lineOff
+        ? (linked ? send : openLink)
+        : state === 'sent' || (state === 'failed' && !waRetryable(failReason))
+            ? onDone
+            : send;
 
     const dockStyle: ViewStyle = {
         position: 'absolute',
@@ -234,6 +257,7 @@ export function ConfirmScreen({
                         }],
                     }}>
                         <CountdownRing
+                            glyph={lineOff ? (linked ? 'ok' : 'mute') : undefined}
                             size={mini ? M.ringMini : ringSize}
                             elapsed={elapsed}
                             total={total}
@@ -342,6 +366,7 @@ export function ConfirmScreen({
                     <PrimaryButton
                         label={copy.primary}
                         state={state}
+                        icon={lineOff ? (linked ? 'send' : 'none') : undefined}
                         enabled={primary === onDone || gate.enabled}
                         ax={ax}
                         ink={ink}
@@ -398,7 +423,12 @@ export function ConfirmScreen({
  * `stroke-dashoffset` kullanılmadı: react-native-svg'de o özellik native
  * sürücüde animasyonlanmıyor ve müdür mesaj gönderirken takılırdı.
  */
-function CountdownRing({ size, elapsed, total, state, still, background, track, arc, ink, ax, short, mini }: {
+function CountdownRing({ glyph, size, elapsed, total, state, still, background, track, arc, ink, ax, short, mini }: {
+    /**
+     * Müdür 37: `mute` — hat bağlı değil (A3): kırmızı ünlem değil gri mesaj
+     * balonu; mesaj başarısız olmadı, gidecek hat yok. `ok` — bağlandı (A3b).
+     */
+    glyph?: 'mute' | 'ok';
     size: number; elapsed: number; total: number; state: ConfirmState; still: boolean;
     background: string; track: string; arc: string; ink: ConfirmInk;
     ax: boolean; short: boolean; mini: boolean;
@@ -437,7 +467,8 @@ function CountdownRing({ size, elapsed, total, state, still, background, track, 
         : ax ? M.tickInsetAx : short ? M.tickInsetSmall : M.tickInset;
     const iconSize = mini ? M.tickIconMini
         : ax ? M.tickIconAx : short ? M.tickIconSmall : M.tickIcon;
-    const bad = state === 'failed';
+    const bad = state === 'failed' && glyph === undefined;
+    const mute = glyph === 'mute';
 
     return (
         <View style={{ width: size, height: size }}>
@@ -465,10 +496,12 @@ function CountdownRing({ size, elapsed, total, state, still, background, track, 
                 left: tickInset, top: tickInset, right: tickInset, bottom: tickInset,
                 borderRadius: size,
                 alignItems: 'center', justifyContent: 'center',
-                backgroundColor: bad ? ink.badFill : ink.okFill,
-                borderWidth: 1, borderColor: bad ? ink.badBorder : ink.okBorder,
+                backgroundColor: mute ? c.surf2 : bad ? ink.badFill : ink.okFill,
+                borderWidth: 1, borderColor: mute ? c.bd2 : bad ? ink.badBorder : ink.okBorder,
             }}>
-                {bad ? (
+                {mute ? (
+                    <WaIcon name="send" color={c.tx2} size={iconSize} stroke={1.9} />
+                ) : bad ? (
                     <AlertIcon color={c.rd} size={iconSize} />
                 ) : (
                     <CheckIcon color={c.gr} size={iconSize} />
@@ -719,8 +752,10 @@ function StillBookedStrip({ line, ink }: { line: string; ink: ConfirmInk }) {
 
 // ── Kontroller ──────────────────────────────────────────────────────────────
 
-function PrimaryButton({ label, state, enabled, ax, ink, onPress }: {
+function PrimaryButton({ label, state, icon, enabled, ax, ink, onPress }: {
     label: string; state: ConfirmState; enabled: boolean; ax: boolean;
+    /** Müdür 37 · A3/A3b: hâlin simgesi yerine (bağla: yok, gönder: balon). */
+    icon?: 'send' | 'none';
     ink: ConfirmInk; onPress: () => void;
 }) {
     const { c } = useTheme();
@@ -750,8 +785,9 @@ function PrimaryButton({ label, state, enabled, ax, ink, onPress }: {
             }}>
                 {ax && label === 'Randevu mesajı gönder' ? 'Mesaj gönder' : label}
             </Text>
-            {state === 'idle' ? <SendIcon color={enabled ? ink.pink : c.tx3} /> : null}
-            {state === 'failed' ? <RetryIcon color={ink.pink} /> : null}
+            {icon === 'send' ? <WaIcon name="send" color={ink.pink} size={21} stroke={2} /> : null}
+            {icon === undefined && state === 'idle' ? <SendIcon color={enabled ? ink.pink : c.tx3} /> : null}
+            {icon === undefined && state === 'failed' ? <RetryIcon color={ink.pink} /> : null}
         </Pressable>
     );
 }

@@ -330,12 +330,25 @@ test('başarısız gönderimin sebebi söyleniyor; kalıcı sebepte "Tekrar dene
     assert.equal(waRetryable('failed'), true);
     for (const reason of ['not_connected', 'opt_out', 'quota', 'invalid_phone']) {
         assert.equal(waRetryable(reason), false, reason);
-        assert.equal(confirmCopy('failed', true, reason).primary, 'Tamam');
         assert.match(confirmCopy('failed', true, reason).subtitle, /Mesaj gitmedi/);
     }
+    for (const reason of ['opt_out', 'quota', 'invalid_phone']) {
+        assert.equal(confirmCopy('failed', true, reason).primary, 'Tamam');
+    }
+    // Müdür 37 · A3: hat bağlı değilse hat buradan bağlanır; bağlanınca (A3b)
+    // müdür gönderir — mesaj kendiliğinden gitmez.
+    assert.deepEqual(confirmCopy('failed', true, 'not_connected'), {
+        title: 'Mesaj gönderilemedi', subtitle: 'WhatsApp bağlı değil. Mesaj gitmedi.',
+        primary: 'WhatsApp\'ı bağla', secondary: 'Sonra', note: 'Bağladıktan sonra bu ekrana dönersiniz.',
+    });
+    assert.deepEqual(confirmCopy('failed', true, 'not_connected', true), {
+        title: 'WhatsApp bağlandı', subtitle: 'Mesaj henüz gitmedi. Şimdi gönderebilirsiniz.',
+        primary: 'Mesajı gönder', secondary: 'Sonra', note: 'Bu ekran kendi kapanmaz.',
+    });
     assert.equal(confirmCopy('failed', true, null).primary, 'Tekrar dene');
     assert.match(waFailLine('not_connected'), /WhatsApp’ı bağlı değil/);
-    assert.match(confirm, /state === 'sent' \|\| \(state === 'failed' && !waRetryable\(failReason\)\)\s*\? onDone/);
+    assert.match(confirm, /const primary = lineOff\s*\? \(linked \? send : openLink\)\s*: state === 'sent' \|\| \(state === 'failed' && !waRetryable\(failReason\)\)\s*\? onDone/);
+    assert.match(confirm, /router\.push\('\/\(manager-flow\)\/whatsapp-bagla\?from=confirm'\)/);
 });
 
 test('önizleme GİDEN metni gösteriyor', () => {

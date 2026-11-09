@@ -35,6 +35,9 @@ import { profileTeamLine, type TeamMember } from '../../src/lib/teamAccessView';
 import type { AuthSession } from '../../src/api/authStub';
 import { teamEnd, teamEndRowSub } from '../../src/lib/authCopy';
 import { profileMetrics as M, useTheme } from '../../src/theme';
+import { StatusWord } from '../../src/components/WaLinkParts';
+import { pageOf, profileRow, type WaHealth } from '../../src/lib/waLink';
+import { fetchWaHealth } from '../../src/lib/waLinkSource';
 
 /**
  * Müdür 27 — profil.
@@ -68,6 +71,11 @@ export default function ManagerProfile() {
      */
     const [packages, setPackages] = useState<Awaited<ReturnType<typeof fetchPackageGlance>> | null>(null);
     const [clock, setClock] = useState(() => Date.now());
+    /**
+     * Müdür 37 · A1 — WhatsApp satırı. `undefined` soruluyor, `null`
+     * okunamadı (gri, "bağlı değil" DEĞİL: hat belki bağlı).
+     */
+    const [wa, setWa] = useState<WaHealth | null | undefined>(undefined);
 
     /*
      * Saatler ve hizmetler CANLI (8. adım). Okunamazsa özet satırı YAZILMAZ
@@ -98,7 +106,9 @@ export default function ManagerProfile() {
             // Okunamazsa satır özetsiz kalıyor — kaynak hatayı yutmuyor.
             fetchCustomerCount().catch(() => null),
             fetchPackageGlance().catch(() => null),
-        ]).then(([account, notifications, url, members, customerCount, packageGlance]) => {
+            // Hattın gerçek durumu (live): veritabanındaki "bağlı" bayat kalabilir.
+            fetchWaHealth(true),
+        ]).then(([account, notifications, url, members, customerCount, packageGlance, waHealth]) => {
             if (!alive) return;
             setSession(account.ok ? account.data.session : null);
             setNotify(notifications
@@ -108,6 +118,7 @@ export default function ManagerProfile() {
             setTeam(Array.isArray(members) ? members : null);
             setCustomers(typeof customerCount === 'number' ? customerCount : null);
             setPackages(packageGlance);
+            setWa(waHealth);
             setClock(Date.now());
         }).catch(() => { /* okunamazsa satırlar özet yazmaz */ });
         return () => { alive = false; };
@@ -136,6 +147,7 @@ export default function ManagerProfile() {
     // Haftanın günü: Pazartesi 0.
     const weekday = (new Date().getDay() + 6) % 7;
     const card = hours.length > 0 ? todayCard(hours, weekday, nowMinutes) : null;
+    const waRow = profileRow(pageOf(wa, false), wa?.connectedAt ?? null);
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -179,6 +191,25 @@ export default function ManagerProfile() {
                         sub={services.length > 0 ? servicesSummary(services) : undefined}
                         onPress={() => router.push('/(manager-flow)/profil/hizmetler')}
                     />
+                    {/*
+                      * WHATSAPP (Müdür 37 · A1) — Hizmetler'in hemen altı, ilk
+                      * grubun son satırı. Bu grup müşterinin gördüğü şeyleri
+                      * topluyor: saat, hizmet, mesaj. Sağı durumu, altı sonucu
+                      * söyler ("Bağlantı düştü" / "Mesajlar gitmiyor"); renk
+                      * kelimenin yanında, tek başına değil. Her rolde görünür;
+                      * personel sayfayı salt okur.
+                      */}
+                    <ProfileRow
+                        big
+                        title="WhatsApp"
+                        sub={waRow.sub}
+                        warm={waRow.warm}
+                        right={<StatusWord tone={waRow.tone} word={waRow.word} />}
+                        onPress={() => router.push('/(manager-flow)/profil/whatsapp')}
+                    />
+                </Group>
+
+                <Group>
                     {/* 099 · telefon bağla (ekip kodu) + şifre sıfırlama. */}
                     {/*
                       * MÜŞTERİLER buraya, Personel'in altına.
@@ -206,6 +237,7 @@ export default function ManagerProfile() {
                       */}
                     {solo ? (
                         <ProfileRow
+                            first
                             big
                             title="Ekip ekle"
                             sub="Tek kişilik çalışıyorsunuz"
@@ -213,6 +245,7 @@ export default function ManagerProfile() {
                         />
                     ) : (
                         <ProfileRow
+                            first
                             big
                             title="Personel"
                             // Tasarım §M2: tek canlı özet — kod açıksa süresi, yoksa

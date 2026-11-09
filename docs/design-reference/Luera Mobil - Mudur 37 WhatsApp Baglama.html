@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Luera Mobil — Müdür 37: WhatsApp bağlama</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+.lt{--bg:#F3ECE0;--surf:#FAF7F3;--surf2:#F0E9DF;--card:#FFFDFB;--tx:#0E0E0E;--tx2:rgba(14,14,14,.52);--tx3:rgba(14,14,14,.34);--bd:rgba(14,14,14,.10);--bd2:rgba(14,14,14,.18);--or:#FF5A1F;--or2:#E8430F;--gr:#2D8F32;--am:#B87A00;--rd:#C94040;--glass:rgba(250,247,243,.74);--glassbd:rgba(14,14,14,.08);--tint:rgba(214,202,186,.45);--sheen:rgba(255,255,255,.6);--fld:rgba(14,14,14,.05);--glow:linear-gradient(180deg,rgba(255,90,31,.13) 0%,rgba(255,90,31,.045) 45%,rgba(243,236,224,0) 100%);--ps:#1C1710;--pk:#F3EDE3;--pk2:rgba(243,237,227,.58);--prd:#E07272;--pfill:rgba(243,237,227,.08);--scrim:rgba(14,14,14,.34);--grb:rgba(45,143,50,.10);--grd:rgba(45,143,50,.30);--rdb:rgba(201,64,64,.07);--rdd:rgba(201,64,64,.36);--amb:rgba(184,122,0,.08);--amd:rgba(184,122,0,.34);--kb:#D3CCC1;--key:#FFFDFB;--desk:#E4DACA}
+.dk{--bg:#120E08;--surf:#1C1710;--surf2:#252015;--card:#241E16;--tx:#F3EDE3;--tx2:rgba(243,237,227,.58);--tx3:rgba(243,237,227,.36);--bd:rgba(243,237,227,.11);--bd2:rgba(243,237,227,.20);--or:#FF5A1F;--or2:#FF7A45;--gr:#5FBF64;--am:#D9A43B;--rd:#E07272;--glass:rgba(28,23,16,.66);--glassbd:rgba(243,237,227,.13);--tint:rgba(70,60,44,.55);--sheen:rgba(243,237,227,.09);--fld:rgba(243,237,227,.07);--glow:linear-gradient(180deg,rgba(255,90,31,.18) 0%,rgba(255,90,31,.07) 45%,rgba(18,14,8,0) 100%);--ps:#FAF3E9;--pk:#0E0E0E;--pk2:rgba(14,14,14,.52);--prd:#A82F2F;--pfill:rgba(14,14,14,.07);--scrim:rgba(0,0,0,.5);--grb:rgba(95,191,100,.13);--grd:rgba(95,191,100,.34);--rdb:rgba(224,114,114,.10);--rdd:rgba(224,114,114,.45);--amb:rgba(217,164,59,.10);--amd:rgba(217,164,59,.34);--kb:#1A150E;--key:#3A342B;--desk:#0B0805}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:#E4DACA;color:var(--tx);font-family:'Hanken Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:56px 48px 160px}
+a{color:var(--or2);text-decoration:none}a:hover{color:var(--or)}
+.n{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--tx)}
+.ic{width:23px;height:23px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+/* belge */
+.doc{max-width:1800px;margin:0 auto}
+.doc-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px;border-bottom:1px solid var(--bd);margin-bottom:22px}
+.mark{display:inline-flex;align-items:flex-end;font-weight:800;font-size:34px;letter-spacing:-.05em;line-height:.82}
+.mark i{width:.2em;height:.2em;border-radius:50%;background:var(--or);margin:0 0 .03em .03em}
+.doc-head .meta{text-align:right;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tx2);line-height:1.8}
+.lede{max-width:940px;margin-bottom:30px}
+.lede h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.04;margin-bottom:14px;text-wrap:balance}
+.lede p{font-size:15.5px;font-weight:500;color:var(--tx2);line-height:1.6;text-wrap:pretty}
+.lede p+p{margin-top:10px}
+.lede b{color:var(--tx);font-weight:700}
+.chain{display:flex;align-items:center;gap:10px;margin:0 0 20px;flex-wrap:wrap}
+.chain span{display:flex;align-items:center;height:32px;padding:0 12px;border:1px solid var(--bd2);border-radius:10px;font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--tx2)}
+.chain span.on{border-color:var(--or);color:var(--or2)}
+.chain span.qr{border-style:dashed}
+.chain i{width:18px;height:1px;background:var(--bd2)}
+.chain em{font-style:normal;font-size:12px;font-weight:600;color:var(--tx3)}
+.band{display:flex;align-items:baseline;gap:16px;margin:46px 0 28px;padding-bottom:12px;border-bottom:1px solid var(--bd);flex-wrap:wrap}
+.band h2{font-size:23px;font-weight:800;letter-spacing:-.02em;flex:none}
+.band .num{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--tx3);font-weight:600;flex:none}
+.band p{margin-left:auto;font-size:13px;font-weight:500;color:var(--tx2);max-width:640px;line-height:1.5;text-align:right}
+.row{display:flex;flex-wrap:wrap;gap:64px 56px;margin-bottom:40px;align-items:flex-start}
+.pair{display:flex;flex-direction:column;gap:12px;width:802px}
+.pair.se{width:766px}
+.plab{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.plab b{font-size:12px;font-weight:800;letter-spacing:.13em;color:var(--or2)}
+.plab span{font-size:15px;font-weight:800;letter-spacing:-.01em}
+.tag{font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--or2);border:1px solid rgba(255,90,31,.45);border-radius:5px;padding:2px 6px 1px}
+.pp{display:flex;gap:16px}
+.when{display:flex;gap:10px;align-items:baseline;font-size:13px;font-weight:600;color:var(--tx);line-height:1.45;padding:10px 0 2px;border-top:1px solid var(--bd2)}
+.when i{flex:none;font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--tx3)}
+.note{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;font-weight:500;color:var(--tx2);line-height:1.5;max-width:780px}
+.note::before{content:"";flex:none;width:14px;height:1px;background:var(--or);margin-top:9px}
+.note b{color:var(--tx);font-weight:700}
+.rn{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:18px;overflow:hidden;background:var(--surf);max-width:1320px;margin-bottom:28px}
+.rn .r{display:flex;gap:18px;padding:11px 18px;border-bottom:1px solid var(--bd);font-size:13px;font-weight:500;color:var(--tx2);line-height:1.5}
+.rn .r:last-child{border-bottom:0}
+.rn .r.h{background:var(--surf2);font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx3)}
+.rn .r>*{flex:1;min-width:0}
+.rn .r>.c1{flex:none;width:200px;color:var(--tx);font-weight:700}
+.rn .r>.c2{flex:none;width:270px}
+.rn .r.h>*{color:var(--tx3)}
+.rn .r b{color:var(--tx);font-weight:700}
+.rn .k1{color:var(--or2);font-weight:700}
+/* telefon */
+.phone{width:393px;height:852px;flex:none;position:relative;background:var(--bg);color:var(--tx);border:1px solid var(--bd2);border-radius:46px;overflow:hidden;display:flex;flex-direction:column}
+.phone.dk{border-color:rgba(14,14,14,.4)}
+.phone.se{width:375px;height:667px;border-radius:38px}
+.status{height:59px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:6px 30px 0 46px;font:600 16.5px/1 -apple-system,'SF Pro Text',system-ui,sans-serif;position:relative;z-index:30}
+.se .status{height:22px;padding:2px 14px 0 18px;font-size:12.5px}
+.status .rt{display:flex;align-items:center;gap:6px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:11px}
+.bars i{width:3px;background:currentColor;border-radius:1px}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:6px}.bars i:nth-child(3){height:8.5px}.bars i:nth-child(4){height:11px}
+.status .wf{width:17px;height:17px;stroke-width:2}
+.batt{width:25px;height:12px;border:1.3px solid currentColor;border-radius:4px;padding:1.5px;display:flex;opacity:.9}
+.batt i{width:70%;background:currentColor;border-radius:1.5px}
+.se .bars{height:9px}.se .batt{width:21px;height:10px}.se .status .wf{width:14px;height:14px}
+.body{flex:1;display:flex;flex-direction:column;min-height:0;position:relative;overflow:hidden}
+.glow{position:absolute;left:0;right:0;top:0;height:300px;background:var(--glow);pointer-events:none;z-index:0}
+.body>*{position:relative;z-index:2}
+.tabbar{position:absolute;left:20px;right:20px;bottom:19px;height:58px;display:flex;padding:4px;background:var(--glass);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);border:1px solid var(--glassbd);border-radius:999px;box-shadow:0 1px 0 var(--sheen) inset,0 6px 22px rgba(14,14,14,.07);z-index:50}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:999px;color:var(--tx);font-size:11.5px;font-weight:600}
+.tab .ic{width:24px;height:24px}
+.tab.sel{background:var(--tint);color:var(--or2)}
+/* İşletme sekmesi · v4 */
+.scr{flex:1;min-height:0;display:flex;flex-direction:column}
+.pfh{flex:none;display:flex;flex-direction:column;padding:12px 17px 14px;line-height:1.15}
+.pfh s{text-decoration:none;font-size:11.5px;font-weight:700;letter-spacing:.24em;color:var(--tx3)}
+.pfh h2{font-size:24px;font-weight:800;letter-spacing:-.03em;margin-top:6px}
+.pfh span{font-size:14.5px;font-weight:500;color:var(--tx2);margin-top:4px}
+.hcard{flex:none;margin:0 15px 12px;padding:17px 18px 16px 15px;border-radius:22px;background:var(--ps);color:var(--pk);display:grid;grid-template-columns:1fr auto;row-gap:6px;align-items:center}
+.hcard .a{font-size:11.5px;font-weight:700;letter-spacing:.2em;color:var(--pk2)}
+.hcard .o{display:flex;align-items:center;gap:7px;font-size:15px;font-weight:600;color:#5FBF64;justify-self:end}
+.dk .hcard .o{color:#2D8F32}
+.hcard .o s{width:8px;height:8px;border-radius:50%;background:currentColor}
+.hcard .h,.hcard .k{grid-column:1}
+.hcard .h{font-size:35px;font-weight:800;letter-spacing:-.035em;line-height:1.1}
+.hcard .k{font-size:14.5px;font-weight:500;color:var(--pk2)}
+.hcard .k b{color:var(--or);font-weight:800}
+.hcard .ic{width:20px;height:20px;color:var(--pk2);grid-column:2;grid-row:2/4;justify-self:end}
+.grp{flex:none;margin:0 15px 12px;background:var(--surf);border:1px solid var(--bd);border-radius:22px;overflow:hidden}
+.gr{display:flex;align-items:center;gap:10px;padding:12px 16px;min-height:64px;width:100%}
+.gr+.gr{border-top:1px solid var(--bd)}
+.gr .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.gr .t b{font-size:17px;font-weight:700;letter-spacing:-.02em}
+.gr .t span{font-size:14.5px;font-weight:600;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gr .vv{font-size:16px;font-weight:500;color:var(--tx2)}
+.gr .cv{width:20px;height:20px;color:var(--tx3)}
+.gr.sm{min-height:52px}
+.gr.hl{background:color-mix(in srgb,var(--or) 7%,var(--surf))}
+.ws{flex:none;display:flex;align-items:center;gap:7px;font-size:14.5px;font-weight:700;white-space:nowrap;color:var(--tx2)}
+.ws s{width:7px;height:7px;border-radius:50%;background:var(--tx3)}
+.ws.ok{color:var(--gr)}.ws.ok s{background:var(--gr)}
+.ws.rd{color:var(--rd)}.ws.rd s{background:var(--rd)}
+.ws.ld s{background:var(--tx3);animation:pl 1.6s ease-in-out infinite}
+@keyframes pl{0%,100%{opacity:.9}50%{opacity:.3}}
+.rbox{width:393px;flex:none;background:var(--bg);color:var(--tx);border:1px solid var(--bd2);border-radius:28px;padding:16px 0 8px}
+.rbox .grp{margin:0 15px 6px}
+.rcap{font-size:11px;font-weight:700;letter-spacing:.16em;color:var(--tx3);padding:8px 20px 8px}
+/* sayfa başlıkları */
+.phd{flex:none;height:60px;display:flex;align-items:center;gap:12px;padding:0 20px 0 16px}
+.phd .ic{width:24px;height:24px}
+.phd h2{font-size:21px;font-weight:800;letter-spacing:-.02em}
+.mhd{flex:none;height:52px;display:flex;align-items:center;gap:6px;padding:0 8px}
+.mhd .ib{width:44px;height:44px;display:flex;align-items:center;justify-content:center}
+.mhd b{flex:1;font-size:16.5px;font-weight:700;letter-spacing:-.01em}
+.mhd .tx{height:44px;padding:0 12px;display:flex;align-items:center;font-size:15.5px;font-weight:700;color:var(--tx2)}
+.pg{flex:none;display:flex;flex-direction:column;padding:0 20px}
+.st{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;letter-spacing:.2em;color:var(--tx3);margin-top:6px}
+.st s{width:7px;height:7px;border-radius:50%;background:currentColor}
+.st.rd{color:var(--rd)}.st.ok{color:var(--gr)}.st.ld s{animation:pl 1.6s ease-in-out infinite}
+.h1{font-size:29px;font-weight:800;letter-spacing:-.035em;line-height:1.1;margin-top:10px;text-wrap:balance}
+.h1.mt{margin-top:22px}
+.lead{font-size:16px;font-weight:500;color:var(--tx2);line-height:1.45;margin-top:10px;text-wrap:pretty}
+.lead.c{text-align:center;margin-top:4px}
+.card{flex:none;margin-top:16px;padding:16px;background:var(--surf);border:1px solid var(--bd);border-radius:22px;display:flex;flex-direction:column;gap:12px}
+.eb{font-size:11.5px;font-weight:700;letter-spacing:.2em;color:var(--tx3)}
+.li{display:flex;gap:12px;align-items:flex-start;font-size:15.5px;font-weight:500;line-height:1.4}
+.li s{flex:none;width:6px;height:6px;border-radius:50%;background:var(--tx);margin-top:8px}
+.li2{display:flex;gap:10px;align-items:center;font-size:16px;font-weight:600}
+.li2 s{flex:none;width:6px;height:6px;border-radius:50%;background:var(--rd)}
+.rdc{border-color:var(--rdd);background:var(--rdb)}
+.trust{display:flex;gap:12px;align-items:flex-start;margin-top:14px;padding:0 4px;font-size:14px;font-weight:500;color:var(--tx2);line-height:1.45}
+.trust b{color:var(--tx);font-weight:700}
+.trust .ic{width:20px;height:20px;margin-top:1px;color:var(--tx2)}
+.ft{margin-top:auto;flex:none;display:flex;flex-direction:column;gap:10px;padding:14px 16px 30px}
+.se .ft{padding-bottom:16px}
+.ft.kbon{padding-bottom:10px}
+.kbtn{height:59px;border-radius:26px;background:var(--or);color:#fff;display:flex;align-items:center;justify-content:center;gap:10px;font-size:19px;font-weight:800;letter-spacing:-.02em;width:100%}
+.kbtn .ic{width:21px;height:21px;stroke-width:2}
+.kbtn.nt{background:var(--tx);color:var(--bg)}
+.kbtn.ln{background:none;border:1.5px solid var(--bd2);color:var(--tx)}
+.kbtn.rd{background:var(--rdb);border:1.5px solid var(--rdd);color:var(--rd)}
+.kgh{height:40px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--tx2)}
+.cap{font-size:13.5px;font-weight:500;color:var(--tx2);line-height:1.4}
+.cap.c{text-align:center}
+/* C · seçenek */
+.opt{display:flex;align-items:center;gap:14px;padding:16px;min-height:92px;border-radius:22px;background:var(--surf);border:1.5px solid var(--bd)}
+.opt.on{border-color:var(--tx);background:var(--card)}
+.oi{flex:none;width:46px;height:46px;border-radius:15px;background:var(--fld);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center}
+.opt .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.opt .t b{display:flex;align-items:center;gap:8px;font-size:18.5px;font-weight:800;letter-spacing:-.02em}
+.opt .t span{font-size:14.5px;font-weight:500;color:var(--tx2)}
+.rec{font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.14em;color:var(--tx2);border:1px solid var(--bd2);border-radius:5px;padding:2px 5px 1px}
+.rad{flex:none;width:24px;height:24px;border-radius:50%;border:1.8px solid var(--bd2)}
+.opt.on .rad{border:7px solid var(--tx)}
+/* D · numara, kod */
+.fl{display:flex;flex-direction:column;gap:8px;margin-top:22px}
+.fl>span{font-size:12px;font-weight:700;letter-spacing:.14em;color:var(--tx3)}
+.fl>span em{font-style:normal;letter-spacing:0;font-weight:600}
+.fld{height:62px;border-radius:18px;background:var(--surf);border:1.5px solid var(--bd2);display:flex;align-items:center;gap:2px;padding:0 18px;font-size:24px;font-weight:700;letter-spacing:.01em}
+.fld.foc{border-color:var(--or)}
+.car{width:2px;height:28px;background:var(--or);margin-left:2px}
+.hint{font-size:14px;font-weight:500;color:var(--tx2);line-height:1.4;margin-top:10px}
+.err{display:flex;gap:10px;align-items:flex-start;margin-top:12px;font-size:15px;font-weight:700;line-height:1.4}
+.err .ic{width:20px;height:20px;color:var(--am);margin-top:1px}
+.kb{flex:none;background:var(--kb);padding:6px 6px 28px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.kb span{height:47px;border-radius:8px;background:var(--key);display:flex;flex-direction:column;align-items:center;justify-content:center;font:400 25px/1 -apple-system,system-ui,sans-serif;box-shadow:0 1px 0 rgba(0,0,0,.28)}
+.kb span u{text-decoration:none;font-size:9.5px;font-weight:600;letter-spacing:.16em;margin-top:2px}
+.kb span.bl{background:none;box-shadow:none}
+.code{display:flex;align-items:center;gap:5px;margin-top:2px}
+.code i{font-style:normal;width:36px;height:58px;border-radius:12px;background:var(--card);border:1px solid var(--bd2);display:flex;align-items:center;justify-content:center;font:700 28px/1 ui-monospace,'SF Mono',Menlo,monospace;color:var(--tx)}
+.code b{width:12px;height:2.5px;border-radius:2px;background:var(--tx3);margin:0 3px}
+.code.dead i{opacity:.35}
+.se .code i{width:34px;height:52px;font-size:26px}
+.ctool{display:flex;align-items:center;gap:14px;margin-top:14px;min-height:40px}
+.cbtn{flex:none;height:40px;padding:0 15px 0 12px;border-radius:999px;border:1.5px solid var(--tx);display:flex;align-items:center;gap:7px;font-size:15px;font-weight:800}
+.cbtn .ic{width:18px;height:18px}
+.tmr{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+.tmr>span:first-child{font-size:14px;font-weight:600;color:var(--tx2)}
+.tmr b{color:var(--tx);font-weight:800}
+.trk{height:3px;border-radius:2px;background:var(--fld);overflow:hidden}
+.trk i{display:block;height:100%;background:var(--tx3);transform-origin:left center}
+.steps{display:flex;flex-direction:column;margin-top:18px;border-top:1px solid var(--bd)}
+.step{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--bd);font-size:15.5px;font-weight:500;line-height:1.35}
+.step s{flex:none;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--bd2);font-size:12.5px;font-weight:800;display:flex;align-items:center;justify-content:center;text-decoration:none;margin-top:-1px}
+.step b{font-weight:700}.step>span{flex:1;min-width:0}
+.se .step{padding:8px 0;font-size:15px}
+.aside{display:flex;gap:9px;align-items:flex-start;margin-top:12px;font-size:13.5px;font-weight:500;color:var(--tx2);line-height:1.42}
+.aside::before{content:"";flex:none;width:12px;height:1px;background:var(--tx3);margin-top:9px}
+.wait{margin-top:10px;display:flex;align-items:center;gap:14px;padding:16px;border-radius:22px;background:var(--surf);border:1px solid var(--bd)}
+.pulse{flex:none;width:46px;height:46px;border-radius:50%;border:1.5px solid rgba(255,90,31,.45);display:flex;align-items:center;justify-content:center}
+.pulse i{width:10px;height:10px;border-radius:50%;background:var(--or);animation:pl 1.6s ease-in-out infinite}
+.wait .t{display:flex;flex-direction:column;gap:4px}
+.wait .t b{font-size:17.5px;font-weight:800;letter-spacing:-.02em}
+.wait .t span{font-size:14px;font-weight:500;color:var(--tx2);line-height:1.4}
+/* E · QR */
+.qr{align-self:center;margin-top:14px;width:272px;height:272px;background:#fff;border-radius:22px;padding:20px;box-shadow:0 0 0 1px var(--bd2)}
+.qr svg{display:block;width:100%;height:100%}
+.qtool{display:flex;align-items:center;gap:14px;margin-top:16px}
+.swr{display:flex;align-items:center;gap:12px;margin-top:6px;min-height:60px}
+.swr .t{flex:1;display:flex;flex-direction:column;gap:2px}
+.swr .t b{font-size:16px;font-weight:700}
+.swr .t span{font-size:13.5px;font-weight:500;color:var(--tx2)}
+.swr .vv{font-size:14px;font-weight:600;color:var(--tx2)}
+.sw{flex:none;width:47px;height:29px;border-radius:999px;background:var(--surf2);border:1px solid var(--bd2);position:relative}
+.sw i{position:absolute;top:2px;left:2px;width:23px;height:23px;border-radius:50%;background:var(--tx);opacity:.42}
+/* F1 · onay kalıbı (Müdür 16) */
+.okh{flex:none;display:flex;flex-direction:column;align-items:center;gap:20px;padding:120px 24px 0;text-align:center}
+.okh.c{padding-top:52px}
+.ring{width:116px;height:116px;border-radius:50%;border:3px solid var(--bd);position:relative;flex:none}
+.ring.ok{border-color:var(--grd)}
+.tk{position:absolute;inset:19px;border-radius:50%;display:grid;place-items:center;background:var(--grb);border:1px solid var(--grd);color:var(--gr)}
+.tk .ic{width:34px;height:34px;stroke-width:2.4}
+.tk.mute{background:var(--surf2);border-color:var(--bd2);color:var(--tx2)}
+.tk.mute .ic{stroke-width:1.9}
+.h1c{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1.06;text-wrap:balance}
+.subc{font-size:15px;font-weight:600;color:var(--tx2);line-height:1.4;margin-top:-8px;max-width:300px}
+.cfb{flex:none;display:flex;flex-direction:column;padding:0 20px}
+.strip{flex:none;margin-top:22px;display:flex;align-items:center;gap:11px;min-height:64px;padding:12px 15px;border-radius:20px;background:var(--grb);border:1px solid var(--grd)}
+.strip .ic{width:20px;height:20px;color:var(--gr);stroke-width:2.2}
+.strip .tb,.cfs .tb{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.strip b{font-size:15px;font-weight:800}
+.strip span{font-size:13px;font-weight:600;color:var(--tx2)}
+.cfc{flex:none;margin-top:12px;border-radius:24px;background:var(--card);border:1px solid var(--bd);padding:0 16px}
+.cfr{display:flex;align-items:center;justify-content:space-between;min-height:52px}
+.cfr b{font-size:16px;font-weight:700}
+.cfr span{font-size:13px;font-weight:600;color:var(--tx2)}
+.cfs{display:flex;align-items:center;gap:11px;min-height:56px;border-top:1px solid var(--bd)}
+.cfs s{flex:none;width:3px;height:30px;border-radius:2px;background:#C08457}
+.cfs b{font-size:16px;font-weight:700}
+.cfs span{font-size:13px;font-weight:600;color:var(--tx2)}
+.cfs em{font-style:normal;font-size:17px;font-weight:700}
+.dock{position:absolute!important;left:12px;right:12px;bottom:30px;z-index:50!important;border-radius:28px;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--glass);backdrop-filter:blur(26px) saturate(190%);-webkit-backdrop-filter:blur(26px) saturate(190%);border:1px solid var(--glassbd);box-shadow:inset 0 1px 0 var(--sheen),0 10px 22px -8px rgba(0,0,0,.24)}
+.dp{display:flex;align-items:center;justify-content:center;gap:10px;height:66px;border-radius:21px;background:var(--or);color:#FFF9F5;font-size:17.5px;font-weight:800;letter-spacing:-.01em}
+.dp .ic{width:21px;height:21px;stroke-width:2}
+.ds{display:flex;align-items:center;justify-content:center;height:52px;border-radius:17px;font-size:16px;font-weight:700;color:var(--tx2)}
+.dn{text-align:center;font-size:12px;font-weight:600;color:var(--tx3);line-height:1.4}
+/* F2 · bağlı sayfası */
+.hs{display:flex;align-items:baseline;gap:9px;margin-top:4px}
+.hs s{flex:none;width:10px;height:10px;border-radius:50%;background:var(--gr);align-self:center}
+.hs b{font-size:27px;font-weight:800;letter-spacing:-.03em}
+.hs span{font-size:15.5px;font-weight:600;color:var(--tx2)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.stats div{display:flex;flex-direction:column;gap:3px;padding-left:12px;border-left:1px solid var(--bd)}
+.stats div:first-child{padding-left:0;border-left:0}
+.stats b{font-size:29px;font-weight:800;letter-spacing:-.03em;line-height:1.05}
+.stats span{font-size:13px;font-weight:600;color:var(--tx2)}
+.stats .z b{color:var(--tx3)}
+.zero{font-size:17px;font-weight:700;padding:4px 0 2px}
+.zero+span{font-size:13.5px;font-weight:500;color:var(--tx2);margin-top:-6px}
+.lerr{display:flex;gap:10px;align-items:flex-start;padding-top:12px;border-top:1px solid var(--bd);font-size:14px;font-weight:500;color:var(--tx2);line-height:1.4}
+.lerr .ic{width:19px;height:19px;color:var(--am);margin-top:1px}
+.lerr b{color:var(--tx);font-weight:700}
+.tf{display:flex;gap:8px}
+.fld2{flex:1;min-width:0;height:50px;border-radius:16px;background:var(--fld);border:1px solid var(--bd);display:flex;align-items:center;padding:0 15px;font-size:17px;font-weight:600}
+.fld2.ph{color:var(--tx3);font-weight:500}
+.gbtn{flex:none;height:50px;padding:0 18px;border-radius:16px;background:var(--tx);color:var(--bg);display:flex;align-items:center;font-size:16px;font-weight:800}
+.gbtn.off{background:var(--fld);color:var(--tx3);border:1px solid var(--bd)}
+.res{display:flex;gap:8px;align-items:flex-start;font-size:14.5px;font-weight:700;line-height:1.4}
+.res .ic{width:19px;height:19px;margin-top:1px}
+.res.ok .ic{color:var(--gr);stroke-width:2.3}
+.res.no .ic{color:var(--am)}
+.res span span{font-weight:500;color:var(--tx2)}
+.outl{font-size:13.5px;font-weight:500;color:var(--tx2);line-height:1.4;padding:0 4px}
+.outl b{color:var(--tx);font-weight:700}
+.kes{height:50px;display:flex;align-items:center;justify-content:center;border-radius:18px;border:1px solid var(--bd);font-size:16px;font-weight:700;color:var(--rd)}
+.amn{flex:none;margin-top:14px;display:flex;flex-direction:column;gap:8px;padding:14px 16px 16px;border:1px solid var(--amd);border-radius:22px;background:var(--amb)}
+.amn b{font-size:11.5px;font-weight:800;letter-spacing:.16em;color:var(--am)}
+.amn span{font-size:15px;font-weight:500;line-height:1.42}
+.pbtn{height:46px;border-radius:999px;background:var(--or);color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;margin-top:4px}
+.lock{display:flex;gap:10px;align-items:center;margin-top:16px;padding:14px 16px;border-radius:18px;border:1px dashed var(--bd2);font-size:15px;font-weight:600;color:var(--tx2)}
+.lock .ic{width:20px;height:20px}
+/* alt sayfa */
+.scrim{position:absolute!important;inset:0;z-index:70!important;background:var(--scrim)}
+.sheet{position:absolute!important;left:0;right:0;bottom:0;z-index:80!important;display:flex;flex-direction:column;background:var(--bg);border-top:1px solid var(--bd);border-radius:22px 22px 0 0;overflow:hidden}
+.grabber{flex:none;height:30px;display:flex;align-items:center;justify-content:center}
+.grabber i{width:44px;height:5px;border-radius:3px;background:var(--tx);opacity:.24}
+.shb{padding:6px 22px 4px;display:flex;flex-direction:column;gap:10px}
+.shb h3{font-size:23px;font-weight:800;letter-spacing:-.03em;line-height:1.15}
+.shb p{font-size:16px;font-weight:500;color:var(--tx2);line-height:1.45}
+.fade{opacity:.5}
+/* durum dili */
+.sk{display:block;background:var(--fld);border-radius:9px;flex:none}
+.skg{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.void{flex:none;display:flex;flex-direction:column;align-items:center;padding:120px 28px 0;text-align:center}
+.vlbl{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;letter-spacing:.16em;color:var(--tx3);margin-bottom:12px}
+.vlbl s{width:7px;height:7px;border-radius:50%;background:var(--tx3)}
+.vttl{font-size:24px;font-weight:800;letter-spacing:-.025em;line-height:1.2;text-wrap:balance}
+.vsub{margin-top:10px;font-size:15px;font-weight:500;color:var(--tx2);line-height:1.45;max-width:300px;text-wrap:pretty}
+.hap{margin-top:22px;height:44px;padding:0 18px;border-radius:999px;border:1.5px solid var(--tx);display:flex;align-items:center;gap:8px;font-size:16px;font-weight:800}
+.hap .ic{width:18px;height:18px}
+/* eylem hapı (Müdür 34 v2) */
+.stbox{width:393px;flex:none;display:flex;flex-direction:column;gap:14px}
+.stcap{font-size:11px;font-weight:700;letter-spacing:.16em;color:#0E0E0E;opacity:.5;text-transform:uppercase}
+.stg{background:var(--bg);color:var(--tx);border:1px solid var(--bd2);border-radius:22px;padding:18px 14px 14px;display:flex;flex-direction:column;align-items:stretch;gap:8px}
+.alab{align-self:flex-end;margin-right:2px;background:var(--ps);color:var(--pk);border-radius:14px;padding:9px 14px 10px;display:flex;flex-direction:column;gap:2px;box-shadow:0 10px 26px rgba(0,0,0,.24)}
+.alab b{font-size:15px;font-weight:800;letter-spacing:-.01em}
+.alab i{font-style:normal;font-size:12.5px;font-weight:600;color:var(--pk2)}
+.bal{align-self:flex-end;position:relative;background:var(--ps);color:var(--pk);border-radius:18px;display:flex;box-shadow:0 12px 32px rgba(0,0,0,.28);margin-bottom:6px}
+.bal .arw{position:absolute;right:34px;bottom:-6px;width:14px;height:6px;background:var(--ps);clip-path:polygon(0 0,100% 0,50% 100%)}
+.acell{width:60px;height:56px;display:flex;align-items:center;justify-content:center}
+.acell.off{opacity:.4}
+.aeye{position:relative;width:44px;height:44px;display:flex;align-items:center;justify-content:center}
+.aring{position:absolute;inset:0;border-radius:50%;border:1.5px solid var(--or);opacity:.55}
+.acell.prs .aring{opacity:1}
+.acell .ic{width:22px;height:22px}
+.aini{font-size:14.5px;font-weight:800;letter-spacing:-.02em}
+.pn{border-radius:18px;background:var(--ps);color:var(--pk);position:relative;overflow:hidden;display:flex;gap:12px;padding:14px 14px 14px 18px}
+.pn .stripe{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--prd)}
+.pcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.plb{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;letter-spacing:.06em;color:var(--prd)}
+.plb s{width:7px;height:7px;border-radius:50%;background:var(--prd)}
+.pn .hero{font-size:40px;font-weight:800;letter-spacing:-.04em;line-height:44px;color:var(--prd)}
+.pn .hero u{text-decoration:none;font-size:17px;font-weight:700;letter-spacing:-.01em;color:var(--pk2)}
+.psub{font-size:11.5px;font-weight:500;color:var(--pk2)}
+.pact{flex:none;display:flex;flex-direction:column;gap:2px;justify-content:center}
+.ph44{height:44px;padding:0 18px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;border:1.5px solid var(--pk);color:var(--pk)}
+.ph44.fill{background:var(--or);border-color:var(--or);color:#fff}
+.ph44.open{background:var(--pfill)}
+.was{font-size:12.5px;font-weight:600;color:var(--tx2);display:flex;gap:8px;align-items:baseline;padding:0 4px}
+.was s{color:var(--tx3)}
+.was b{color:var(--tx);font-weight:700}
+</style></head>
+<body class="lt">
+<template id="__bundler_thumbnail" data-bg-color="#F3ECE0"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#E4DACA"/><rect x="480" y="110" width="240" height="500" rx="40" fill="#F3ECE0" stroke="#0E0E0E" stroke-opacity=".18"/><rect x="506" y="300" width="188" height="58" rx="12" fill="#FFFDFB" stroke="#0E0E0E" stroke-opacity=".18"/><rect x="506" y="520" width="188" height="44" rx="20" fill="#FF5A1F"/><text x="600" y="710" font-family="system-ui,sans-serif" font-size="62" font-weight="800" letter-spacing="-3" text-anchor="middle" fill="#0E0E0E">luera</text><circle cx="712" cy="710" r="11" fill="#FF5A1F"/></svg></template>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.5 1.5M17.1 17.1l1.5 1.5M5.4 18.6l1.5-1.5M17.1 6.9l1.5-1.5"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-cal" viewBox="0 0 24 24"><path d="M4 9.5h16M8.5 3.4v3M15.5 3.4v3M5 5.6h14a1 1 0 0 1 1 1v12.8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6.6a1 1 0 0 1 1-1z"/><path d="M8 13h2M14 13h2M8 16.6h2"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-cash" viewBox="0 0 24 24"><path d="M3.6 7.4h16.8v9.2H3.6zM12 9.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8z"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.7"/><path d="M5 20c.6-3.5 3.4-5.6 7-5.6s6.4 2.1 7 5.6"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-check" viewBox="0 0 24 24"><path d="M4.5 12.6 9.4 17.5 19.5 7"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6A1.5 1.5 0 0 0 14 4.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-refresh" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 13.6-5.7M20 12a8 8 0 0 1-13.6 5.7M17.6 3.4v3.2h-3.2M6.4 20.6v-3.2h3.2"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-warn" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.8v5M12 16.2h.01"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-out" viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-arrow" viewBox="0 0 24 24"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-phn" viewBox="0 0 24 24"><rect x="6.5" y="2.8" width="11" height="18.4" rx="2.4"/><path d="M10.6 18h2.8"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-phn2" viewBox="0 0 24 24"><rect x="3.4" y="6" width="8.6" height="15" rx="2"/><path d="M9 3h9.6a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H15"/><path d="M6.6 18.2h2.2"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-lock" viewBox="0 0 24 24"><path d="M6.4 10.6h11.2v9.2H6.4zM8.8 10.6V7.8a3.2 3.2 0 0 1 6.4 0v2.8"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-wifi" viewBox="0 0 24 24"><path d="M2.6 9.2a13.6 13.6 0 0 1 18.8 0M5.6 12.4a9.2 9.2 0 0 1 12.8 0M8.7 15.6a4.8 4.8 0 0 1 6.6 0M12 19h.01"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-tel" viewBox="0 0 24 24"><path d="M7.5 3.6h2.5l1.4 3.5-2 1.3a11.4 11.4 0 0 0 5.1 5.1l1.3-2 3.5 1.4v2.5a2 2 0 0 1-2 2C10.7 17.4 5.6 12.3 5.6 5.6a2 2 0 0 1 1.9-2z"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-send" viewBox="0 0 24 24"><path d="M6.5 4.6h11a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-7l-4.2 3.2V14.6a2 2 0 0 1-1.8-2v-6a2 2 0 0 1 2-2z"/><path d="M8.9 9.6h6.1"/><path d="M12.6 7.3l2.4 2.3-2.4 2.3"/></symbol>
+<symbol fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" id="i-nox" viewBox="0 0 24 24"><circle cx="10" cy="7.9" r="3.2"/><path d="M4.4 19c0-3.2 2.5-5.2 5.6-5.2 1 0 1.9.2 2.7.6"/><path d="M15.9 15.6l3.4 3.4"/><path d="M19.3 15.6l-3.4 3.4"/></symbol>
+</defs></svg>
+<div class="doc">
+<div class="doc-head"><div class="mark">luera<i></i></div><div class="meta">Müdür 37 · WhatsApp bağlama · telefondan<br/>393 × 852 ve 375 × 667 · açık + koyu yan yana<br/>Dil ve yüzeyler: Tek Kişilik v4</div></div>
+<div class="lede">
+<h1>Bir kez kurulan köprü ve onun sağlık ışığı</h1>
+<p>İşletmenin WhatsApp hattı artık telefondan bağlanıyor. Akış tek soruyla ayrılıyor: <b>“İşletmenizin WhatsApp'ı hangi telefonda?”</b> Bu telefondaysa (küçük işletmelerin çoğu) numara yazılır, <b>8 karakterlik bağlama kodu</b> alınır ve WhatsApp'a girilir. Başka bir telefondaysa bu ekranda QR çıkar, öteki telefon okur. Aynı telefon kendi ekranındaki QR'ı okuyamadığı için QR varsayılan değil.</p>
+<p>Bağlandıktan sonraki sayfa kısa: durum ve tarih, son 24 saatin dört sayısı, varsa son hata, test mesajı, en altta bağlantıyı kesme. Asistan ve mesaj ayarları masaüstünde kalıyor; sayfa bunu tek satırla söylüyor.</p>
+<p><b>Geçişler:</b> WhatsApp sayfası İşletme'nin diğer alt sayfaları gibi <b>tam sayfa itilir</b>. Bağlama akışı <b>tam ekran bir modal</b> olarak açılır ve adımlar onun içinde itilir; hangi kapıdan açılırsa açılsın kapandığında açıldığı yere döner. Bağlantıyı kesme onayı <b>alt sayfa</b>.</p>
+</div>
+<div class="chain"><span>A1 İşletme</span><span>A2 Eylem hapı</span><span>A3 Randevu onayı</span><i></i><span>B / G</span><i></i><span class="on">C Hangi telefon?</span><i></i><span>D1 Numara</span><i></i><span>D2 Kod</span><i></i><span>D3 Bekleme</span><i></i><span class="on">F1 Bağlandı</span><i></i><span>F2 Bağlı sayfası</span></div>
+<div class="chain"><em>C'den ikinci yol:</em><span class="qr">E QR</span><i></i><span class="qr">F1</span></div>
+
+<div class="band"><span class="num">01</span><h2>Giriş noktaları: üç kapı, tek akış</h2><p>İşletme sekmesinde yeni satır, eylem hapının WhatsApp gözü, randevu onayındaki hata. Üçü de aynı modalı açıyor.</p></div>
+<div class="row" id="s-a"></div>
+
+<div class="band"><span class="num">02</span><h2>Bağlı değil: ilk tanışma ve yol seçimi</h2><p>Sayfa tek şey soruyor: bağlayayım mı? Sonra tek soru: WhatsApp hangi telefonda?</p></div>
+<div class="row" id="s-b"></div>
+
+<div class="band"><span class="num">03</span><h2>Numarayla bağlama (varsayılan yol)</h2><p>Numara, kod, bekleme. Kodun süresi kısa; sayaç sakin, süre dolunca kod sönükleşir.</p></div>
+<div class="row" id="s-d"></div>
+
+<div class="band"><span class="num">04</span><h2>QR ile bağlama (başka telefon)</h2><p>QR beyaz zemin üstünde; koyu temada da beyaz. Her 60 saniyede yenilenir.</p></div>
+<div class="row" id="s-e"></div>
+
+<div class="band"><span class="num">05</span><h2>Bağlandı</h2><p>Başarı anı, sonraki her açılışta görülen sayfa, kesme onayı ve gelen mesajların işlenmediği nadir hâl.</p></div>
+<div class="row" id="s-f"></div>
+
+<div class="band"><span class="num">06</span><h2>Bağlantı düştü</h2><p>En önemli uyarı hâli. Kırmızı yalnız burada ve “Bağlantıyı kes”te.</p></div>
+<div class="row" id="s-g"></div>
+
+<div class="band"><span class="num">07</span><h2>Durum dili: yükleniyor, okunamadı, yetki yok, kod alınamadı</h2><p>Okunamamak bağlı olmamak değildir. Üç hâl ayrı cümleyle yazılır.</p></div>
+<div class="row" id="s-h"></div>
+
+<div class="band"><span class="num">08</span><h2>Geçişler, hareket, yeni veri</h2><p>Hareket yalnız opaklık, kaydırma ve ölçek. Lottie, Skia ve gesture-handler yok.</p></div>
+<div class="rn">
+<div class="r h"><span class="c1">Geçiş</span><span class="c2">Biçim</span><span>Ayrıntı</span></div>
+<div class="r"><span class="c1">İşletme → WhatsApp</span><span class="c2">Tam sayfa, yığına itilir</span><span>Diğer İşletme alt sayfalarıyla aynı. Sayfa açılınca durum sorulur; cevap gelene kadar H1 (Kontrol ediliyor).</span></div>
+<div class="r"><span class="c1">Bağlama akışı</span><span class="c2">Tam ekran modal, adımlar içte itilir</span><span>B, G, F3, A2 ve A3'ten açılır. İlk adımda sol üstte <b>×</b>, sonrakilerde <b>‹</b> ve sağ üstte <b>Vazgeç</b>. Kod ya da QR beklenirken çıkılırsa istek yarım bırakılır; bir dahaki açılışta B'den temiz başlanır.</span></div>
+<div class="r"><span class="c1">F1 → kapanış</span><span class="c2">Modal aşağı iner</span><span>Bitti'ye basınca modal kapanır, altta F2 durur. A3'ten açıldıysa F1'in ana düğmesi <b>“Randevu ekranına dön”</b> olur ve A3'ün bağlandı hâline (A3b) dönülür.</span></div>
+<div class="r"><span class="c1">Bağlantıyı kes</span><span class="c2">Alt sayfa</span><span>Vazgeç dolu ve üstte, başparmağın ilk değdiği yer. Kesilince F2 yerinde B'ye döner; ayrı bir “kesildi” ekranı yok.</span></div>
+</div>
+<div class="rn">
+<div class="r h"><span class="c1">An</span><span class="c2">Süre · eğri</span><span>Ne hareket eder</span></div>
+<div class="r"><span class="c1">Adım geçişi</span><span class="c2">300 ms · cubic-bezier(.2,.8,.25,1)</span><span>Giren <code>translateX 100%→0</code>, çıkan <code>0→-40</code> + <code>opacity 1→.5</code>. Başlık çubuğu yerinde kalır, yalnız başlık metni çapraz solar.</span></div>
+<div class="r"><span class="c1">Kodun gelişi (D1→D2)</span><span class="c2">8 × 180 ms · 24 ms arayla</span><span>Her hücre <code>opacity 0→1</code> + <code>translateY 6→0</code>, soldan sağa. Toplam 350 ms. Kod gelmeden hücre çizilmez.</span></div>
+<div class="r"><span class="c1">Kodun sayacı</span><span class="c2">kalan süre · linear</span><span>3 pt'lik ray <code>scaleX 1→0</code>. Rakam saniyede bir yeni değere geçer, animasyonsuz. Ray rengi nötr (<code>tx3</code>); süre bitimine yaklaşınca renk değişmez.</span></div>
+<div class="r"><span class="c1">Süre doldu</span><span class="c2">240 ms · ease-out</span><span>Hücreler <code>opacity 1→.35</code>; “Kopyala” ve sayaç çıkar, “Kodun süresi doldu” girer; ana düğmenin yazısı çapraz solar (“Yeni kod al”). Titreşim yok.</span></div>
+<div class="r"><span class="c1">Bekleme</span><span class="c2">1600 ms döngü</span><span>Turuncu nokta <code>opacity .9↔.3</code>, Gün'deki canlı noktayla aynı. Durum her 3 sn'de sorulur; sorgu ekranda görünmez.</span></div>
+<div class="r"><span class="c1">Bağlandı (F1)</span><span class="c2">toplam ≈ 520 ms</span><span>Halka <code>scale .86→1.04→1</code> (yay, 260 ms) · tik <code>scale .6→1</code> + <code>opacity</code>, 120 ms gecikmeyle · başlık ve alt cümle <code>translateY 8→0</code> + <code>opacity</code>, 60 ms arayla · dok <code>translateY 24→0</code>. Dokunsal <code>success</code>.</span></div>
+<div class="r"><span class="c1">QR yenilenmesi</span><span class="c2">200 ms</span><span>Eski ve yeni desen üst üste, çapraz solma. Beyaz çerçeve kıpırdamaz; sayaç yeniden dolar.</span></div>
+<div class="r"><span class="c1">Test sonucu</span><span class="c2">160 ms</span><span>Sonuç satırı <code>opacity 0→1</code> + <code>translateY 4→0</code>. Gönder düğmesi istek sürerken “Gönderiliyor” olur ve pasifleşir.</span></div>
+<div class="r"><span class="c1">Hareketi azalt</span><span class="c2">süreler 0</span><span>Adımlar tek karede takas; kod tek karede; bekleme noktası sabit; F1'de yalnız <code>opacity</code> 160 ms. Sayaç rayı kalır (bilgi taşıyor).</span></div>
+</div>
+<div class="rn">
+<div class="r h"><span class="c1">Veri</span><span class="c2">Durum</span><span>Nerede</span></div>
+<div class="r"><span class="c1">Bağlama kodu</span><span class="c2 k1">Yeni veri</span><span>Bağlanma isteğine numara eklenir, sunucu 8 karakterlik kodu döndürür. D1, D2, D3, H3. Kodun geçerlilik süresi de bu cevapla gelmeli; sayaç onu sayar.</span></div>
+<div class="r"><span class="c1">“Ekranı aydınlat”</span><span class="c2">Öneri · veri değil</span><span>E'de isteğe bağlı satır. Ekran parlaklığını değiştirmek için uygulamaya bir parlaklık modülü eklenmesi gerekir; eklenmezse satır çizilmez, akış değişmez.</span></div>
+<div class="r"><span class="c1">QR, son 24 saat, son hata, test, bağlantı tarihi</span><span class="c2">Mevcut</span><span>Masaüstü Ayarlar → WhatsApp ile aynı kaynak. Hattın numarası kayıtlı değil; hiçbir ekranda numara yazılmaz, yalnız tarih.</span></div>
+<div class="r"><span class="c1">İşletmenin kayıtlı telefonu</span><span class="c2">Mevcut</span><span>D1'de alan bununla dolu gelir. Kayıtlı telefon yoksa alan boş, yer tutucu <code>0532 000 00 00</code>.</span></div>
+<div class="r"><span class="c1">Ekran görüntülerindeki sayılar</span><span class="c2">Örnek</span><span>14 / 0 / 2 / 9 masaüstündeki test düzeneğinden. K7RM-2P4X, numaralar ve QR deseni örnek.</span></div>
+</div>
+<div class="rn">
+<div class="r h"><span class="c1">375 pt (iPhone SE)</span><span class="c2">Ne değişir</span><span>Kural</span></div>
+<div class="r"><span class="c1">D2 · kod</span><span class="c2">hücre 36 → 34 · adım dolgusu 11 → 8</span><span>Ekranın en kalabalık hâli; 03 bölümünde çizildi. Kod, adımlar ve “WhatsApp'ı aç” kaydırmadan sığar; yan not kaydırınca gelir.</span></div>
+<div class="r"><span class="c1">D1 · klavye açık</span><span class="c2">alt cümle düşer</span><span>“Kodu al” klavyenin hemen üstünde, her ekranda görünür. Başlık ve alan kalır.</span></div>
+<div class="r"><span class="c1">E · QR</span><span class="c2">272 → 232</span><span>Okunabilirlik için QR 232'nin altına inmez; “Ekranı aydınlat” satırı kaydırınca gelir.</span></div>
+<div class="r"><span class="c1">F2 · bağlı sayfası</span><span class="c2">kaydırma başlar</span><span>Durum, son 24 saat ve test katlamanın üstünde; masaüstü satırı ve “Bağlantıyı kes…” altında. Kesme ayda bir bile açılmaz; altta kalması bilinçli.</span></div>
+</div>
+</div>
+<script src="m37-ekranlar.js"></script>
+</body></html>

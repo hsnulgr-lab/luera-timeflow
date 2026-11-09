@@ -395,9 +395,10 @@ test('S3 · ilk hizmet: satırın ALTINDA ne isteneceği, dönüşte SEÇİLİ g
 // ── P1 · P2 · ekibe geçiş (113) ─────────────────────────────────────────────
 
 test('P1 · İşletme\'de Personel\'in yerinde "Ekip ekle", aynı satır biçiminde', () => {
-    assert.match(profile, /\{solo \? \(\s*<ProfileRow\s*big\s*title="Ekip ekle"\s*sub="Tek kişilik çalışıyorsunuz"\s*onPress=\{\(\) => router\.push\('\/\(manager-flow\)\/profil\/ekip-ekle'\)\}/);
+    // Müdür 37: ikinci grubun ilk satırı oldu (WhatsApp ilk grubun sonunda) → `first`.
+    assert.match(profile, /\{solo \? \(\s*<ProfileRow\s*first\s*big\s*title="Ekip ekle"\s*sub="Tek kişilik çalışıyorsunuz"\s*onPress=\{\(\) => router\.push\('\/\(manager-flow\)\/profil\/ekip-ekle'\)\}/);
     // Ekipte Personel satırı yerinde.
-    assert.match(profile, /\) : \(\s*<ProfileRow\s*big\s*title="Personel"/);
+    assert.match(profile, /\) : \(\s*<ProfileRow\s*first\s*big\s*title="Personel"/);
     assert.match(rootLayout, /<Stack\.Screen name="\(manager-flow\)\/profil\/ekip-ekle" \/>/);
 });
 

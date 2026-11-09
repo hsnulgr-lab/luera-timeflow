@@ -86,7 +86,7 @@ export async function sendWhatsApp(
 
 /** Evolution'a webhook kaydı sonucu — başarısızsa gelen mesaj botu çalışmaz. */
 export interface WaWebhookResult { ok: boolean; reason?: string }
-export interface WaConnectResult { qr: string | null; connected: boolean; instance: string; webhook?: WaWebhookResult }
+export interface WaConnectResult { qr: string | null; code?: string | null; connected: boolean; instance: string; webhook?: WaWebhookResult }
 export interface WaStateResult { state: string; connected: boolean; instance: string; webhook?: WaWebhookResult }
 
 /** Instance oluştur + Evolution webhook'unu kaydet + QR döndür. */
@@ -103,6 +103,12 @@ export interface WaHealth {
     features: Record<string, boolean>;
     last24h: { sent: number; failed: number; skipped: number; inbound: number };
     lastError: string | null;
+    /** Müdür 37 (telefonun WhatsApp sayfası): bağlı · düştü · bağlı değil. */
+    link?: 'connected' | 'dropped' | 'off';
+    inboundBroken?: boolean;
+    connectedAt?: string | null;
+    lastFailure?: { kind: string; at: string; message: string | null } | null;
+    canManage?: boolean;
 }
 
 /** Son 24 saatin gönderim özeti — Ayarlar'daki sağlık kartı bunu gösterir. */

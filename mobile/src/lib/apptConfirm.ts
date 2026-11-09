@@ -93,6 +93,8 @@ export function confirmCopy(
     state: ConfirmState,
     hasPhone: boolean,
     reason: WaFailReason | null = null,
+    /** Müdür 37 · A3b: bu ekrandan açılan bağlama penceresi hattı bağladı. */
+    linked = false,
 ): ConfirmCopy {
     switch (state) {
         case 'sending':
@@ -112,6 +114,26 @@ export function confirmCopy(
                 note: '3 saniye sonra Akış’a döner.',
             };
         case 'failed':
+            // Müdür 37 · A3: hat bağlı değilse "Tekrar dene" işe yaramaz ama
+            // artık "Tamam" da değil — hat buradan bağlanır. Bağlanıp dönünce
+            // (A3b) mesaj KENDİLİĞİNDEN gitmez; müdür gönderir.
+            if (reason === 'not_connected') {
+                return linked
+                    ? {
+                        title: 'WhatsApp bağlandı',
+                        subtitle: 'Mesaj henüz gitmedi. Şimdi gönderebilirsiniz.',
+                        primary: 'Mesajı gönder',
+                        secondary: 'Sonra',
+                        note: 'Bu ekran kendi kapanmaz.',
+                    }
+                    : {
+                        title: 'Mesaj gönderilemedi',
+                        subtitle: 'WhatsApp bağlı değil. Mesaj gitmedi.',
+                        primary: 'WhatsApp\'ı bağla',
+                        secondary: 'Sonra',
+                        note: 'Bağladıktan sonra bu ekrana dönersiniz.',
+                    };
+            }
             return waRetryable(reason)
                 ? {
                     title: 'Mesaj gönderilemedi',

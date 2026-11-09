@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    AccessibilityInfo, Alert, Animated, Linking, PanResponder, RefreshControl, ScrollView, StyleSheet,
+    AccessibilityInfo, Animated, Linking, PanResponder, RefreshControl, ScrollView, StyleSheet,
     useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent,
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -10,7 +10,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DayHeader } from '../../src/components/CalendarParts';
 import { addDaysISO, nowInMinutes, todayISO, toMinutes, type Appt } from '../../src/lib/calendar';
-import { apiSource, fetchWaConnected, forgetOrg } from '../../src/lib/managerSource';
+import { apiSource, fetchWaLine, forgetOrg } from '../../src/lib/managerSource';
+import { setLineDropped } from '../../src/state/waLink';
 import { authApi } from '../../src/api/session';
 import { dialable } from '../../src/lib/phone';
 import { DurumBlock, DurumUnread } from '../../src/components/Durum';
@@ -18,7 +19,7 @@ import { orgDurum } from '../../src/lib/managerDurum';
 import { STALE_LINE, STALE_TITLE, type WriteOutcome } from '../../src/lib/managerWriteMap';
 import { sendStaffNudge, sendWaNudge } from '../../src/lib/managerWrite';
 import {
-    numberUsable, WA_OFF_BODY, WA_OFF_TITLE, waNudgeText, type CellKey,
+    numberUsable, waNudgeText, type CellKey,
 } from '../../src/lib/actionPill';
 import { DayScrubber, scrubberInset } from '../../src/components/DayScrubber';
 import {
@@ -174,8 +175,13 @@ export default function ManagerFlow() {
     const [waLine, setWaLine] = useState<boolean | null>(null);
     useFocusEffect(useCallback(() => {
         let alive = true;
-        fetchWaConnected().then(
-            (ready) => { if (alive) setWaLine(ready); },
+        fetchWaLine().then(
+            (line) => {
+                if (!alive) return;
+                setWaLine(line.ready);
+                // Hapın kelimesi: "bağlı değil" mi, "bağlantısı düştü" mü (Müdür 37 · A2).
+                setLineDropped(line.dropped);
+            },
             () => { /* okunamadı — bilinmiyor kalır, göz sönmez */ },
         );
         return () => { alive = false; };
@@ -367,10 +373,10 @@ export default function ManagerFlow() {
      */
     const onPill = useCallback((event: FlowEvent, cell: CellKey) => {
         if (cell === 'waoff') {
-            // Onarım gözü artık ÇİZİLİYOR (durum sunucudan) ve ölü değil:
-            // telefonda gidilecek bir ayar ekranı yok — hat masaüstünde QR ile
-            // bağlanıyor — o yüzden göz sebebi ve yeri SÖYLÜYOR.
-            Alert.alert(WA_OFF_TITLE, WA_OFF_BODY);
+            // Müdür 37 · A2: hat artık telefondan bağlanıyor. Tek dokunuş hapı
+            // kapatır (110 ms) ve bağlama penceresini açar (C'den başlar);
+            // kapanınca kart yerinde, durum odakta yeniden okunur.
+            setTimeout(() => router.push('/(manager-flow)/whatsapp-bagla?from=pill'), 110);
             return;
         }
         if ((cell === 'ara' || cell === 'wa') && !numberUsable(event.customerPhone, event.waResult)) {
@@ -397,7 +403,7 @@ export default function ManagerFlow() {
             return;
         }
         replace(event.id, next);
-    }, [replace, commit, stampNow, openAppointment, nudge]);
+    }, [replace, commit, stampNow, openAppointment, nudge, router]);
 
     /**
      * Gönderim penceresi — 5 saniye geri sayar, sonra SALONUN numarasından

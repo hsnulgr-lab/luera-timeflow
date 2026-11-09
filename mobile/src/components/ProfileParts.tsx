@@ -364,6 +364,7 @@ export function ProfileRow({
     chevron = true,
     first = false,
     right,
+    warm = false,
     onPress,
 }: {
     title: string;
@@ -377,6 +378,11 @@ export function ProfileRow({
     chevron?: boolean;
     first?: boolean;
     right?: ReactNode;
+    /**
+     * Zemin turuncuya %7 ısınır (Müdür 37 · A1): WhatsApp bağlantısı
+     * düştüğünde müdür sekmeyi açınca gözü önce oraya gider.
+     */
+    warm?: boolean;
     onPress?: () => void;
 }) {
     const { c } = useTheme();
@@ -429,7 +435,7 @@ export function ProfileRow({
         paddingHorizontal: M.rowPadX,
         borderTopWidth: first ? 0 : 1,
         borderColor: c.bd,
-        backgroundColor: pressed && onPress ? c.surf2 : 'transparent',
+        backgroundColor: pressed && onPress ? c.surf2 : warm ? 'rgba(255,90,31,0.07)' : 'transparent',
     });
 
     if (!onPress) {

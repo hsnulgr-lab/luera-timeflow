@@ -36,7 +36,7 @@ import {
 } from './cashBuild.ts';
 import type { CustomerRecord, VisitRecord } from './createLive.ts';
 import { deletionFactsOf } from './accountMap.ts';
-import { waLineReady } from './actionPill.ts';
+import { waLineDropped, waLineReady } from './actionPill.ts';
 
 /**
  * Org çözülemediğinde atılan hata.
@@ -1269,22 +1269,23 @@ export async function fetchKvkkUrl(): Promise<string | null> {
 }
 
 /**
- * Salonun WhatsApp hattı gönderime hazır mı — `org_whatsapp` (070).
+ * Salonun WhatsApp hattı gönderime hazır mı, değilse kopmuş mu —
+ * `org_whatsapp` (070).
  *
  * Masaüstünün okuduğu satırın AYNISI (`src/hooks/useWhatsApp.ts`); okuma
- * RLS'te org üyelerine açık, yazma yalnız sunucuda. Satır hiç yoksa hat
- * hiç bağlanmamış demektir → `false`.
+ * RLS'te org üyelerine açık (139: kolon izniyle, sır hariç), yazma yalnız
+ * sunucuda. Satır hiç yoksa hat hiç bağlanmamış demektir → hazır değil.
  *
  * Okunamazsa HATA atılır: çağıran durumu "bilinmiyor" bırakır ve gözü
  * söndürmez. Bir okuma hatası çalışan bir hattı "bağlı değil" gösterirdi.
  */
-export async function fetchWaConnected(): Promise<boolean> {
+export async function fetchWaLine(): Promise<{ ready: boolean; dropped: boolean }> {
     const organizationId = await orgIdOrThrow();
-    const { data, error } = await supabase.from('org_whatsapp').select('status')
+    const { data, error } = await supabase.from('org_whatsapp').select('status, last_error')
         .eq('organization_id', organizationId).maybeSingle()
-        .returns<{ status?: string | null } | null>();
+        .returns<{ status?: string | null; last_error?: string | null } | null>();
     if (error) throw error;
-    return waLineReady(data?.status);
+    return { ready: waLineReady(data?.status), dropped: waLineDropped(data?.status, data?.last_error) };
 }
 
 // ── Kasa ────────────────────────────────────────────────────────────────────

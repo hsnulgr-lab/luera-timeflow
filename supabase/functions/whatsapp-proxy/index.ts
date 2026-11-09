@@ -8,6 +8,7 @@ import { sanitizeKnowledge } from '../_shared/agent/knowledge.ts';
 import { ANSWER_MODES, answerMode } from '../_shared/agent/audience.ts';
 import { DEFAULT_MONTHLY_BUDGET_USD } from '../_shared/agent/guard.ts';
 import { normalizePhone } from '../_shared/phone.ts';
+import { inboundBroken, lastFailure, linkState, pairingCodeOf, qrCountOf, qrImageOf } from '../_shared/waLink.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -84,8 +85,17 @@ Deno.serve(async (req: Request) => {
         const instance = instanceFor(orgId);
         const org = await ensureRow(admin, orgId);
 
-        // send ve health Evolution ayarları olmadan da anlamlı cevap verebilmeli
-        if (action === 'health') return json(await health(admin, orgId, org), 200);
+        // send ve health Evolution ayarları olmadan da anlamlı cevap verebilmeli.
+        // live: telefonun WhatsApp sayfası açılınca hattın GERÇEK durumu sorulur
+        // (veritabanındaki "bağlı" bir sonraki gönderime kadar bayat kalabilir).
+        if (action === 'health') {
+            if (body.live === true) {
+                const evo = await evolution(admin);
+                if (evo) await syncState(admin, orgId, org, evo, instance);
+            }
+            // canManage: personel (member) sayfayı salt okur (Müdür 37 · H2).
+            return json({ ...(await health(admin, orgId)), canManage: role !== 'member' }, 200);
+        }
 
         // org_whatsapp'ta yazma RLS policy'si yok (yalnız service_role); işletmenin
         // otomatik mesajları açıp kapatması bu action'dan geçer.
@@ -206,19 +216,26 @@ Deno.serve(async (req: Request) => {
             return json(res, res.ok ? 200 : 200); // reason'ı okuyabilsin diye 200
         }
 
-        const EVOLUTION_URL = await getSecret(admin, 'EVOLUTION_API_URL');
-        const EVOLUTION_KEY = await getSecret(admin, 'EVOLUTION_API_KEY');
-        if (!EVOLUTION_URL || !EVOLUTION_KEY) return json({ error: 'evolution_not_configured' }, 500);
-        const evoHeaders = { 'Content-Type': 'application/json', 'apikey': EVOLUTION_KEY };
+        const evo = await evolution(admin);
+        if (!evo) return json({ error: 'evolution_not_configured' }, 500);
+        const { url: EVOLUTION_URL, headers: evoHeaders } = evo;
 
         switch (action) {
             // ── Bağlan: instance oluştur + webhook kaydet + QR döndür ─────────
             case 'connect': {
+                // number varsa bağlama kodu istenir (telefonun "Bu telefonda"
+                // yolu: aynı telefon kendi ekranındaki QR'ı okuyamaz).
+                const pairNumber = body.number == null ? null : normalizePhone(String(body.number));
+                if (body.number != null && !pairNumber) return json({ error: 'invalid_number' }, 400);
+
                 const existing = await fetchState(EVOLUTION_URL, evoHeaders, instance);
                 if (existing === 'open') {
                     await setConnected(admin, orgId, instance);
                     const wh = await registerWebhook(admin, EVOLUTION_URL, evoHeaders, instance, org.webhook_secret);
-                    return json({ qr: null, connected: true, instance, webhook: wh }, 200);
+                    return json({ qr: null, code: null, connected: true, instance, webhook: wh }, 200);
+                }
+                if (pairNumber) {
+                    return json(await pairWithCode(admin, orgId, org, evo, instance, pairNumber), 200);
                 }
                 await fetch(`${EVOLUTION_URL}/instance/create`, {
                     method: 'POST',
@@ -234,28 +251,25 @@ Deno.serve(async (req: Request) => {
                 const wh = await registerWebhook(admin, EVOLUTION_URL, evoHeaders, instance, org.webhook_secret);
 
                 await new Promise((r) => setTimeout(r, 1200));
-                const qr = await fetchQR(EVOLUTION_URL, evoHeaders, instance);
-                return json({ qr, connected: false, instance, webhook: wh }, 200);
+                const qr = qrImageOf(await fetchConnect(EVOLUTION_URL, evoHeaders, instance));
+                return json({ qr, code: null, connected: false, instance, webhook: wh }, 200);
             }
 
             // ── Durum ─────────────────────────────────────────────────────────
             case 'state': {
-                const state = await fetchState(EVOLUTION_URL, evoHeaders, instance);
-                let wh: { ok: boolean; reason?: string } | undefined;
-                if (state === 'open') {
-                    await setConnected(admin, orgId, instance);
-                    // Her durum sorgusunda tazeleniyor: Evolution'da instance
-                    // elle silinip yeniden kurulsa da webhook geri geliyor.
-                    wh = await registerWebhook(admin, EVOLUTION_URL, evoHeaders, instance, org.webhook_secret);
-                    if (!wh.ok) {
-                        await admin.from('org_whatsapp')
-                            .update({ last_error: `webhook: ${wh.reason}` })
-                            .eq('organization_id', orgId);
-                    }
-                } else if (org.status === 'connected') {
-                    await markDisconnected(admin, orgId, `state:${state}`);
-                }
+                const { state, wh } = await syncState(admin, orgId, org, evo, instance);
                 await cleanupInboundSeen(admin);
+                // withCode: bağlama ekranı açıkken güncel kodu/QR'ı da ister.
+                // Evolution her yeni QR turunda kodu yeniler; ekrandaki kod
+                // bayatlamasın diye yoklama kodu da taşır. Yalnız 'connecting'
+                // iken: 'close'da bu çağrı numarasız yeni bir oturum başlatırdı.
+                if (body.withCode === true && state === 'connecting') {
+                    const data = await fetchConnect(EVOLUTION_URL, evoHeaders, instance);
+                    return json({
+                        state, connected: false, instance, webhook: wh,
+                        code: pairingCodeOf(data), qr: qrImageOf(data), count: qrCountOf(data),
+                    }, 200);
+                }
                 return json({ state, connected: state === 'open', instance, webhook: wh }, 200);
             }
 
@@ -342,8 +356,18 @@ async function registerWebhook(
 }
 
 async function health(
-    admin: ReturnType<typeof createClient>, orgId: string, org: OrgWa,
+    admin: ReturnType<typeof createClient>, orgId: string,
 ): Promise<Record<string, unknown>> {
+    // Taze okuma: canlı kontrol (syncState) durumu az önce değiştirmiş olabilir.
+    const { data: org } = await admin
+        .from('org_whatsapp')
+        .select('instance, status, features, connected_at, last_error')
+        .eq('organization_id', orgId)
+        .maybeSingle();
+    const o = (org ?? { status: 'disconnected' }) as {
+        instance?: string | null; status?: string; features?: Record<string, boolean>;
+        connected_at?: string | null; last_error?: string | null;
+    };
     const since = new Date(Date.now() - 24 * 3600_000).toISOString();
     const { data } = await admin
         .from('wa_message_log')
@@ -355,9 +379,14 @@ async function health(
     const rows = data ?? [];
     const out = rows.filter((r: { direction: string }) => r.direction === 'out');
     return {
-        status: org.status,
-        instance: org.instance,
-        features: org.features,
+        status: o.status ?? 'disconnected',
+        instance: o.instance ?? null,
+        features: o.features ?? {},
+        // Müdür 37: telefonun WhatsApp sayfası bunlarla çizilir.
+        link: linkState(o),
+        inboundBroken: inboundBroken(o),
+        connectedAt: o.connected_at ?? null,
+        lastFailure: lastFailure(rows),
         last24h: {
             sent:     out.filter((r: { status: string }) => r.status === 'sent').length,
             failed:   out.filter((r: { status: string }) => r.status === 'failed').length,
@@ -375,20 +404,95 @@ async function cleanupInboundSeen(admin: ReturnType<typeof createClient>): Promi
     await admin.from('wa_inbound_seen').delete().lt('created_at', cutoff).then(() => {}, () => {});
 }
 
-async function fetchQR(
+/** GET instance/connect — Evolution'ın güncel QR/kod nesnesi ({ pairingCode, code, base64, count }). */
+async function fetchConnect(
     baseUrl: string,
     headers: Record<string, string>,
     instance: string,
-): Promise<string | null> {
+    number?: string,
+): Promise<unknown> {
     try {
-        const res = await fetch(`${baseUrl}/instance/connect/${instance}`, { headers });
+        const q = number ? `?number=${number}` : '';
+        const res = await fetch(`${baseUrl}/instance/connect/${instance}${q}`, {
+            headers, signal: AbortSignal.timeout(10_000),
+        });
         if (!res.ok) return null;
-        const data = await res.json();
-        // Evolution v1 ve v2 farklı field kullanır
-        return data.base64 || data.qrcode?.base64 || data.code || null;
+        return await res.json();
     } catch {
         return null;
     }
+}
+
+interface Evo { url: string; headers: Record<string, string> }
+
+async function evolution(admin: ReturnType<typeof createClient>): Promise<Evo | null> {
+    const url = await getSecret(admin, 'EVOLUTION_API_URL');
+    const key = await getSecret(admin, 'EVOLUTION_API_KEY');
+    if (!url || !key) return null;
+    return { url, headers: { 'Content-Type': 'application/json', 'apikey': key } };
+}
+
+/** Evolution'daki gerçek durumu org_whatsapp'a yazar (state ve canlı health). */
+async function syncState(
+    admin: ReturnType<typeof createClient>, orgId: string, org: OrgWa, evo: Evo, instance: string,
+): Promise<{ state: string; wh?: { ok: boolean; reason?: string } }> {
+    const state = await fetchState(evo.url, evo.headers, instance);
+    let wh: { ok: boolean; reason?: string } | undefined;
+    if (state === 'open') {
+        await setConnected(admin, orgId, instance);
+        // Her durum sorgusunda tazeleniyor: Evolution'da instance
+        // elle silinip yeniden kurulsa da webhook geri geliyor.
+        wh = await registerWebhook(admin, evo.url, evo.headers, instance, org.webhook_secret);
+        if (!wh.ok) {
+            await admin.from('org_whatsapp')
+                .update({ last_error: `webhook: ${wh.reason}` })
+                .eq('organization_id', orgId);
+        }
+    } else if (org.status === 'connected') {
+        await markDisconnected(admin, orgId, `state:${state}`);
+    }
+    return { state, wh };
+}
+
+/**
+ * Bağlama kodu. Evolution numarayı yalnız 'close' durumundaki bir hatta kabul
+ * eder; 'connecting'te (yarım kalmış QR ya da eski kod) numarayı yok sayıp eski
+ * QR'ı döndürür. Bu yüzden hat silinip numarayla yeniden kurulur — hat zaten
+ * açık değil, kaybedilecek oturum yok. Kod QR turunun içinde ~1 sn sonra gelir;
+ * birkaç saniye yoklanır. Gelmezse code: null döner, telefon "Kod alınamadı" der.
+ */
+async function pairWithCode(
+    admin: ReturnType<typeof createClient>, orgId: string, org: OrgWa, evo: Evo,
+    instance: string, number: string,
+): Promise<Record<string, unknown>> {
+    await fetch(`${evo.url}/instance/delete/${instance}`, {
+        method: 'DELETE', headers: evo.headers, signal: AbortSignal.timeout(10_000),
+    }).catch(() => {});
+    await new Promise((r) => setTimeout(r, 800));
+
+    let data: unknown = null;
+    try {
+        const res = await fetch(`${evo.url}/instance/create`, {
+            method: 'POST', headers: evo.headers, signal: AbortSignal.timeout(15_000),
+            body: JSON.stringify({ instanceName: instance, qrcode: true, integration: 'WHATSAPP-BAILEYS', number }),
+        });
+        if (res.ok) data = await res.json().catch(() => null);
+    } catch { /* aşağıda yoklanır */ }
+
+    await admin.from('org_whatsapp').update({
+        instance, status: 'connecting', last_error: null, updated_at: new Date().toISOString(),
+    }).eq('organization_id', orgId);
+    const wh = await registerWebhook(admin, evo.url, evo.headers, instance, org.webhook_secret);
+
+    let code = pairingCodeOf(data);
+    for (let i = 0; !code && i < 8; i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        const state = await fetchState(evo.url, evo.headers, instance);
+        // Silme yetişmediyse hat 'close' kalmış olabilir: numarayla bağlan.
+        data = await fetchConnect(evo.url, evo.headers, instance, state === 'close' ? number : undefined);
+        code = pairingCodeOf(data);
+    }
+    return { qr: null, code, count: qrCountOf(data), connected: false, instance, webhook: wh };
 }
 
 async function fetchState(

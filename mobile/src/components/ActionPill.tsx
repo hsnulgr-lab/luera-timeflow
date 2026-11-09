@@ -10,6 +10,7 @@ import { actionPillMetrics as M, font, panelInk } from '../theme/tokens';
 import type { PanelInk } from '../theme/tokens';
 import { useTheme } from '../theme';
 import { feedback } from '../lib/feedback';
+import { lineDropped } from '../state/waLink';
 
 /**
  * Müdür 34 · eylem hapı v2.
@@ -140,7 +141,7 @@ function Cell({ cell, offCell = false, ink, orange, initials, staffGiven, enter,
 }) {
     const { reduceMotion } = useTheme();
     const off = cell === 'waoff' || offCell;
-    const spec = cellSpec(cell, staffGiven);
+    const spec = cellSpec(cell, staffGiven, cell === 'waoff' && lineDropped());
 
     /*
      * Komşunun ÇEKİLMESİ — tasarımın `neighbor: 100`u. Bu süre sözlükte

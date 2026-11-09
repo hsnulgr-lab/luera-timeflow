@@ -173,6 +173,12 @@ function Shell() {
                 <Stack.Screen name="(manager-flow)/profil/ekip-ekle" />
                 {/* 115 — öbür yönü: ekipte yalnız sahip kalınca tek kişiliğe dönüş. */}
                 <Stack.Screen name="(manager-flow)/profil/tek-kisilige-don" />
+                {/* Müdür 37 — WhatsApp: sayfa öbür İşletme alt sayfaları gibi
+                    itilir; bağlama tam ekran pencere (adımlar içte itilir,
+                    kapanınca açıldığı yere döner); kesme onayı iOS'un sayfası. */}
+                <Stack.Screen name="(manager-flow)/profil/whatsapp" />
+                <Stack.Screen name="(manager-flow)/profil/whatsapp-kes" options={APPT_SHEET} />
+                <Stack.Screen name="(manager-flow)/whatsapp-bagla" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
                 <Stack.Screen name="(staff-flow)/sifre" />
             </Stack>
         </>

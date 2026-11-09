@@ -83,8 +83,9 @@ test('WhatsApp bağlı değilse göz SİLİNMEZ, onarıma döner', () => {
         canDrop: true, canTellStaff: true,
     });
     assert.deepEqual(cells, ['ara', 'waoff', 'nox', 'inf']);
-    // Telefonda ayar ekranı yok; hat masaüstünde bağlanıyor (2026-09-25).
-    assert.equal(cellSpec('waoff').hint, 'masaüstünden bağlanır');
+    // Müdür 37 (2026-11-10): hat artık telefondan bağlanıyor.
+    assert.equal(cellSpec('waoff').hint, 'buradan bağlanır');
+    assert.equal(cellSpec('waoff', undefined, true).hint, 'buradan yeniden bağlanır');
 });
 
 test('v2 sütun sabit: tek gözlü hap da AÇILIR, gözsüz hap açılmaz', () => {
@@ -678,5 +679,5 @@ test('kelime gitti ama SESLİ OKUMA kaldı', () => {
     const src = readFileSync(new URL('../mobile/src/components/ActionPill.tsx', import.meta.url), 'utf8');
     assert.match(src, /accessibilityLabel=\{`\$\{spec\.label\} — \$\{spec\.hint\}`\}/);
     assert.match(src, /accessibilityHint=\{cellTaps\(cell\) \? 'Dokununca açılır' : 'Çalışması için basılı tutun'\}/);
-    assert.match(src, /cellSpec\(cell, staffGiven\)/, 'sesli etiket kişiselleşmiyor');
+    assert.match(src, /cellSpec\(cell, staffGiven, cell === 'waoff' && lineDropped\(\)\)/, 'sesli etiket kişiselleşmiyor');
 });

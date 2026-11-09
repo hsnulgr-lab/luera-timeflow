@@ -8,6 +8,7 @@
 // Burada YALNIZ karar var; çizim ve hareket bileşende. Bu dosya React,
 // react-native ve Expo import ETMEZ (saf katman kuralı).
 
+import { waOffSpec } from './waLink.ts';
 import { hasWa } from './phone.ts';
 import { ablative } from './text.ts';
 
@@ -34,9 +35,9 @@ const SPECS: Record<CellKey, Omit<CellSpec, 'key'>> = {
     // Müdür 34 · v2: mesaj salonun numarasından, hazır metinle gidiyor
     // (`whatsapp-proxy`, `kind: 'manual'`). Açıklama bunu söylüyor ve doğru.
     wa: { label: 'WhatsApp’tan yaz', hint: 'hazır metin, salonun numarası' },
-    // Telefonda Ayarlar ekranı YOK: hat masaüstünde QR ile bağlanıyor.
-    // "Ayarlara git" gidilemeyen bir yeri vaat ediyordu (2026-09-25).
-    waoff: { label: 'WhatsApp bağlı değil', hint: 'masaüstünden bağlanır' },
+    // Müdür 37: hat artık telefondan bağlanıyor — dokununca bağlama penceresi
+    // açılır. Bağlantı düştüyse kelime `cellSpec(…, waDropped)` ile değişir.
+    waoff: waOffSpec(false),
     nox: { label: 'Gelmedi', hint: 'geri alınabilir' },
     // Kanal AÇILDI (2026-09-24 · `staff-nudge`): göz artık personelin
     // telefonuna gerçekten bildirim düşürüyor. Açıklama bunu söyleyebilir —
@@ -65,7 +66,8 @@ export function cellTaps(key: CellKey): boolean {
  * duruyor, açıklamada adı: "Selin'e bildirim gider". Simge yerine VERİ —
  * ve veri yoksa cümle jenerik hâline düşer, uydurulmaz.
  */
-export function cellSpec(key: CellKey, staffGiven?: string): CellSpec {
+export function cellSpec(key: CellKey, staffGiven?: string, waDropped = false): CellSpec {
+    if (key === 'waoff') return { key, ...waOffSpec(waDropped) };
     const spec = SPECS[key];
     if (key === 'inf' && staffGiven?.trim()) {
         return { key, label: spec.label, hint: `${dative(staffGiven.trim())} bildirim gider` };
@@ -163,13 +165,13 @@ export function waLineReady(status: unknown): boolean {
 }
 
 /**
- * Sönük göze dokununca çıkan açıklama. Göz ölü kalmıyor: neden ve nerede
- * düzeltileceği söyleniyor. Bağlantı telefondan kurulmuyor — QR masaüstünde
- * okutuluyor (Ayarlar → WhatsApp).
+ * Hat bağlıyken kopmuş mu — `org_whatsapp`: durum `disconnected` VE bir sebep
+ * yazılı (sunucu düşmeyi `last_error` ile işaretler; sahip bilerek kesince
+ * sebep silinir). Sönük gözün kelimesi buna göre "bağlantısı düştü" olur.
  */
-export const WA_OFF_TITLE = 'WhatsApp bağlı değil';
-export const WA_OFF_BODY = 'Salonun WhatsApp hattı masaüstünde Ayarlar → WhatsApp’tan bağlanır. '
-    + 'Bağlandığında müşteriye buradan hazır mesaj gönderebilirsiniz.';
+export function waLineDropped(status: unknown, lastError: unknown): boolean {
+    return status === 'disconnected' && typeof lastError === 'string' && lastError.length > 0;
+}
 
 export interface PillInput {
     /** Müşterinin telefonu. Yoksa iki kanal da çizilmez. */
