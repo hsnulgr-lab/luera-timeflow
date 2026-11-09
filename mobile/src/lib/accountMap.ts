@@ -85,6 +85,25 @@ export interface SettingsSectorRow {
 }
 
 /**
+ * Kabuğu seçen mod: bayrak AÇIK ve aktif personel EN ÇOK BİR.
+ *
+ * Tek kişilik kabuk her şeyini sahibin TEK personel satırı üstünden yapıyor
+ * ve sunucu bunu iki yerde aynı kuralla soruyor: `staff-api · solo.session`
+ * (bayrak + `crew.length > 1` → `not_solo`) ve 114'ün `assign_solo_staff`i
+ * (birden fazla aktif personelde dokunmaz). Bayrak tek başına yetmiyor:
+ * `set_business_mode(true)` personeli olan org'da da bayrağı açıyor (108) ve
+ * masaüstü tek kişilik org'a personel ekleyebiliyor. 2026-11-10'da Test Salon
+ * 2 böyle kaldı — bayrak açık, 4 aktif personel — telefon tek kişilik kabuğu
+ * açtı, jeton alınamadı ve randevu kartı okunamadı.
+ *
+ * Sıfır personel tek kişilik SAYILIR: kumanda `no_staff` der, ekip kabuğuna
+ * atmak çözmez (108 satırı açmamış olabilir).
+ */
+export function soloInPractice(flag: boolean | null | undefined, activeStaff: number): boolean {
+    return Boolean(flag) && activeStaff <= 1;
+}
+
+/**
  * Org satırları + aktif personel + ayar satırları → işletme kartları.
  *
  * Sektör, org SAHİBİNİN ayar satırından (yoksa en eskisinden) — okuma
@@ -129,7 +148,7 @@ export function businessesOf(
             // Org satırı OKUNDU, yani cevabı biliyoruz: `null`/eksik kolon da
             // "tek kişilik değil" demek. Burada `undefined` bırakmak, bilinen
             // bir şeyi bilinmiyor gibi göstermek olurdu.
-            solo: Boolean(org.solo),
+            solo: soloInPractice(org.solo, counts.get(org.id) ?? 0),
         };
         const sector = sectorLabel((owner ?? oldest)?.sector);
         if (sector) business.sector = sector;

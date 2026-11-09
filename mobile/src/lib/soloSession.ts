@@ -27,6 +27,7 @@
  * KÜMESİ: tek org, tek personel satırı, 12 saat, dar uç listesi.
  */
 
+import { authApi } from '../api/session';
 import { setStaffTokenRefresher, tokens } from '../api/staff';
 import { supabase } from './supabase';
 
@@ -112,9 +113,62 @@ async function refresh(): Promise<boolean> {
         return true;
     } catch (cause) {
         const reason = cause instanceof SoloSessionError ? cause.reason : 'failed';
-        console.error('[tek] personel jetonu tazelenemedi:', reason);
+        // `not_solo` bir arıza değil, BAYAT MOD: saklı profil "tek kişilik"
+        // diyor, sunucu artık demiyor. Kabuk haber alır ve modu yeniden okur
+        // (`confirmSoloMode`); günlüğe hata diye düşmesi yanlış iz bırakırdı.
+        if (reason === 'not_solo') {
+            console.warn('[tek] sunucu bu işletmeyi tek kişilik saymıyor; mod yeniden okunuyor');
+            notSoloListener?.();
+        } else {
+            console.error('[tek] personel jetonu tazelenemedi:', reason);
+        }
         return false;
     }
+}
+
+/**
+ * `not_solo` gelince haber verilecek tek dinleyici — tek kişilik kabuk.
+ *
+ * Tek yuva, liste değil: aynı anda yalnız bir kabuk açık. Sökerken yalnız
+ * kendi takılanını söküyor; arada başka bir kabuk takmışsa onunkine dokunmaz.
+ */
+let notSoloListener: (() => void) | null = null;
+
+export function onNotSolo(listener: () => void): () => void {
+    notSoloListener = listener;
+    return () => {
+        if (notSoloListener === listener) notSoloListener = null;
+    };
+}
+
+/**
+ * Saklı profildeki mod hâlâ doğru mu — sunucudan YENİDEN okuyarak.
+ *
+ * ── Neden gerekli ───────────────────────────────────────────────────────────
+ * Kabuk kapısı (`useActorGate`) bilerek SAKLI profili okuyor; profil yalnız
+ * işletme seçilirken yazılıyor. Mod o arada başka yerden değişirse —
+ * masaüstünden personel eklenir, kurulum sihirbazında "Yalnız ben" seçilir —
+ * telefon eski kabukta kalıyor. Test Salon 2 (2026-11-10) tam buydu: tek
+ * kişilik kabuk açıldı, `solo.session` `not_solo` dedi, Gün'den açılan
+ * randevu kartı "Randevuyu okuyamadık" gösterdi.
+ *
+ * İşletme yeniden SEÇİLİYOR (`selectBusiness`): o yol org satırını ve aktif
+ * kadroyu okuyup profili yeniden yazıyor; mod `soloInPractice` kuralıyla
+ * çıkıyor. Böylece bir sonraki açılış da doğru kabuğa gider.
+ *
+ * Dönüş: `true`/`false` okunan mod; `undefined` okunamadı (ağ yok, oturum
+ * düşmüş, abonelik kapalı) — "bilmiyoruz", kabuk YERİNDE KALIR.
+ */
+export async function confirmSoloMode(): Promise<boolean | undefined> {
+    const stored = await authApi.resume.get();
+    if (!stored.ok || stored.data.actor !== 'manager') return undefined;
+    const fresh = await authApi.manager.selectBusiness(stored.data.profile.business.id);
+    if (!fresh.ok) return undefined;
+    const solo = Boolean(fresh.data.profile.business.solo);
+    // Ekip düzenine geçiliyorsa tek kişilik jetonu düşüyor — `startTeam`in
+    // yaptığının aynısı: sunucu onu artık yenilemez.
+    if (!solo) await tokens.clearStaff();
+    return solo;
 }
 
 /**

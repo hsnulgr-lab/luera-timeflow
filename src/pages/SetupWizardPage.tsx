@@ -266,7 +266,10 @@ export function SetupWizardPage() {
     const k1Missing = !name.trim() ? 'İşletme adı gerekli'
         : !sector ? 'Ne iş yaptığınızı seçin'
             : !team ? 'Kaç kişi çalıştığını seçin'
-                : team === 'team' && teamCount === 0 ? 'Ekipten en az bir ad yazın' : '';
+                : team === 'team' && teamCount === 0 ? 'Ekipten en az bir ad yazın'
+                    // Göç 141: personeli olan salon tek kişiliğe geçemez — sunucu
+                    // `team_not_empty` der. Kimin pasife alınacağını sihirbaz seçmez.
+                    : team === 'solo' && activeStaff.length > 1 ? `Uzmanlar'da ${activeStaff.length} aktif kişi var; tek kişilik için önce onları pasife alın` : '';
 
     async function saveIsletme(): Promise<boolean> {
         const trimmed = name.trim();

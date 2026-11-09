@@ -8,7 +8,8 @@ import { ManagerDayProvider } from '../../src/state/managerDay';
 import { useActorGate } from '../../src/lib/roleGate';
 import { usePushIntent } from '../../src/lib/pushSetup';
 import { ShellScope, useShellIsRoot } from '../../src/lib/shellRoot';
-import { attachSoloTokenRefresher } from '../../src/lib/soloSession';
+import { attachSoloTokenRefresher, confirmSoloMode, onNotSolo } from '../../src/lib/soloSession';
+import { enterShell } from '../../src/lib/enterShell';
 import { useTheme } from '../../src/theme';
 
 /**
@@ -64,6 +65,30 @@ export default function SoloLayout() {
      * istek 401 alınca çağrılıyor, kendi başına hiçbir şey yapmıyor.
      */
     useEffect(() => attachSoloTokenRefresher(), []);
+
+    /*
+     * MOD SUNUCUDAN YENİDEN OKUNUYOR — kabuk açılınca ve `not_solo` gelince.
+     *
+     * Kapı saklı profile bakıyor ve profil yalnız işletme seçilirken
+     * yazılıyor. Mod arada başka yerden değişmişse (masaüstünden personel,
+     * kurulumda "Yalnız ben") bu kabuk ekibi olan bir salonda açık kalıyordu:
+     * jeton alınamıyor, randevu kartı okunamıyordu (Test Salon 2, 2026-11-10).
+     * Okunamazsa (`undefined`) kabuk yerinde kalır — bilmediğimiz bir şeye
+     * dayanarak kullanıcıyı öteki kabuğa atmıyoruz.
+     */
+    const confirmed = gate.state === 'allowed' && gate.solo === true;
+    useEffect(() => {
+        if (!confirmed) return;
+        let alive = true;
+        const recheck = () => {
+            void confirmSoloMode().then((solo) => {
+                if (alive && solo === false) enterShell('manager', false);
+            });
+        };
+        recheck();
+        const off = onNotSolo(recheck);
+        return () => { alive = false; off(); };
+    }, [confirmed]);
 
     if (gate.state === 'checking') return <View style={{ flex: 1, backgroundColor: c.bg }} />;
     if (gate.state === 'wrong') return <Redirect href="/personel" />;
