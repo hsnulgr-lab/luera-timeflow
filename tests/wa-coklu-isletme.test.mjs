@@ -175,13 +175,15 @@ test('proxy agent: yalnız sahip; bütçe, model ve efor istemciden yazılamaz; 
 
 test('Ayarlar: asistan bölümü proxy üzerinden; test mesajı elle mesaj türüyle', () => {
     const ui = read('src/pages/settings/bolumler/WhatsApp.tsx');
-    assert.match(ui, /function AsistanAyarlari\(/);
-    assert.match(ui, /role="radiogroup" aria-labelledby="ay-kime"/);
-    assert.match(ui, /onSave=\{\(v\) => onSave\(\{ enabled: v \}\)\}/);
+    // WhatsApp v2 (2026-11-10): "Gelen mesajlara kim cevap versin" tek soru;
+    // akıllı asistan bayrağı proxy'nin agent eyleminden yazılır.
+    assert.match(ui, /function Kimlere\(/);
+    assert.match(ui, /role="radiogroup" aria-label="Kimlere cevap versin"/);
+    assert.match(ui, /saveAgent\(\{ enabled: wantAi \}\)/);
     assert.match(ui, /saveAgent\(\{ scheduler: next \}\)/);
     assert.match(ui, /hatırlatma ve onaylar da bu hattan gider\.`, 'manual'\);/);
-    // Ekip üyesinde proxy 403 → bölüm hiç çıkmaz.
-    assert.match(ui, /\{agent && <AsistanAyarlari /);
+    // Ekip üyesinde proxy 403 → agent null, asistana özgü bölümler hiç çıkmaz.
+    assert.match(ui, /\{resp !== 'me' && agent && \(\s*<Kimlere /);
 });
 
 // ── Göç 139 (PGlite) ────────────────────────────────────────────────────────

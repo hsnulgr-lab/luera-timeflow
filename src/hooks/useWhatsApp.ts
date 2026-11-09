@@ -28,8 +28,10 @@ export interface WaConnection {
     connectedAt: string | null;
     lastError: string | null;
     features: WaFeatures;
-    /** features.scheduler_v2 (131): hatırlatma, memnuniyet ve davet zamanlayıcıdan. Ayarlardan açılmaz. */
+    /** features.scheduler_v2 (131): hatırlatma, memnuniyet ve davet zamanlayıcıdan. */
     schedulerOn: boolean;
+    /** features.agent_v2 (130): gelen mesaja akıllı asistan cevap verir (kapalıysa randevu botu). */
+    agentOn: boolean;
     /** Asistanın bilgi bankası (137). */
     knowledge: WaKnowledge;
 }
@@ -38,6 +40,7 @@ const EMPTY: WaConnection = {
     instance: null, status: 'disconnected', connectedAt: null, lastError: null,
     features: { winback: true, renewal: true, recall: true, assistant: false, confirmation: true, review: true },
     schedulerOn: false,
+    agentOn: false,
     knowledge: EMPTY_KNOWLEDGE,
 };
 
@@ -57,6 +60,7 @@ function mapRow(row: Record<string, unknown>): WaConnection {
             review: f.review ?? true,
         },
         schedulerOn: (row.features as Record<string, unknown> | null)?.scheduler_v2 === true,
+        agentOn: (row.features as Record<string, unknown> | null)?.agent_v2 === true,
         knowledge: knowledgeFromRow(row.knowledge),
     };
 }

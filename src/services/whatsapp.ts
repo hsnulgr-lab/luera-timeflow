@@ -107,12 +107,16 @@ export interface WaHealth {
     link?: 'connected' | 'dropped' | 'off';
     inboundBroken?: boolean;
     connectedAt?: string | null;
-    lastFailure?: { kind: string; at: string; message: string | null } | null;
+    lastFailure?: import('@/lib/waLinkText').LastFailure | null;
     canManage?: boolean;
 }
 
-/** Son 24 saatin gönderim özeti — Ayarlar'daki sağlık kartı bunu gösterir. */
-export function waHealth() { return call<WaHealth>({ action: 'health' }); }
+/**
+ * Son 24 saatin gönderim özeti — Ayarlar'daki sağlık kartı bunu gösterir.
+ * `live`: sunucu hattın gerçek durumunu Evolution'a sorar (veritabanındaki
+ * "bağlı" bir sonraki gönderime kadar bayat kalabilir).
+ */
+export function waHealth(live = false) { return call<WaHealth>({ action: 'health', live }); }
 
 /**
  * Otomatik mesaj türlerini aç/kapat. org_whatsapp'ta yazma RLS'i olmadığı için

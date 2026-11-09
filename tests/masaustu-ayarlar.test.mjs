@@ -322,9 +322,11 @@ test('Abonelik: karşılığı olmayanlar çizilmez (v1.1)', () => {
 test('WhatsApp: hattın numarası uydurulmaz; 24/2 saat hatırlatmanın anahtarı yok', () => {
     const w = strip(read('src/pages/settings/bolumler/WhatsApp.tsx'));
     assert.doesNotMatch(w, /\+90 ?5\d\d/);
-    assert.match(w, /sinceText\(connection\.connectedAt\)/);
-    assert.match(w, /always: true/);
-    assert.match(w, /Her zaman gider/);
+    // v2: bağlantı tarihi telefonla aynı cümleyle (src/lib/waLinkText ↔ mobile/src/lib/waLink).
+    assert.match(w, /sinceLabel\(connection\.connectedAt\)/);
+    // 24/2 saat hatırlatmanın anahtarı yok: feature/rebook taşımayan satır "Her randevuda gider".
+    assert.match(w, /const always = !m\.feature && !m\.rebook;/);
+    assert.match(w, /Her randevuda gider/);
     assert.match(w, /maxLength=\{4\}/, 'emoji tek alan, en çok 4 karakter');
 });
 
