@@ -11,7 +11,7 @@ import type { OpenWindow } from './createLive.ts';
 import { dayDistance, dayPosition, weekdayName, type EmptyDayCopy } from './emptyDay.ts';
 import { formatMoney } from './cash.ts';
 import { graceLeft, pendingTicketLine, pendingTickets, type FlowEvent } from './managerFlow.ts';
-import { numberUsable, type CellKey } from './actionPill.ts';
+import { numberUsable, type CellKey, type WaResult } from './actionPill.ts';
 import { DEFAULT_ARRIVAL_TOLERANCE_MIN, formatElapsed, isNoShow, type StaffHeroPanel } from './staffDay.ts';
 import { clockDative, clockLocative, upperTR } from './text.ts';
 
@@ -599,9 +599,10 @@ export interface SoloPickMenu {
  * tutmanın yetmesinin sebebi gözlerin geri alınabilir olması; iptal geri
  * alınamıyor ve randevu kartında onaylı hâliyle duruyor.
  *
- * Yaz tek kişilikte KİŞİNİN KENDİ WhatsApp'ını açar (hazır metin) — salonun
- * hattı masaüstünden bağlanıyor ve tek kişinin masaüstü yok; randevu
- * kartının "Mesajla hatırlat"ıyla aynı yol.
+ * Yaz (2026-11-10, Müdür 37 sonrası, kullanıcı kararı): hat BAĞLIYSA mesaj
+ * işletmenin hattından gider (`soloWaRoute`); bağlı değilse kişinin kendi
+ * WhatsApp'ı hazır metinle açılır. Eski gerekçe ("hat masaüstünden bağlanır,
+ * tek kişinin masaüstü yok") Müdür 37 ile kalktı.
  */
 export function soloPickCells(appointment: Appt, nowMinutes: number): SoloPickMenu | null {
     if (appointment.customer_arrived_at) return { cells: ['geri', 'kart'], off: [] };
@@ -938,4 +939,71 @@ export function soloDayList(
         ? `Bugün · ${all.length} randevu`
         : state.listTitle;
     return { rows, nowIndex, title, folded: [], foldLabel: null };
+}
+
+// ── Yaz: işletmenin hattı mı, kendi WhatsApp'ı mı (2026-11-10) ───────────────
+
+/**
+ * Hat bağlıysa mesaj işletmenin hattından gider: tek dokunuş, uygulamadan
+ * çıkmadan, kayıt altında. Asıl sebep asistan: kişi kendi WhatsApp'ından elle
+ * yazınca sunucu bunu "sahip konuşmayı devraldı" sayıyor ve o müşteri için
+ * akıllı asistanı duraklatıyordu; hattan giden mesajı sunucu kendi mesajı
+ * olarak tanır. Durum bilinmiyorsa (`null`, okunamadı) ya da hat bağlı
+ * değilse eski yol: kendi WhatsApp'ı — hızlı bir "yolda mısınız?"ı bir
+ * bağlama ekranına takmamak için.
+ */
+export function soloWaRoute(lineReady: boolean | null): 'line' | 'own' {
+    return lineReady === true ? 'line' : 'own';
+}
+
+/**
+ * Hattan gönderilemeyince ne söylenir. `fallback`: "Kendi WhatsApp'ımdan
+ * yaz" düğmesi — yalnız kendi WhatsApp'ından gönderince sonucun değişeceği
+ * sebeplerde (hat yok, bağlantı kurulamadı). Numara geçersizse ya da müşteri
+ * mesaj istemiyorsa başka yoldan yazmak da doğru olmaz.
+ */
+export function soloWaFail(result: WaResult): { title: string; body: string; fallback: boolean } | null {
+    switch (result) {
+        case 'ok':
+        case 'queued':
+            return null;
+        case 'not_connected':
+            return { title: 'Mesaj gönderilemedi', body: 'WhatsApp hattı şu an bağlı değil.', fallback: true };
+        case 'invalid_phone':
+            return { title: 'Mesaj gönderilemedi', body: 'Müşterinin numarası WhatsApp için geçerli değil.', fallback: false };
+        case 'opt_out':
+            return { title: 'Mesaj gönderilmedi', body: 'Müşteri mesaj almak istemediğini bildirmiş.', fallback: false };
+        case 'failed':
+            return { title: 'Mesaj gönderilemedi', body: 'Bağlantı kurulamadı.', fallback: true };
+    }
+}
+
+/** Hattan yazıldıktan sonra kartın alt satırında kalma süresi. */
+export const SOLO_SENT_NOTE_MS = 2 * 60_000;
+
+/**
+ * Hattan yazılan kartın alt satırı — Akış'ın "Yazıldı · şimdi" kaydının tek
+ * kişilik karşılığı. Süre dolunca kart eski cümlesine döner (kayıt bayatlar).
+ */
+export function soloSentNote(sentAt: number | undefined, nowMs: number, queued = false): string | null {
+    if (sentAt === undefined) return null;
+    // Ekranın saati süren iş yokken yarım dakikada bir ilerliyor; gönderim anı
+    // o saatten İLERİDE kalabilir. Eksi yaş "henüz" demek: not hemen çizilir
+    // (telefonda görüldü — not ancak sekme değişince geliyordu).
+    const age = nowMs - sentAt;
+    if (age > SOLO_SENT_NOTE_MS) return null;
+    return queued ? 'WhatsApp · sıraya alındı, birazdan gider' : 'WhatsApp\'tan yazıldı · şimdi';
+}
+
+/** Kart yığınına notu işler; notu olmayan kart aynen kalır. */
+export function withSentNotes(
+    items: SoloPickItem[],
+    sent: ReadonlyMap<string, { at: number; queued: boolean }>,
+    nowMs: number,
+): SoloPickItem[] {
+    return items.map((item) => {
+        const s = sent.get(item.id);
+        const note = soloSentNote(s?.at, nowMs, s?.queued);
+        return note ? { ...item, panel: { ...item.panel, subText: note, subName: undefined } } : item;
+    });
 }

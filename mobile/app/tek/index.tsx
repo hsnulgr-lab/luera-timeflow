@@ -19,15 +19,15 @@ import {
 import { waNudgeText, type CellKey } from '../../src/lib/actionPill';
 import { CALL_FAILED, REMINDER_FAILED } from '../../src/lib/appointmentDetail';
 import { nowInMinutes, todayISO, toMinutes, weekDays, type Appt } from '../../src/lib/calendar';
-import { updateAppointment } from '../../src/lib/managerWrite';
+import { sendWaNudge, updateAppointment } from '../../src/lib/managerWrite';
 import { dialable, waLink } from '../../src/lib/phone';
 import { useManagerCalendarDay } from '../../src/lib/managerCalendarDay';
-import { fetchServices } from '../../src/lib/managerSource';
+import { fetchServices, fetchWaLine } from '../../src/lib/managerSource';
 import { salonServicesOf } from '../../src/lib/settingsMap';
 import { orgDurum } from '../../src/lib/managerDurum';
 import {
     SOLO_UNREAD_COPY, soloDayCounts, soloDayList, soloDaySubtitle, soloDayTotal, soloEmptyCopy, soloIdlePanel,
-    soloOpenTicket, soloPickIndex, soloPickItems, soloStartable,
+    soloOpenTicket, soloPickIndex, soloPickItems, soloStartable, soloWaFail, soloWaRoute, withSentNotes,
 } from '../../src/lib/soloDay';
 import { buildStaffDayState } from '../../src/lib/staffDay';
 import { activeWait, waitIntentOf } from '../../src/lib/waitIntent';
@@ -187,7 +187,24 @@ export default function SoloDay() {
             : []),
         [dayKnown, isToday, mine],
     );
-    const pickItems = useMemo(
+    /*
+     * Yaz (2026-11-10): hat bağlıysa mesaj işletmenin hattından gider
+     * (`soloWaRoute`). Durum odakta okunur — WhatsApp sayfasında bağlanıp
+     * dönünce göz kendiliğinden hattı kullanır. Okunamazsa `null`: eski yol.
+     * `sent`: hattan yazılan kartın alt satırı iki dakika "yazıldı" der.
+     */
+    const [waReady, setWaReady] = useState<boolean | null>(null);
+    useFocusEffect(useCallback(() => {
+        let alive = true;
+        fetchWaLine().then(
+            (line) => { if (alive) setWaReady(line.ready); },
+            () => { /* okunamadı — bilinmiyor kalır, kendi WhatsApp'ı açılır */ },
+        );
+        return () => { alive = false; };
+    }, []));
+    const [sent, setSent] = useState<ReadonlyMap<string, { at: number; queued: boolean }>>(() => new Map());
+
+    const pickBase = useMemo(
         () => (dayKnown && isToday
             ? soloPickItems({
                 running: runningJobs,
@@ -203,6 +220,7 @@ export default function SoloDay() {
             : []),
         [dayKnown, isToday, runningJobs, ticket, mine, nowMinutes, serverNow],
     );
+    const pickItems = useMemo(() => withSentNotes(pickBase, sent, deviceNow), [pickBase, sent, deviceNow]);
 
     /*
      * SEÇİM RANDEVUYA BAĞLI (G5 · Karar 2). Ekranda kalındıkça yeni randevu
@@ -350,12 +368,34 @@ export default function SoloDay() {
         if (cell === 'wa') {
             const late = nowMinutes - toMinutes(appointment.start_time) >= 1;
             const text = waNudgeText({ salon: businessName, time: appointment.start_time.slice(0, 5), late, day: 'bugün' });
-            const url = waLink(appointment.customer_phone, text);
-            if (url) {
-                Linking.openURL(url).catch(() => {
-                    Alert.alert(REMINDER_FAILED, 'Telefonunuzda WhatsApp ya da bir tarayıcı açılamadı.');
-                });
-            }
+            const openOwn = () => {
+                const url = waLink(appointment.customer_phone, text);
+                if (url) {
+                    Linking.openURL(url).catch(() => {
+                        Alert.alert(REMINDER_FAILED, 'Telefonunuzda WhatsApp ya da bir tarayıcı açılamadı.');
+                    });
+                }
+            };
+            if (soloWaRoute(waReady) === 'own') { openOwn(); return; }
+            // İşletmenin hattından — Akış'ın "Yaz"ıyla aynı kapı (`manual`).
+            // Göz basılı tutularak çalışıyor; ayrıca geri alma penceresi yok.
+            void sendWaNudge({
+                phone: appointment.customer_phone ?? '',
+                text,
+                customerId: appointment.customer_id ?? null,
+            }).then((result) => {
+                const fail = soloWaFail(result);
+                if (!fail) {
+                    feedback.success();
+                    setSent((prev) => new Map(prev).set(appointment.id, { at: Date.now(), queued: result === 'queued' }));
+                    return;
+                }
+                feedback.warning();
+                if (result === 'not_connected') setWaReady(false);
+                Alert.alert(fail.title, fail.body, fail.fallback
+                    ? [{ text: 'Vazgeç', style: 'cancel' }, { text: 'Kendi WhatsApp\'ımdan yaz', onPress: openOwn }]
+                    : [{ text: 'Tamam' }]);
+            });
             return;
         }
         if (cell === 'nox' || cell === 'geri') {
@@ -376,7 +416,7 @@ export default function SoloDay() {
                 );
             });
         }
-    }, [pickItems, mine, openAppointment, nowMinutes, businessName, data.stamps, data.clockOffset]);
+    }, [pickItems, mine, openAppointment, nowMinutes, businessName, data.stamps, data.clockOffset, waReady]);
 
     if (refusal) {
         const durum = orgDurum(refusal);
