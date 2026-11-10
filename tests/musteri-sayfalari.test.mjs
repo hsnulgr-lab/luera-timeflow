@@ -45,7 +45,9 @@ test('yönetim: "Onay bekliyor" kendi renginde, iptal sayfanın içinde onaylan�
 });
 
 test('yönetim sunucusu salonu tanıtır: adres, telefon, harita, logo, randevu adresi', () => {
-    assert.match(fn, /select\('name, slug, logo_url, public_phone, address, maps_url'\)/);
+    // owner_id: ayar sahibin satırından okunur (göç 140 · ownerSettings) — korunur.
+    assert.match(fn, /select\('name, owner_id, slug, logo_url, public_phone, address, maps_url'\)/);
+    assert.match(fn, /ownerSettings\(supabase, orgId, 'business_name, working_hours, slot_duration, comms', org\?\.owner_id \?\? null\)/);
     assert.match(fn, /slug: org\?\.slug \?\? null,/);
     assert.match(fn, /phone: org\?\.public_phone \?\? null,/);
     // sayfa eski sunucuda bu alanlar yokken de çalışır (düğmeler yalnız varsa)
