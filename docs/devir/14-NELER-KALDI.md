@@ -1,4 +1,4 @@
-# Devir 14 · Neler kaldı (2026-10-21 sabah · §0 2026-11-04)
+# Devir 14 · Neler kaldı (2026-10-21 sabah · §0 2026-11-10)
 
 Bütün açık işlerin tek listesi. Kaynaklar: devir 10 §11 (abonelik açılışı),
 devir 13 §8 (e-posta denemeleri), `docs/yapilacaklar.md` (en son 2026-10-20
@@ -11,12 +11,22 @@ buradaki ve devir 10/13 kazanır).
 > Live, ENFORCE ve abonelik e-postaları AÇIK); §1'in çoğu artık geçmişte.
 > Çelişkide bu bölüm kazanır.
 
-1. **"Müşteriler nereden geliyor?" (Kaynak Defteri, Aşama 1)** — kod yerelde
-   (dal `tek-kisilik`, commit yok). 2026-11-04 denetimi: `npm test` 3517 / 0
-   hata, `tsc` temiz, yeni lint bulgusu yok. Kalan: tarayıcıda deneme →
-   commit → göç 135 → `public-booking` yüklemesi → Coolify Deploy (sıra bu;
-   ters sırada online randevu "column origin" hatası verir). Plan:
-   `~/.claude/plans/enumerated-squishing-breeze.md`.
+1. ✅ **"Müşteriler nereden geliyor?" (Kaynak Defteri, Aşama 1) — CANLIDA
+   2026-11-10** (main `e38db4f`). Göç 135 canlıda (önce ROLLBACK'li kuru
+   koşu), `public-booking` yüklendi, Coolify Deploy yapıldı; canlı pakette
+   panel ve çipler doğrulandı. Kalan: canlıda gerçek bir izli randevuyla
+   (`/book/<slug>?n=instagram`) Analiz panelinde satırın çıktığını görmek.
+   Plan: `~/.claude/plans/enumerated-squishing-breeze.md`.
+
+   **Dal toplaması (2026-11-10):** `tek-kisilik` dalındaki her şey main'e
+   taşındı — müşteri sayfaları (`ae61080`), tek kişilik düzeltmesi · göç 141
+   (`ca81984`), Kaynak Defteri. Ana klasör artık `main`'de. **`tek-kisilik`
+   dalı EMEKLİ**: silinmedi, üstüne iş yapılmaz; yeni iş main'den açılır.
+
+   ⚠️ **Fonksiyon yükleme dersi:** `scripts/deploy-functions.sh` çalıştığı
+   klasörün `_shared`'ını `--delete` ile eşitler. Klasör main'de değilse
+   (eski dal) canlı `_shared` geriye düşer ve WhatsApp bozulur. Yüklemeden
+   önce `git branch --show-current` → `main` olmalı.
 2. **WhatsApp günü — Cuma 6 Kasım.** Ön koşul: Claude kredisi + bot için ayrı
    numara (kişisel numara iki kez düştü). O güne kadar WhatsApp'a dokunulmaz.
 3. **Google Play'e yayın** (kullanıcı, 2026-11-04) — Türkiye'de telefonların
@@ -51,8 +61,9 @@ buradaki ve devir 10/13 kazanır).
 6. **3 pilot salon** (büyüme planı, onay bekliyor) — kartvizit ve Planla
    kıyası bunun hazırlığı.
 7. **Pushover ~16 Kasım** — 4,99 $ alınmazsa sabah 09:00 alarmı susar.
-8. Emin olunamayan: müşteri randevu yönetim sayfasının yeni düğmeleri (logo,
-   telefon, harita; `7b02e3b`) için `booking-manage` yüklemesi yapıldı mı.
+8. ✅ `booking-manage` yüklemesi — YAPILDI 2026-11-10 (müşteri randevu
+   yönetim sayfasının logo / telefon / harita düğmeleri; ayar sahibin
+   satırından okunmaya devam ediyor).
 9. **Planla'dan çıkan eksikler — her biri için PLAN OLUŞTURULACAK
    (kullanıcı, 2026-11-04).** Kod yok; önerilen sırayla, planın cevaplayacağı
    sorular:
