@@ -118,7 +118,8 @@ test('patient matching uses normalizePhone and defers to the store for duplicate
   assert.match(composer, /normalizePhone\(c\.phone\) === qPhone/);
   assert.match(composer, /const phoneTwin = useMemo/);
   assert.match(composer, /addCustomer aktif mükerrerde null döner, arşivli kaydı geri getirir/);
-  assert.match(composer, /const created = await addCustomer\(\{ name: newPatient\.name\.trim\(\), phone: newPatient\.phone\.trim\(\) \}\)/);
+  // Nereden geldi (135) yalnız yeni hastaya, seçildiyse eklenir.
+  assert.match(composer, /const created = await addCustomer\(\{ name: newPatient\.name\.trim\(\), phone: newPatient\.phone\.trim\(\)(, \.\.\.\(origin \? \{ origin \} : \{\}\))? \}\)/);
   assert.match(composer, /if \(!created\) return;/);
   // Yakın tarihli aktif randevu açık uyarı üretir.
   assert.match(composer, /const nearbyExisting = useMemo/);

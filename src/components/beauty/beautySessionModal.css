@@ -109,6 +109,8 @@
 .bsm-quick > button:disabled { opacity: .35; cursor: not-allowed; }
 .bsm-quick small { font-size: 12.5px; color: var(--dc-muted); }
 .bsm-quick small.warn { color: var(--dc-orange-d); }
+.bsm-nereden { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 4px; }
+.bsm-nereden .bsm-chips button { height: 30px; padding: 0 10px; font-size: 13px; font-weight: 600; }
 .bsm-note { margin-top: 8px; padding: 10px 12px; border-radius: 10px; font-size: 13px; font-weight: 600; line-height: 1.4; }
 .bsm-note.ok { background: var(--dc-green-bg); color: var(--dc-green); }
 .bsm-note.ok b { color: var(--dc-ink); }

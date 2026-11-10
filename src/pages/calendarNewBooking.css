@@ -160,6 +160,9 @@
 .nb-svc.on small { color: color-mix(in srgb, var(--nb-sel-fg) 68%, transparent); }
 .nb-svc.more { border-style: dashed; color: var(--nb-muted); }
 .nb-svc.busy { opacity: .45; cursor: not-allowed; text-decoration: line-through; }
+/* yeni müşteri · nereden geldi? (135) — isteğe bağlı, ikincil: çipler küçük */
+.nb-nereden { margin-top: 12px; }
+.nb-nereden .nb-svc { min-height: 30px; padding: 4px 10px; border-radius: 9px; font-size: 13px; font-weight: 600; }
 .nb-hint { margin-top: 8px; width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--dc-border2); text-align: left; font-size: 13.5px; font-weight: 600; color: var(--nb-muted); }
 .nb-hint:hover:not(:disabled) { background: var(--dc-surface2); color: var(--dc-ink); }
 .nb-hint:disabled { opacity: .55; cursor: not-allowed; }

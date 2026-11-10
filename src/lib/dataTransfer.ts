@@ -11,6 +11,7 @@
 // '@/' alias'ı çözülmez (bkz. serviceEligibility.ts).
 import { foldTr } from './serviceEligibility.ts';
 import { normalizePhone } from './phone.ts';
+import { isNeredenKey, NEREDEN_LABEL } from './nereden.ts';
 
 // ── Dışa aktarma ────────────────────────────────────────────────────────────
 
@@ -51,6 +52,8 @@ export interface ExportContext {
 }
 
 const str = (v: unknown): string => (v === null || v === undefined ? '' : String(v));
+// Müşteri nereden geldi (135): bilinmiyorsa boş hücre.
+const nereden = (v: unknown): string => (isNeredenKey(v) ? NEREDEN_LABEL[v] : '');
 const num = (v: unknown): number | '' => (v === null || v === undefined || v === '' ? '' : Number(v));
 const bool = (v: unknown): string => (v ? 'Evet' : 'Hayır');
 const time = (v: unknown): string => str(v).slice(0, 5);
@@ -85,6 +88,7 @@ export function exportColumns(id: ExportDatasetId, ctx: ExportContext): { header
                 { header: 'Son Ziyaret', value: (r) => str(r.last_visit) },
                 { header: 'Dönüş Tarihi', value: (r) => str(r.recall_date) },
                 { header: 'Ek Bilgiler', value: (r) => json(r.custom_fields) },
+                { header: 'Nereden', value: (r) => nereden(r.origin) },
                 { header: 'Kayıt Tarihi', value: (r) => str(r.created_at).slice(0, 10) },
             ];
         case 'reservations':
@@ -99,6 +103,7 @@ export function exportColumns(id: ExportDatasetId, ctx: ExportContext): { header
                 { header: 'Durum', value: (r) => RESERVATION_STATUS[str(r.status)] || str(r.status) },
                 { header: 'Ödendi', value: (r) => bool(r.is_paid) },
                 { header: 'Kaynak', value: (r) => str(r.source) },
+                { header: 'Nereden', value: (r) => nereden(r.origin) },
                 { header: 'Not', value: (r) => str(r.notes) },
             ];
         case 'payments':

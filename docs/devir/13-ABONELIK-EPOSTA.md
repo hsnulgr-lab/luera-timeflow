@@ -421,7 +421,8 @@ e-posta 375 px'te tarayıcıda görüldü.
 Kod tarafında eksik YOK. Kalanların hepsi kullanıcıyla yapılan denemeler ve
 açılış adımı:
 
-1. **Ek süre akışı uçtan uca denenmedi** (devir 10 §11 C.3). Dodo TEST'te
+1. ✅ **Ek süre akışı — DENENDİ 2026-10-21 23:04–23:21 TR** (ayrıntı devir 14 §1.A.1).
+   Eski not: **Ek süre akışı uçtan uca denenmedi** (devir 10 §11 C.3). Dodo TEST'te
    bir aboneliğin ödemesini başarısız kıl (yöntem Dodo'nun test belgesinden:
    reddedilen test kartı + "Sonraki fatura tarihini güncelle" ile birkaç
    dakika sonrası) → beklenen: webhook `grace`, telefona "Son ödeme
@@ -429,13 +430,22 @@ açılış adımı:
    e-posta GÖNDERMEZ → `ops/abonelik/eposta.sh dene <e-posta> odeme` →
    düğme → "Ödemeniz alınamadı" + geri sayım → "Kartı güncelle" → test kartı
    → borç çekilir, ayna `active`, dönüş `/abonelik?kaynak=eposta&kart=1`.
-2. **E-posta kipinde paket alma dönüşü denenmedi.** Kartsız denemedeki
+2. ✅ **E-posta kipinde paket alma — DENENDİ 2026-10-21 23:49–23:57 TR:** Apple ile
+   ("E-postamı gizle") telefondan yeni işletme `7552d6c1…` (kartsız deneme) → `dene uc_gun`
+   → düğme → plan seç → test kartı → kullanıcı "Denemeniz başladı" ekranını gördü; Dodo
+   23:56:51 `payment.succeeded` ₺0,00 (doğrulama) · `subscription.active` applied → ayna deneme
+   · Pro · aylık, bitiş 28 Ekim (kalan 7 gün Dodo'ya geçti). Dönüş ekranının düğmeleri
+   (Kurulum/uygulama YOK) kullanıcıdan teyit bekliyor.
+   Eski not: **E-posta kipinde paket alma dönüşü denenmedi.** Kartsız denemedeki
    (telefondan açılmış, Dodo aboneliği YOK) bir salonla `dene uc_gun` →
    düğme → plan seç → test kartı → dönüş
    `/abonelik?checkout=success&kaynak=eposta` → "Denemeniz başladı" fişi,
    Kurulum/uygulama düğmesi YOK. (Test Salon 3 artık Dodo'da → yeni bir
    telefon kaydı gerekir.)
-3. **Apple gizli adres** (`…@privaterelay.appleid.com`) — Apple ile
+3. ✅ **Apple gizli adres — DENENDİ 2026-10-21 23:53 TR:** aynı hesaba `dene uc_gun`;
+   defterde alıcı türü `privaterelay`, giriş `apple`, `gonderildi`; e-posta kullanıcının
+   gelen kutusuna ULAŞTI → Apple aktarımı (Email Sources kaydı) çalışıyor.
+   Eski not: **Apple gizli adres** (`…@privaterelay.appleid.com`) — Apple ile
    "E-postamı gizle" seçerek kaydolmuş bir hesaba `dene`; relay iletiyor mu.
    Bugüne kadarki `dene`ler iCloud'un gerçek adresine gitti.
 4. Telefonun Safari'sinde Dodo ödeme sayfasında Apple Pay (devir 10 §11 C.1).

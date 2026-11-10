@@ -3,6 +3,7 @@ import { ownerSettings } from '../_shared/org.ts';
 import { getOrgWa, sendWA, type Admin } from '../_shared/wa.ts';
 import { checkAccess } from '../_shared/entitlement.ts';
 import { minToTime, staffSlots, timeToMin, weekdayOf, type WorkingHour } from '../_shared/booking/slots.ts';
+import { attributionMeta, deriveOrigin, sanitizeAttribution } from '../_shared/booking/nereden.ts';
 
 // ============================================================
 // public-booking — Self-servis online randevu motoru
@@ -52,7 +53,12 @@ type WH = WorkingHour;
 // iki insert'ten birini 23505 ile düşürür; kaybeden taraf kazananı yeniden okur.
 async function findOrCreateCustomer(
     supabase: Admin,
-    p: { orgId: string; ownerId: string; name: string; phone: string; email: string },
+    p: {
+        orgId: string; ownerId: string; name: string; phone: string; email: string;
+        // Müşteri nereden geldi (135) — yalnız YENİ satıra yazılır; kayıtlı
+        // müşterinin ilk teması sonraki bir tıklamayla ezilmez.
+        origin?: string | null; originMeta?: Record<string, unknown> | null;
+    },
 ): Promise<{ id: string } | { error: string }> {
     const lookup = () => supabase
         .from('customers').select('id')
@@ -69,7 +75,10 @@ async function findOrCreateCustomer(
 
     const { data: created, error: createErr } = await supabase
         .from('customers')
-        .insert({ user_id: p.ownerId, organization_id: p.orgId, name: p.name, phone: p.phone, email: p.email || null })
+        .insert({
+            user_id: p.ownerId, organization_id: p.orgId, name: p.name, phone: p.phone, email: p.email || null,
+            ...(p.origin ? { origin: p.origin, origin_meta: p.originMeta ?? null } : {}),
+        })
         .select('id').single();
     if (created?.id) return { id: created.id };
 
@@ -242,6 +251,17 @@ Deno.serve(async (req: Request) => {
             return json({ success: true });
         }
 
+        // Müşteri nereden geldi (135): sayfanın topladığı ham iz burada
+        // temizlenir ve tek kanala indirilir — anonim uca güvenilmez. İki
+        // book yolu da (çoklu + eski tekli) aynı değeri yazar.
+        const attr = sanitizeAttribution(body.attribution);
+        const nereden = attr ? deriveOrigin(attr) : null;
+        const neredenMeta = attr ? attributionMeta(attr) : null;
+        const neredenCols = {
+            ...(nereden ? { origin: nereden } : {}),
+            ...(neredenMeta ? { origin_meta: neredenMeta } : {}),
+        };
+
         // ─────────────────────────────────────────────────────
         // BOOK (çoklu hizmet) — lines: [{ serviceId, staffId, date, time }]
         // Her satır ayrı personel/saat; müsaitlik gerçek doluluğa +
@@ -348,6 +368,7 @@ Deno.serve(async (req: Request) => {
             // Müşteri bul / oluştur — yarış güvenli (072 + 23505 fallback)
             const cust = await findOrCreateCustomer(supabase, {
                 orgId, ownerId, name: customerName, phone: customerPhone, email: customerEmail,
+                origin: nereden, originMeta: neredenMeta,
             });
             if ('error' in cust) return json({ error: cust.error }, 500);
             const customerId = cust.id;
@@ -370,6 +391,7 @@ Deno.serve(async (req: Request) => {
                 notes: note || '',
                 staff_id: p.staffId,
                 source: 'booking',
+                ...neredenCols,
                 group_id: groupId,
                 // Rızanın kanıtı kaydın kendisinde durur — "onay alındı mı?"
                 // sorusu sonradan loglarda aranmasın.
@@ -497,6 +519,7 @@ Deno.serve(async (req: Request) => {
         // Müşteri bul / oluştur — yarış güvenli (072 + 23505 fallback)
         const cust = await findOrCreateCustomer(supabase, {
             orgId, ownerId, name: customerName, phone: customerPhone, email: customerEmail,
+            origin: nereden, originMeta: neredenMeta,
         });
         if ('error' in cust) return json({ error: cust.error }, 500);
         const customerId = cust.id;
@@ -520,6 +543,7 @@ Deno.serve(async (req: Request) => {
                 notes: note || '',
                 staff_id: chosenStaffId,
                 source: 'booking',
+                ...neredenCols,
             })
             .select()
             .single();

@@ -16,6 +16,8 @@ import { todayISO, toISODate, formatDateEU } from '@/utils/date';
 import { normalizePhone, hasWa } from '@/lib/phone';
 import { clockMin, type AvailableSlot } from '@/lib/slotResolution';
 import type { Customer, Service } from '@/types';
+import { NeredenSecici } from '@/components/nereden/NeredenSecici';
+import type { NeredenKey } from '@/lib/nereden';
 
 // ── Timeflow Randevu Kompozitörü ─────────────────────────────────────────────
 // Tek drawer içinde 3 karar + son onay. Hedef masaüstünde 20–30 saniye; ama hız
@@ -80,6 +82,8 @@ export function AppointmentComposer({ seed, privateMode, onClose, onCreated }: {
     // ── Taslak. Bağlamsal açılışta yalnız hasta + ziyaret türü taşınır. ──────
     const [patientId, setPatientId] = useState<string | null>(seed?.customerId ?? null);
     const [newPatient, setNewPatient] = useState<{ name: string; phone: string } | null>(null);
+    // Yeni hasta nereden geldi (135) — yalnız yeni hasta formunda sorulur.
+    const [origin, setOrigin] = useState<NeredenKey | null>(null);
     const [query, setQuery] = useState('');
     const [visitType, setVisitType] = useState<VisitType | ''>(seed?.visitType ?? '');
     const [serviceName, setServiceName] = useState('');
@@ -217,6 +221,7 @@ export function AppointmentComposer({ seed, privateMode, onClose, onCreated }: {
 
             // 2) Hastayı çöz. Mükerrer koruması: önce istemci, son söz store'da.
             let customer: Customer | undefined = patient;
+            let createdOrigin: NeredenKey | undefined;
             if (!customer && newPatient) {
                 if (phoneTwin) {
                     setPatientId(phoneTwin.id);
@@ -225,9 +230,11 @@ export function AppointmentComposer({ seed, privateMode, onClose, onCreated }: {
                     return;
                 }
                 // addCustomer aktif mükerrerde null döner, arşivli kaydı geri getirir.
-                const created = await addCustomer({ name: newPatient.name.trim(), phone: newPatient.phone.trim() });
+                const created = await addCustomer({ name: newPatient.name.trim(), phone: newPatient.phone.trim(), ...(origin ? { origin } : {}) });
                 if (!created) return;        // store zaten sebebi bildirdi
                 customer = created;
+                createdOrigin = origin ?? undefined;
+                setOrigin(null);
                 setPatientId(created.id);
                 setNewPatient(null);
             }
@@ -252,6 +259,7 @@ export function AppointmentComposer({ seed, privateMode, onClose, onCreated }: {
                 resourceName: activeResources.find((r) => r.id === resourceId)?.name,
                 customFields: { [CF_VISIT_TYPE]: visitType },
                 source: 'manual',
+                origin: createdOrigin,
             });
             if (!created) return;
 
@@ -380,6 +388,11 @@ export function AppointmentComposer({ seed, privateMode, onClose, onCreated }: {
                                         </button>
                                     </div>
                                 ) : (
+                                    <>
+                                    <NeredenSecici value={origin} onChange={setOrigin}
+                                        className="np-nereden"
+                                        label={<span className="np-nereden-lbl">Nereden geldi? <i>isteğe bağlı</i></span>}
+                                        chipsClassName="np-nereden-chips" onClassName="active" />
                                     <div className="duplicate-note">
                                         <ShieldCheck size={17} />
                                         <span>
@@ -387,6 +400,7 @@ export function AppointmentComposer({ seed, privateMode, onClose, onCreated }: {
                                             Mükerrer kayıt normalize edilmiş telefonla kontrol edilir; arşivli kayıt varsa geri getirilir.
                                         </span>
                                     </div>
+                                    </>
                                 )}
                                 <button className="new-patient-button" type="button" onClick={() => setNewPatient(null)}>
                                     Kayıtlı hasta ara

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { icsHref } from '@/lib/icsFile';
 import { BookingCSS } from './bookingStyles';
+import { readSignals, rememberAttribution } from './neredenIzi';
 
 // ── Backend (public-booking edge fn) — veri katmanı korunur ───────────────────
 const FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/public-booking`;
@@ -60,6 +61,19 @@ export function BookingPage() {
   // Embed modu (?embed=1): hero gizlenir, shell iframe'i doldurur,
   // yükseklik postMessage ile host sayfaya bildirilir
   const embed = searchParams.get('embed') === '1';
+  // Müşteri nereden geldi (135): reklam/profil bağlantısının izi slug başına
+  // 30 gün hatırlanır; kanala sunucu karar verir (public-booking).
+  const attribution = useMemo(() => {
+    let storage: Storage | null = null;
+    try { storage = window.localStorage; } catch { /* gizli kip */ }
+    return rememberAttribution(slug, readSignals({
+      search: window.location.search,
+      referrer: document.referrer,
+      userAgent: navigator.userAgent,
+      selfHost: window.location.host,
+      embed,
+    }), storage);
+  }, [slug, embed]);
 
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -207,6 +221,7 @@ export function BookingPage() {
       // Rızanın kanıtı kaydın kendisinde durmalı — sonradan "onay alındı mı?"
       // sorusunun cevabı loglarda aranmasın.
       kvkkConsentAt: new Date().toISOString(),
+      ...(attribution ? { attribution } : {}),
     });
     setSubmitting(false);
     if (ok && json.success) {

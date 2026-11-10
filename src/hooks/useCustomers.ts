@@ -5,7 +5,8 @@ import { loadFailed, useOnReconnect } from '@/lib/baglantiUyarisi';
 import { useAuth } from '@/contexts/AuthContext';
 import { readCache, writeCache } from '@/lib/swrCache';
 import { todayISO, toISODate } from '@/utils/date';
-import type { Customer } from '@/types';
+import type { Customer, NeredenKey } from '@/types';
+import { isNeredenKey } from '@/lib/nereden';
 
 interface CustomerDbRow {
     id: string;
@@ -18,6 +19,7 @@ interface CustomerDbRow {
     loyalty_stamps?: number | null;
     custom_fields?: Record<string, string | number | boolean> | null;
     recall_date?: string | null;
+    origin?: string | null;
     created_at: string;
 }
 
@@ -37,6 +39,7 @@ interface CustomerDbUpdates {
     notes?: string;
     custom_fields?: Record<string, string | number | boolean>;
     recall_date?: string | null;
+    origin?: NeredenKey | null;
 }
 
 type CustomerMetrics = Pick<Customer,
@@ -74,6 +77,7 @@ function mapDbCustomer(row: CustomerDbRow): Customer {
         loyaltyStamps: row.loyalty_stamps ?? 0,
         customFields: row.custom_fields || {},
         recallDate: row.recall_date || undefined,
+        origin: isNeredenKey(row.origin) ? row.origin : null,
         createdAt: row.created_at,
     };
 }
@@ -446,6 +450,9 @@ export function useCustomers() {
                     // 050 uygulanmadan kolonu göndermeyelim — boşken eklemek gereksiz
                     ...(customer.customFields && Object.keys(customer.customFields).length
                         ? { custom_fields: customer.customFields } : {}),
+                    // Nereden geldi (135) — yalnız yeni satıra; geri getirilen
+                    // arşiv müşterisi yeni sayılmaz.
+                    ...(customer.origin ? { origin: customer.origin } : {}),
                 })
                 .select()
                 .single();
@@ -481,6 +488,7 @@ export function useCustomers() {
         if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
         if (updates.customFields !== undefined) dbUpdates.custom_fields = updates.customFields;
         if (updates.recallDate !== undefined) dbUpdates.recall_date = updates.recallDate || null;
+        if (updates.origin !== undefined) dbUpdates.origin = updates.origin ?? null;
 
         const { error } = await supabase
             .from('customers')

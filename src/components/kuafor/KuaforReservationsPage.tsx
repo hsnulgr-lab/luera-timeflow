@@ -25,6 +25,7 @@ import type { Reservation, WaitlistEntry } from '@/types';
 import { KuaforOverlay } from './KuaforOverlay';
 import { KuaforSuiteFrame } from './KuaforSuiteFrame';
 import { dateLabel, initialsOf, moneyOf } from './kuaforSuite';
+import { neredenLabel } from '@/lib/nereden';
 
 type TabKey = 'all' | 'pending' | 'confirmed' | 'salon' | 'missed' | 'completed' | 'cancelled' | 'waitlist';
 /** Zaman kapsamı — durum sekmelerinden bağımsız ikinci eksen. */
@@ -546,6 +547,12 @@ export function KuaforReservationsPage() {
                                     <div><dt>Kuaför</dt><dd>{selectedLive.staffName || 'Atanmadı'}</dd></div>
                                     <div><dt>Koltuk / alan</dt><dd>{selectedLive.resourceName || 'Seçilmedi'}</dd></div>
                                     <div><dt>Kaynak</dt><dd>{selectedLive.source === 'booking' ? 'Online booking' : selectedLive.source === 'whatsapp' ? 'WhatsApp' : selectedLive.source === 'leadflow' ? 'LeadFlow' : 'Manuel'}</dd></div>
+                                    {(() => {
+                                        // Müşteri nereden geldi (135): ziyaretin izi, yoksa müşterinin ilk teması.
+                                        const nereden = selectedLive.origin
+                                            ?? allCustomers.find((item) => item.id === selectedLive.customerId)?.origin;
+                                        return nereden ? <div><dt>Nereden</dt><dd>{neredenLabel(nereden)}</dd></div> : null;
+                                    })()}
                                     {selectedLive.customFields?.[FORMULA_KEY] && <div className="formula"><dt>Renk formülü</dt><dd><Droplets size={14} />{String(selectedLive.customFields[FORMULA_KEY])}</dd></div>}
                                     {selectedLive.notes && <div><dt>Salon notu</dt><dd>{selectedLive.notes}</dd></div>}
                                 </dl>

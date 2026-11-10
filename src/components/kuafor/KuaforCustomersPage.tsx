@@ -15,6 +15,7 @@ import type { Customer, Reservation } from '@/types';
 import { KuaforOverlay } from './KuaforOverlay';
 import { KuaforSuiteFrame } from './KuaforSuiteFrame';
 import { dateLabel, initialsOf, moneyOf } from './kuaforSuite';
+import { NeredenEtiketi } from '@/components/nereden/NeredenSecici';
 
 type Segment = 'all' | 'vip' | 'color' | 'return' | 'new';
 const SEGMENTS: Segment[] = ['all', 'vip', 'color', 'return', 'new'];
@@ -383,7 +384,11 @@ export function KuaforCustomersPage() {
                                 <div className="ks-profile-title">
                                     <span className="ks-eyebrow">MÜŞTERİ PROFİLİ · {isVipCustomer(selected, selectedStats) ? 'VIP' : 'SALON'}</span>
                                     <h2>{selected.name}</h2>
-                                    <p>{selected.phone}{selected.email ? ` · ${selected.email}` : ''}</p>
+                                    <p>
+                                        {selected.phone}{selected.email ? ` · ${selected.email}` : ''}{' · '}
+                                        <NeredenEtiketi value={selected.origin}
+                                            onChange={(o) => { void updateCustomer(selected.id, { origin: o }); }} />
+                                    </p>
                                 </div>
                                 <div className="ks-profile-actions">
                                     <a className="ks-icon-button" href={`https://wa.me/${selected.phone.replace(/\D/g, '').replace(/^0/, '90')}`} target="_blank" rel="noreferrer" title="WhatsApp"><MessageCircle size={17} /></a>

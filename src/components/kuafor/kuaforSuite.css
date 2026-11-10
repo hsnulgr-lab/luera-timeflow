@@ -469,6 +469,29 @@
   box-shadow: 0 1px 5px rgba(14, 14, 14, .1);
 }
 
+/* Yeni randevu · yeni müşteri nereden geldi? (135) — isteğe bağlı, ikincil */
+.ks-nereden { margin-top: 12px; display: flex; flex-direction: column; gap: 7px; }
+.ks-nereden-lbl { font-size: 12.5px; font-weight: 740; color: var(--dc-ink); }
+.ks-nereden-lbl i { font-style: normal; font-weight: 600; color: var(--dc-muted); margin-left: 4px; }
+.ks-nereden-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ks-nereden-chips button {
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--dc-border);
+  border-radius: 999px;
+  color: var(--dc-muted);
+  background: var(--dc-surface2);
+  font-size: 12.5px;
+  font-weight: 700;
+  transition: .18s ease;
+}
+.ks-nereden-chips button:hover { color: var(--dc-ink); }
+.ks-nereden-chips button.active {
+  color: var(--dc-ink);
+  border-color: var(--dc-ink);
+  background: var(--dc-card);
+}
+
 .ks-filter {
   height: 38px;
   padding: 0 9px;

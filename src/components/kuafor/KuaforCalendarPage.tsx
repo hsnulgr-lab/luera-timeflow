@@ -22,6 +22,9 @@ import {
 } from '@/lib/kuaforFlow';
 import type { Customer, Reservation } from '@/types';
 import { packLanes, weekDaysOf } from '@/lib/calendarGrid';
+import { normalizePhone } from '@/lib/phone';
+import type { NeredenKey } from '@/lib/nereden';
+import { NeredenSecici } from '@/components/nereden/NeredenSecici';
 import { KuaforOverlay } from './KuaforOverlay';
 import { KuaforSuiteFrame } from './KuaforSuiteFrame';
 import { addMinutes, dateLabel, initialsOf, minutesOf, timeOf } from './kuaforSuite';
@@ -153,6 +156,8 @@ export function KuaforCalendarPage() {
     // kaydı olur, hepsi tek groupId paylaşır: kasada tek hesap görünür ama
     // koltuk, saat ve personel — dolayısıyla prim — satır bazında doğru kalır.
     const [lines, setLines] = useState<ServiceLine[]>([]);
+    // Yeni müşteri nereden geldi (135) — kayıtlı müşteride sorulmaz.
+    const [origin, setOrigin] = useState<NeredenKey | null>(null);
     const [draft, setDraft] = useState({
         customerId: launch?.customerId || '',
         customerName: launch?.name || '',
@@ -325,6 +330,11 @@ export function KuaforCalendarPage() {
     const storedFormula = String(launchCustomer?.customFields?.[FORMULA_KEY] || '');
     const customerName = customerTouched ? draft.customerName : (draft.customerName || launchCustomer?.name || '');
     const customerPhone = customerTouched ? draft.customerPhone : (draft.customerPhone || launchCustomer?.phone || '');
+    const isNewCustomer = !draft.customerId && customerName.trim().length > 0
+        && !allCustomers.some((customer) => {
+            const typed = normalizePhone(customerPhone);
+            return typed !== null && normalizePhone(customer.phone) === typed;
+        });
     const formula = draft.formula || storedFormula;
     // Kendi öneri listemiz: native <datalist> hem tasarımın dışında bir kutu
     // çiziyor hem de Chrome'un adres otomatik doldurmasını tetikliyordu.
@@ -573,6 +583,7 @@ export function KuaforCalendarPage() {
                 customFields: formula && isKuaforColorService(line.service)
                     ? { [FORMULA_KEY]: formula }
                     : undefined,
+                origin: isNewCustomer ? origin ?? undefined : undefined,
             });
             if (result) created.push(line);
         }
@@ -589,6 +600,7 @@ export function KuaforCalendarPage() {
         setNewOpen(false);
         setCustomerTouched(false);
         setLines([]);
+        setOrigin(null);
         setDraft((previous) => ({
             ...previous,
             customerId: '',
@@ -950,6 +962,12 @@ export function KuaforCalendarPage() {
                                             />
                                         </label>
                                     </div>
+                                    {isNewCustomer && (
+                                        <NeredenSecici value={origin} onChange={setOrigin}
+                                            className="ks-nereden"
+                                            label={<span className="ks-nereden-lbl">Nereden geldi? <i>isteğe bağlı</i></span>}
+                                            chipsClassName="ks-nereden-chips" onClassName="active" />
+                                    )}
                                 </section>
 
                                 <section className="ks-appointment-section">

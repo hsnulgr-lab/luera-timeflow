@@ -19,6 +19,7 @@ import { TfIcon, TfIconSprite } from '@/components/beauty/TfIcons';
 import { cn } from '@/utils/cn';
 import type { Customer, Reservation } from '@/types';
 import './beautyReservations.css';
+import { neredenLabel } from '@/lib/nereden';
 
 // ── Güzellik · Operasyon merkezi (Premium Final) ─────────────────────────────
 // Tasarımın birebir uygulaması: "Timeflow Beauty Reservations Premium Final.html".
@@ -113,11 +114,14 @@ interface Prepared {
     action: { label: string; kind: 'arrive' | 'service' | 'cash' | 'collect' | 'none' };
     checks: { icon: string; title: string; detail: string; tone: PrepTone }[];
     sourceText: string;
+    /** Müşteri nereden geldi (135): ziyaretin izi, yoksa müşterinin ilk teması. */
+    neredenText: string | null;
 }
 
+// Randevunun KANALI (015/129 CHECK'i: manual/booking/leadflow/whatsapp).
+// Müşterinin nereden geldiği ayrı: neredenText (135).
 const SOURCE_TR: Record<string, string> = {
-    manual: 'Manuel', booking: 'Online booking', whatsapp: 'WhatsApp',
-    walkin: 'Randevusuz', instagram: 'Instagram',
+    manual: 'Manuel', booking: 'Online booking', whatsapp: 'WhatsApp', leadflow: 'LeadFlow',
 };
 
 export function BeautyReservationsPage() {
@@ -329,6 +333,7 @@ export function BeautyReservationsPage() {
                 resourceName: r.resourceId ? resourceById.get(r.resourceId) : undefined,
                 packageText, prep, group, live, action, checks,
                 sourceText: SOURCE_TR[r.source || 'manual'] || 'Manuel',
+                neredenText: (r.origin ?? customer?.origin) ? neredenLabel(r.origin ?? customer?.origin) : null,
             };
         });
     }, [reservations, date, now, customerById, rightsByCustomer, staffById, resourceById, resources.length, riskFlags, settings.sector, settings.services]);
@@ -656,7 +661,7 @@ export function BeautyReservationsPage() {
                                 <div className="tfr-fact"><small>Süre</small><strong>{selected && selected.durationMin > 0 ? `${selected.durationMin} dakika` : '—'}</strong></div>
                                 <div className="tfr-fact"><small>Kaynak</small><strong>{selected?.resourceName || '—'}</strong></div>
                                 <div className="tfr-fact"><small>Paket / ödeme</small><strong>{selected?.packageText || '—'}</strong></div>
-                                <div className="tfr-fact"><small>Randevu kaynağı</small><strong>{selected?.sourceText || '—'}</strong></div>
+                                <div className="tfr-fact"><small>Randevu kaynağı</small><strong>{selected?.sourceText || '—'}{selected?.neredenText ? ` · ${selected.neredenText}` : ''}</strong></div>
                             </div>
                         </section>
 

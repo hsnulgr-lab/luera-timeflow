@@ -114,7 +114,7 @@ function normalizeCustomerPhone(phone?: string): string {
     return (phone || '').replace(/\s+/g, '').trim();
 }
 
-type ReservationCustomerInput = Pick<Reservation, 'customerId' | 'customerName' | 'customerPhone' | 'customerEmail'>;
+type ReservationCustomerInput = Pick<Reservation, 'customerId' | 'customerName' | 'customerPhone' | 'customerEmail' | 'origin'>;
 
 function mapDbReservation(row: any): Reservation {
     return {
@@ -150,6 +150,8 @@ function mapDbReservation(row: any): Reservation {
         resourceId: row.resource_id || undefined,
         resourceName: row.resource?.name || undefined,
         endDate: row.end_date || undefined,
+        origin: row.origin || undefined,
+        originMeta: row.origin_meta || undefined,
     };
 }
 
@@ -592,6 +594,9 @@ function useReservationsState() {
                     phone,
                     email: input.customerEmail?.trim() || null,
                     notes: '',
+                    // Nereden geldi (135) — yalnız yeni satıra; bulunan/geri
+                    // getirilen müşterinin ilk teması ezilmez.
+                    ...(input.origin ? { origin: input.origin } : {}),
                 })
                 .select('id')
                 .single();
@@ -720,6 +725,7 @@ function useReservationsState() {
                 ...(reservation.endDate ? { end_date: reservation.endDate } : {}),
                 ...(reservation.customFields && Object.keys(reservation.customFields).length
                     ? { custom_fields: reservation.customFields } : {}),
+                ...(reservation.origin ? { origin: reservation.origin } : {}),
             })
             .select()
             .single();

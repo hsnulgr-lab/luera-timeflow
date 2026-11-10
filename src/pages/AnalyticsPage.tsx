@@ -5,6 +5,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { useLabels } from '@/hooks/useLabels';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ProfitPanels } from '@/components/analytics/ProfitPanels';
+import { NeredenPanel } from '@/components/analytics/NeredenPanel';
 
 const MONTHS_TR = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
 const DAYS_TR   = ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
@@ -338,6 +339,9 @@ export const AnalyticsPage = () => {
 
         {/* ── Kârlılık (gider defteri istemeyen dilim) ── */}
         <ProfitPanels isMobile={isMobile} />
+
+        {/* ═══ Müşteriler nereden geliyor? (135) ═══ */}
+        <NeredenPanel isMobile={isMobile} />
 
         {/* ── Bottom row ── */}
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '14px', marginBottom: '14px' }}>

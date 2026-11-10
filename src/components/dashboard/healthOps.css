@@ -1638,6 +1638,28 @@
 
 .hc-ops-layer .new-patient-fields { display: grid; gap: 10px; margin-top: 11px; }
 
+/* Yeni hasta · nereden geldi? (135) — isteğe bağlı, ikincil */
+.hc-ops-layer .np-nereden { display: grid; gap: 6px; }
+.hc-ops-layer .np-nereden-lbl { color: var(--dc-muted); font-size: 11.5px; font-weight: 760; }
+.hc-ops-layer .np-nereden-lbl i { font-style: normal; font-weight: 600; opacity: .8; margin-left: 3px; }
+.hc-ops-layer .np-nereden-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.hc-ops-layer .np-nereden-chips button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--dc-border2);
+  border-radius: 9px;
+  background: var(--dc-surface2);
+  color: var(--dc-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+.hc-ops-layer .np-nereden-chips button:hover { border-color: var(--hc-clinic); }
+.hc-ops-layer .np-nereden-chips button.active {
+  border-color: var(--dc-ink);
+  background: var(--dc-card);
+  box-shadow: 0 0 0 1.5px var(--dc-ink);
+}
+
 .hc-ops-layer .new-patient-fields label,
 .hc-ops-layer .walkin-form label {
   display: grid;

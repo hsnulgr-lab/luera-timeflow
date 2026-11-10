@@ -16,6 +16,7 @@ import { CustomFieldsSection } from '@/components/CustomFieldsSection';
 import { commsForSector, fieldDefsForSector } from '@/lib/sectorProfiles';
 import { cn } from '@/utils/cn';
 import type { Customer, DentalStatus, TreatmentPlanStatus } from '@/types';
+import { NeredenEtiketi } from '@/components/nereden/NeredenSecici';
 
 const MONTHS_TR = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 const fmtShort = (iso: string) => { const d = new Date(iso); return `${d.getDate()} ${MONTHS_TR[d.getMonth()]}`; };
@@ -336,6 +337,8 @@ export function CustomersPage() {
                                     <div className="flex items-center gap-3 mt-1.5 text-[12px] text-[var(--dc-muted)] font-semibold flex-wrap">
                                         <span className="font-mono text-[11.5px] font-bold">{selected.phone}</span>
                                         {selected.email && <span>{selected.email}</span>}
+                                        <NeredenEtiketi value={selected.origin}
+                                            onChange={(o) => { void updateCustomer(selected.id, { origin: o }); }} />
                                     </div>
                                     <div className="text-[11px] text-[var(--dc-muted2)] font-bold mt-1.5">
                                         {isNew48(selected.createdAt) ? <><span className="text-[var(--dc-orange)] font-extrabold">Yeni {t('customer').toLowerCase()}</span> · kayıt {fmtLong(selected.createdAt)}</> : `${t('customer')} · kayıt ${fmtLong(selected.createdAt)}`}

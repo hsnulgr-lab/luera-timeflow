@@ -19,6 +19,19 @@ import { Head, I, Pic, SaveBar, SwitchRow } from '../parcalar';
 
 interface Draft { slug: string; cover: string; gallery: string[]; kvkk: string }
 
+/**
+ * İşaretli bağlantılar (135): müşteri hangi bağlantıdan geldiyse Analiz'de o
+ * görünür. Google Haritalar tıklaması yönlendiren adresten aramayla ayırt
+ * edilemez; ancak İşletme Profili'ne bu bağlantı konursa bilinir.
+ */
+const NEREDEN_LINKLERI = [
+    { n: 'instagram', where: 'Instagram profili (bio)' },
+    { n: 'google_maps', where: 'Google Haritalar · İşletme Profili' },
+    { n: 'tiktok', where: 'TikTok profili' },
+    { n: 'facebook', where: 'Facebook sayfası' },
+    { n: 'web_sitesi', where: 'Web siteniz' },
+] as const;
+
 /** Gömülebilir (iframe) randevu ekranı — script yüksekliği içeriğe göre ayarlar. */
 function buildEmbedCode(bookingUrl: string): string {
     const src = `${bookingUrl}?embed=1`;
@@ -37,6 +50,7 @@ export function OnlineRandevu() {
     const { settings } = useReservations();
     const { profile, savePartial, uploadImage } = useOrgProfile();
     const [embedOpen, setEmbedOpen] = useState(false);
+    const [linksOpen, setLinksOpen] = useState(false);
     const [uploading, setUploading] = useState<'cover' | 'gallery' | null>(null);
     const coverRef = useRef<HTMLInputElement>(null);
     const galRef = useRef<HTMLInputElement>(null);
@@ -174,6 +188,31 @@ export function OnlineRandevu() {
                                         </button>
                                     </>
                                 ) : <span className="ay-help">Önce bir randevu adresi belirleyip kaydedin.</span>}
+                            </div>
+                        )}
+
+                        <button type="button" aria-expanded={linksOpen} className="ay-fold" onClick={() => setLinksOpen((v) => !v)}>
+                            <I n="chr" />
+                            <span className="ay-fold-t"><b>Müşterinin nereden geldiğini otomatik bilin</b><span>Her yere kendi bağlantısını koyun; Analiz › “Müşteriler nereden geliyor?” bölümü bunu gösterir.</span></span>
+                        </button>
+                        {linksOpen && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '16px 0 4px' }}>
+                                {savedUrl ? NEREDEN_LINKLERI.map(({ n, where }) => {
+                                    const url = `${savedUrl}?n=${n}`;
+                                    return (
+                                        <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                            <span style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: '1 1 260px', minWidth: 0 }}>
+                                                <span style={{ fontSize: 14, fontWeight: 700 }}>{where}</span>
+                                                <span className="mono" style={{ fontSize: 12, color: 'var(--tx2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{url}</span>
+                                            </span>
+                                            <button type="button" className="ay-btn" style={{ height: 34, padding: '0 12px', fontSize: 14 }}
+                                                onClick={() => { void navigator.clipboard.writeText(url); toast.success('Bağlantı kopyalandı'); }}>
+                                                <I n="copy" />Kopyala
+                                            </button>
+                                        </div>
+                                    );
+                                }) : <span className="ay-help">Önce bir randevu adresi belirleyip kaydedin.</span>}
+                                <span className="ay-help">Reklam bağlantılarındaki utm etiketleri ve Meta/Google tıklama kimlikleri de kendiliğinden okunur.</span>
                             </div>
                         )}
                     </div>

@@ -18,6 +18,7 @@ import { BeautySessionModal } from '@/components/beauty/BeautySessionModal';
 import { TfIcon, TfIconSprite } from '@/components/beauty/TfIcons';
 import type { Customer, Payment, Reservation, TreatmentPlan } from '@/types';
 import './beautyCustomers.css';
+import { NeredenEtiketi } from '@/components/nereden/NeredenSecici';
 
 // ── Güzellik · Müşteri merkezi (Premium V2) ──────────────────────────────────
 // Tasarımın birebir uygulaması: "Timeflow Beauty Customers Premium V2.html".
@@ -496,6 +497,8 @@ export function BeautyCustomersPage() {
                                             <span>Kayıt {new Date(selected.createdAt).getFullYear()}</span>
                                         )}
                                         {dossier.favStaff && <span>Uzmanı <b>{dossier.favStaff}</b></span>}
+                                        <NeredenEtiketi value={selected.origin}
+                                            onChange={(o) => { void updateCustomer(selected.id, { origin: o }); }} />
                                         <span className="tfv2-profile-code">{codeOf(selected.id)}</span>
                                     </div>
                                 </div>

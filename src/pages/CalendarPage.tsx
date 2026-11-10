@@ -24,6 +24,8 @@ import { ResourceLaneGrid } from '@/components/reservations/ResourceLaneGrid';
 import { DayAgendaGrid } from '@/components/reservations/DayAgendaGrid';
 import { AdisyonModal } from '@/components/reservations/AdisyonModal';
 import { EditReservationModal } from '@/components/reservations/EditReservationModal';
+import { NeredenSecici } from '@/components/nereden/NeredenSecici';
+import type { NeredenKey } from '@/lib/nereden';
 import './calendarNewBooking.css';
 import type { CalendarView, Reservation } from '@/types';
 
@@ -131,6 +133,7 @@ export const CalendarPage = () => {
     const [creatingReservation, setCreatingReservation] = useState(false);
     const [customerQuery, setCustomerQuery] = useState('');
     const [customerLocked, setCustomerLocked] = useState(false); // mevcut müşteri seçildi mi
+    const [origin, setOrigin] = useState<NeredenKey | null>(null); // yeni müşteri nereden geldi (135)
     // ── Yeni seans · takvimde mini pencere (2026-10-29) ─────────────────────
     // Kullanıcı eski 9 bölümlük pencereyi "çok eski" buldu; taslaklardan B'yi
     // seçti: boş saate tıklayınca pencere o hücrenin yanında açılır (müşteri,
@@ -244,6 +247,9 @@ export const CalendarPage = () => {
             || allCustomers.find((c) => c.phone.replace(/\s+/g, '') === newRes.customerPhone.replace(/\s+/g, '')),
         [lockedCustomer, allCustomers, newRes.customerPhone],
     );
+    // Yeni müşteri: kayıtlı biri seçilmedi ve yazılan telefon kimseye ait değil.
+    // "Nereden geldi?" yalnız bu durumda sorulur (135).
+    const isNewCustomer = !customerLocked && customerQuery.trim().length >= 2 && !draftCustomer;
 
     // Taslak bağlamı (seçili kaynak + sepetteki satırlar) her sorguya eklenir;
     // kuralların kendisi hook'tan gelir.
@@ -326,6 +332,7 @@ export const CalendarPage = () => {
         endTimeManuallyEditedRef.current = false;
         setCustomerQuery('');
         setCustomerLocked(false);
+        setOrigin(null);
         setNewRes(resetReservationDraft());
         setRecurrence({ rule: '', until: '' });
         setResLines([]);
@@ -519,6 +526,8 @@ export const CalendarPage = () => {
                 recurrenceUntil: lines.length === 1 && recurrence.rule ? (recurrence.until || undefined) : undefined,
                 resourceId: resourceId || undefined,
                 customFields: Object.keys(cfValues).length ? cfValues : undefined,
+                // Yalnız bu pencerede açılan müşteri için; kayıtlı müşteride çip yok.
+                origin: isNewCustomer ? origin ?? undefined : undefined,
             });
             if (res) createdLines.push(ln);
         }
@@ -1224,6 +1233,12 @@ export const CalendarPage = () => {
                                         <input type="tel" inputMode="tel" placeholder="0532 xxx xx xx"
                                             value={newRes.customerPhone} onChange={(e) => setNewRes(p => ({ ...p, customerPhone: e.target.value }))} />
                                     </label>
+                                )}
+                                {isNewCustomer && (
+                                    <NeredenSecici value={origin} onChange={setOrigin}
+                                        className="nb-nereden"
+                                        label={<div className="nb-lbl"><span>Nereden geldi?</span><em>isteğe bağlı</em></div>}
+                                        chipsClassName="nb-chips" chipClassName="nb-svc" />
                                 )}
                             </>
                         )}

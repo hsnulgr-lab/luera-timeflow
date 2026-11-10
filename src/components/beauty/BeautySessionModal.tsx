@@ -13,6 +13,8 @@ import { useTreatmentPlans } from '@/hooks/useTreatmentPlans';
 import { cn } from '@/utils/cn';
 import { toISODate } from '@/utils/date';
 import type { Customer, Resource, Service, TreatmentPlan, WorkingHours } from '@/types';
+import { NeredenSecici } from '@/components/nereden/NeredenSecici';
+import type { NeredenKey } from '@/lib/nereden';
 import './beautySessionModal.css';
 
 // Güzellik "Yeni Seans" modalı — paket-farkındalıklı: müşterinin aktif paketi
@@ -123,6 +125,10 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
     const [quickNameRaw, setQuickNameRaw] = useState<string | null>(null);
     const [quickPhoneRaw, setQuickPhoneRaw] = useState<string | null>(null);
     const [quickAdding, setQuickAdding] = useState(false);
+    // Yeni müşteri nereden geldi (135) — yalnız hızlı eklemede sorulur; bu
+    // pencerede açılan müşterinin randevusu da aynı izi taşır.
+    const [quickOrigin, setQuickOrigin] = useState<NeredenKey | null>(null);
+    const [createdHere, setCreatedHere] = useState<{ id: string; origin: NeredenKey | null } | null>(null);
     const { plans } = useTreatmentPlans(customer?.id);
 
     const activePlans = useMemo(
@@ -365,9 +371,11 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
         const phone = quickPhone.replace(/\s+/g, '').trim();
         if (!name || phone.replace(/\D/g, '').length < 10 || quickAdding) return;
         setQuickAdding(true);
-        const created = await addCustomer({ name, phone });
+        const created = await addCustomer({ name, phone, ...(quickOrigin ? { origin: quickOrigin } : {}) });
         setQuickAdding(false);
         if (created) {
+            setCreatedHere({ id: created.id, origin: quickOrigin });
+            setQuickOrigin(null);
             setCustomer(created);
             setQuery('');
             setQuickNameRaw(null);
@@ -429,6 +437,7 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
                         hizmet_ucreti: totalPrice,
                     }
                     : undefined,
+            origin: createdHere?.id === customer.id ? createdHere.origin ?? undefined : undefined,
         });
         setSaving(false);
         if (created) {
@@ -525,6 +534,10 @@ export function BeautySessionModal({ customer: initialCustomer, preset, onClose,
                                             <p>Kayıtlı değil — hemen ekle</p>
                                             <input value={quickName} onChange={(e) => setQuickNameRaw(e.target.value)} placeholder="Ad Soyad" />
                                             <input value={quickPhone} onChange={(e) => setQuickPhoneRaw(e.target.value)} placeholder="05xx xxx xx xx" inputMode="tel" />
+                                            <NeredenSecici value={quickOrigin} onChange={setQuickOrigin}
+                                                className="bsm-nereden"
+                                                label={<small>Nereden geldi? · isteğe bağlı</small>}
+                                                chipsClassName="bsm-chips" />
                                             <button type="button" onClick={quickAdd} disabled={!quickName.trim() || quickPhone.replace(/\D/g, '').length < 10 || quickAdding}>
                                                 <Check />{quickAdding ? 'Ekleniyor…' : 'Ekle ve seç'}
                                             </button>

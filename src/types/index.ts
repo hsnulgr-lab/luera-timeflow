@@ -1,6 +1,8 @@
 import type { StaffRole } from '@/lib/staffPermissions';
+import type { NeredenKey } from '@/lib/nereden';
 
 export type { StaffRole } from '@/lib/staffPermissions';
+export type { NeredenKey } from '@/lib/nereden';
 
 export interface Reservation {
     id: string;
@@ -38,6 +40,8 @@ export interface Reservation {
     resourceId?: string;   // fiziksel kaynak bağı (oda/koltuk/ünite…) — 051
     resourceName?: string; // görüntüleme için (join'den)
     endDate?: string;      // çok günlük rezervasyon bitişi (YYYY-MM-DD; yoksa tek gün) — 052
+    origin?: NeredenKey;   // müşteri nereden geldi — bu ziyaretin izi (135); `source` kanaldır, bu değil
+    originMeta?: Record<string, unknown>;   // temizlenmiş ham iz (utm, tıklama kimliği…) — 135
 }
 
 // ── Genel Kaynak (051) — koltuk/oda/ünite/kabin; masalardan (tables) ayrı ────
@@ -77,6 +81,7 @@ export interface Customer {
     loyaltyStamps?: number;   // Dijital müşteri kartı — biriken damga
     customFields?: Record<string, string | number | boolean>;   // sektöre özel alanlar — 050
     recallDate?: string;      // bir sonraki kontrol çağrısı (diş sektörü) — 056
+    origin?: NeredenKey | null;   // nereden geldi — ilk temas, müşteri açılırken yazılır (135)
     createdAt: string;
 }
 

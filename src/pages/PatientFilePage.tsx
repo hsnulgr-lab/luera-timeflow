@@ -17,6 +17,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/utils/cn';
 import { todayISO } from '@/utils/date';
 import type { Customer, PatientEncounterStatus, PatientEncounterVisitType } from '@/types';
+import { NeredenEtiketi } from '@/components/nereden/NeredenSecici';
 
 // v7 Hasta Dosyası — dişçinin dashboard'dan sonra en çok açtığı ekran: kimlik +
 // medikal uyarılar + kalan bakiye + ziyaret bazlı tedavi geçmişi + finans + recall.
@@ -103,7 +104,7 @@ export function PatientFilePage() {
     const { dark } = useTheme();
     const { orgId } = useAuth();
     const { sector, isLoading: labelsLoading } = useLabels();
-    const { allCustomers, isLoading: customersLoading, fetchCustomerById } = useCustomers();
+    const { allCustomers, isLoading: customersLoading, fetchCustomerById, updateCustomer } = useCustomers();
     const { reservations } = useReservations();
     const { staff } = useStaff();
     const { plans } = useTreatmentPlans(customerId || undefined);
@@ -246,6 +247,13 @@ export function PatientFilePage() {
                                 <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] font-semibold text-[var(--dc-muted)]">
                                     <span className="font-mono text-[12px]">{customer.phone || '—'}</span>
                                     {customer.lastVisit && <><span className="w-[3px] h-[3px] rounded-full bg-[var(--dc-muted2)]" /><span>Son ziyaret: <b className="font-mono text-[var(--dc-ink)]">{customer.lastVisit}</b></span></>}
+                                    <span className="w-[3px] h-[3px] rounded-full bg-[var(--dc-muted2)]" />
+                                    <NeredenEtiketi value={customer.origin} onChange={(o) => {
+                                        void updateCustomer(customer.id, { origin: o }).then((ok) => {
+                                            // Listede olmayan (doğrudan açılan) hastanın yerel kopyası da tazelenir.
+                                            if (ok) setLookup((l) => l.value && l.value.id === customer.id ? { ...l, value: { ...l.value, origin: o } } : l);
+                                        });
+                                    }} />
                                 </div>
                                 <div className="mt-2.5 flex flex-wrap gap-1.5">
                                     {medical.length === 0
