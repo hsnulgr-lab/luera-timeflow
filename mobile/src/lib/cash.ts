@@ -17,6 +17,7 @@
 
 import type { CashMethod, CashStatus } from '../theme/tokens.ts';
 import { clockLocative } from './text.ts';
+import { parseTRAmount, sameAmount } from './trAmount.ts';
 
 export type { CashMethod, CashStatus };
 
@@ -588,10 +589,9 @@ export function voidDialog(movement: Movement): VoidDialogCopy {
  * yapılacak şey düzeltme değil GERİ ALMA, ve o satır zaten yanında duruyor.
  */
 export function parseAmount(text: string): number | null {
-    const digits = text.replace(/\D/g, '');
-    if (!digits) return null;
-    const value = Number(digits);
-    return Number.isFinite(value) && value > 0 ? value : null;
+    // Ortak TR ayrıştırıcı (`trAmount.ts`): "149,50" artık 1.495 değil.
+    const value = parseTRAmount(text);
+    return value !== null && value > 0 ? value : null;
 }
 
 /**
@@ -612,7 +612,13 @@ export function canCorrect(
 ): boolean {
     const value = parseAmount(text);
     if (value === null) return false;
-    if (value !== current) return true;
+    /*
+     * Seçicide yeri olmayan yöntem (masaüstünün `other`'ı) seçilmeden
+     * KAYDEDİLEMEZ: düğme etkin görünüp basınca sessizce hiçbir şey
+     * yapmıyordu (Paket C · madde 7). `undefined` = yöntem sorulmuyor.
+     */
+    if (method === null) return false;
+    if (!sameAmount(value, current)) return true;
     // Tutar aynı: yöntem değiştiyse hâlâ bir düzeltme var.
     return method != null && currentMethod != null && method !== currentMethod;
 }

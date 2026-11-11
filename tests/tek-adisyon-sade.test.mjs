@@ -203,7 +203,7 @@ test('İKİ KABUKTA aynı sade adisyon (kullanıcı kararı, 2026-10-15)', () =>
     assert.match(screen, /\{sheet === 'catalog' \? \(\s*<View style=\{\{ flex: 1 \}\}>\s*<SadeSheetBody/);
     // Ayrışan TEK yer son adım: tek kişilikte tahsilat, ekipte kasaya gönder.
     // Kasa'ya ait adisyonda (D6) tek kişilik de kasaya gönderiyor.
-    assert.match(screen, /\(phase === 'closing' \|\| phase === 'closed'\) && params\.from === 'tek' && !kasaOnly \? \(\s*<CollectBar/);
+    assert.match(screen, /\(phase === 'closing' \|\| phase === 'closed'\) && params\.from === 'tek' && !kasaOnly && !paidAhead \? \(\s*<CollectBar/);
     assert.match(screen, /<SendToCash/);
 });
 

@@ -12,7 +12,7 @@ import { orgDurum } from '../../../src/lib/managerDurum';
 import { useInSoloShell } from '../../../src/lib/shellRoot';
 import { deleteAppointment, sendCancelNotice, updateAppointment } from '../../../src/lib/managerWrite';
 import {
-    STALE_LINE, STALE_TITLE, writablePatch, type WriteOutcome,
+    STALE_LINE, STALE_TITLE, SUBSCRIPTION_LINE, writablePatch, type WriteOutcome,
 } from '../../../src/lib/managerWriteMap';
 import {
     applyMove, undoMove, type MoveResult, type MoveTarget,
@@ -229,7 +229,8 @@ export default function ManagerAppointment() {
                 refused.kind === 'stale' ? STALE_LINE
                     : refused.kind === 'conflict' ? refused.message
                         : refused.kind === 'paused' ? 'Kısa bir süre sonra tekrar deneyin.'
-                            : 'Bağlantı kesilmiş olabilir. Tekrar deneyin.',
+                            : refused.kind === 'subscription' ? SUBSCRIPTION_LINE
+                                : 'Bağlantı kesilmiş olabilir. Tekrar deneyin.',
             ]}
             actions={[{ label: 'Anladım', onPress: () => setRefused(null) }]}
             style={{ marginHorizontal: 16, marginBottom: 16 }}

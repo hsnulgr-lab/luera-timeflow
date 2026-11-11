@@ -185,7 +185,10 @@ test('kumanda ve güverte: yöntem dokunuşta sabit, kapanışta seçici ve "Son
 
 test('tutar: kalan borçla dolu gelir, peşinat için düzenlenir, borcu aşamaz', () => {
     assert.equal(defaultAmountText(3600), '3600');
-    assert.equal(defaultAmountText(1234.5), '1234', 'kuruşlu borç aşağı — yukarısı borcu aşar');
+    // Kuruşlu borç KURUŞUYLA (Paket C · madde 3): eskiden aşağı yuvarlanıyor
+    // ve borç hiç tam kapanamıyordu; alan artık kuruşu okuyor.
+    assert.equal(defaultAmountText(1234.5), '1234,50');
+    assert.equal(parsePlanAmount(defaultAmountText(1234.5)), 1234.5);
     assert.equal(defaultAmountText(0), '');
     assert.equal(parsePlanAmount('1.000'), 1000);
     assert.equal(parsePlanAmount(''), null);

@@ -13,7 +13,7 @@ import { hourRange, type ColumnStaff } from '../../src/lib/managerCalendar';
 import { useManagerCalendarDay } from '../../src/lib/managerCalendarDay';
 import { orgDurum } from '../../src/lib/managerDurum';
 import { useMoveWriter } from '../../src/lib/managerMove';
-import { STALE_LINE, STALE_TITLE } from '../../src/lib/managerWriteMap';
+import { STALE_LINE, STALE_TITLE, SUBSCRIPTION_LINE } from '../../src/lib/managerWriteMap';
 import {
     applyMove, undoMove, type MenuAction, type MoveResult, type MoveTarget,
 } from '../../src/lib/moveAppointment';
@@ -263,7 +263,8 @@ export default function ManagerCalendar() {
                             refused.kind === 'stale' ? STALE_LINE
                                 : refused.kind === 'conflict' ? refused.message
                                     : refused.kind === 'paused' ? 'Kısa bir süre sonra tekrar deneyin.'
-                                        : 'Bağlantı kesilmiş olabilir. Tekrar deneyin.',
+                                        : refused.kind === 'subscription' ? SUBSCRIPTION_LINE
+                                            : 'Bağlantı kesilmiş olabilir. Tekrar deneyin.',
                         ]}
                         actions={[{ label: 'Anladım', onPress: clearRefusal }]}
                         style={{ marginHorizontal: 16, marginBottom: 16 }}

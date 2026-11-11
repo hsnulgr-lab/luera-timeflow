@@ -297,16 +297,19 @@ export interface NoteWriteOutcome extends WriteOutcome {
 /**
  * Randevunun serbest notu.
  *
- * Formülden farklı: iyimser kilit yok, `reservation.updated_at`i bir gözlem
- * olarak işlemiyoruz — not adisyonun kilidine dahil değil, çakışsa da
- * kaydeden kazanır (masaüstü ve müdür telefonuyla aynı kural).
+ * Formülden farklı: iyimser kilit yok — not adisyonun kilidine dahil değil,
+ * çakışsa da kaydeden kazanır (masaüstü ve müdür telefonuyla aynı kural).
+ *
+ * Ama sunucunun YENİ damgası gözlem olarak dönüyor (2026-11-12): 092'nin
+ * tetikleyicisi not yazmasında da `updated_at`i ilerletiyor. Kumanda onu
+ * görmezse sonraki kalem kaydı eski damgayla gidip `items_stale` alıyordu.
  */
 export async function writeVisitNote(reservationId: string, note: string): Promise<NoteWriteOutcome> {
     try {
         const out = await api.visitNote(reservationId, note) as
             { queued?: boolean; reservation?: { notes?: string | null } | null } | null;
         if (out?.queued) return { code: null, queued: true, saved: null };
-        return { code: null, queued: false, saved: out?.reservation?.notes ?? null };
+        return { code: null, queued: false, saved: out?.reservation?.notes ?? null, observation: observationOf(out) };
     } catch (cause) {
         return { code: codeOf(cause), queued: false, saved: null };
     }

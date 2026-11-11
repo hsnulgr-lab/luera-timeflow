@@ -61,7 +61,7 @@ import {
     prepareResend, saveVisitItems, sendVisitToCash, startVisit, writeVisitFormula, writeVisitNote, writeVisitWait,
     type WriteOutcome,
 } from '../../src/lib/visitWrite';
-import { ITEMS_SAVE_MS, chainedStamp, itemsKey, shouldFlushItems, shouldSaveItems } from '../../src/lib/itemsAutosave';
+import { ITEMS_SAVE_MS, chainedStamp, itemsKey, shouldFlushItems, shouldSaveItems, staleVerdict } from '../../src/lib/itemsAutosave';
 import { activeWait, rememberWait, waitIntentOf } from '../../src/lib/waitIntent';
 import { armWaitAlarm, disarmWaitAlarm } from '../../src/lib/waitAlarmDevice';
 import { isForeignChange, lockStampOf } from '../../src/lib/visitStamp';
@@ -372,6 +372,13 @@ export default function Kumanda() {
      */
     const cardKind = appointment ? cardState(appointment, now).kind : null;
     const closedCard = cardKind === 'paid' || cardKind === 'atcash' ? cardKind : null;
+    /**
+     * ÖNCE TAHSİL EDİLMİŞ açık ziyaret (Paket C · madde 4): masaüstü kasası
+     * ya da paket. İş normal başlıyor ve bitiyor; tek kişilikte son adım
+     * tahsilat güvertesi DEĞİL kasaya gönderim — parayı ikinci kez almaya
+     * davet eden düğme çizilmiyor, `visit.finish` yine çalışıyor.
+     */
+    const paidAhead = appointment?.is_paid === true && closedCard === null;
     const running = phase === 'running';
     /** Adisyon zaten kasada: bu oturumda gönderildi ya da veri öyle diyor. */
     const delivered = sent || phase === 'closed';
@@ -447,16 +454,45 @@ export default function Kumanda() {
      * YOLDAKİ yazma bitmeden yenisi başlamıyor: ikisi aynı damgayla gidince
      * ikincisi birincinin damgasına çarpıyordu (`chainedStamp`).
      */
+    /** Kumandanın son başarılı kalem yazması — zincirdeki yazmalar için (state geç gelir). */
+    const lastOwnItems = useRef<unknown>(null);
     const startSave = (reservationId: string, list: readonly AdisyonLine[], key: string, stamp: string | null) => {
         savedKey.current = key;
+        const baseItems = base?.adisyon_items;
+        const own = lastOwnItems.current ?? ownItems;
+        const write = (at: string | null) => saveVisitItems(reservationId, list, at);
         const prior = savingRef.current ?? Promise.resolve(null);
         const run = prior
-            .then((fresh) => saveVisitItems(reservationId, list, chainedStamp(fresh, stamp)))
+            .then((fresh) => write(chainedStamp(fresh, stamp)))
+            .then((first) => {
+                /*
+                 * BAYAT AMA YABANCI DEĞİL (Paket C · madde 2). Damgayı not,
+                 * başlatma ya da formül ilerletmiş, kalemlere kimse
+                 * dokunmamışsa yeni damgayla BİR KEZ yeniden deneniyor.
+                 * Eskiden yalnız gözleniyordu ve kalem sunucuya hiç
+                 * gitmiyordu. Başkasının kalemi varsa ('foreign') eski
+                 * davranış: ezilmez, şerit çizilir.
+                 */
+                if (!first.stale) return first;
+                const verdict = staleVerdict({ staleItems: first.stale.items, list, baseItems, ownItems: own });
+                if (verdict === 'foreign') return first;
+                if (verdict === 'landed') {
+                    return { code: null, queued: false, observation: first.stale, ownItems: true };
+                }
+                observe(first.stale);
+                return write(first.stale.stamp);
+            })
             .then((out) => {
+                if (!out.stale && out.ownItems && out.observation) lastOwnItems.current = out.observation.items;
                 // Başka cihaz yazmış: güncel liste gözlem olarak işleniyor,
                 // şerit çiziliyor; kişi tazeleyince benimsenir.
-                if (out.stale) observe(out.stale);
-                else observe(out.observation, out.ownItems === true);
+                if (out.stale) {
+                    observe(out.stale);
+                    // Liste YAZILMADI: "yazıldı" sayılmasın. Yabancı
+                    // değişiklikse şerit kaydı zaten durduruyor; değilse
+                    // yeni damgayla sonraki tur yeniden dener.
+                    if (savedKey.current === key) savedKey.current = '';
+                } else observe(out.observation, out.ownItems === true);
                 // Kalıcı hayır ekranda (D2); çakışmanın kendi şeridi var,
                 // kuyruk "olmadı" değil. Başarılı yazma eski sebebi siliyor.
                 if (out.code && !out.stale && out.code !== 'items_stale') setItemsCode(out.code);
@@ -777,6 +813,7 @@ export default function Kumanda() {
         setLines(linesFromItems(base?.adisyon_items));
         savedKey.current = itemsKey(linesFromItems(base?.adisyon_items));
         savedFor.current = base?.id ?? null;
+        lastOwnItems.current = null;
         setLastAdded('');
         setSheet(null);
         setPending(null);
@@ -1360,7 +1397,7 @@ export default function Kumanda() {
                         </View>
                     ) : null}
 
-                    {(phase === 'closing' || phase === 'closed') && params.from === 'tek' && !kasaOnly ? (
+                    {(phase === 'closing' || phase === 'closed') && params.from === 'tek' && !kasaOnly && !paidAhead ? (
                         <CollectBar
                             method={payMethod}
                             stage={collectStage}
@@ -1600,6 +1637,10 @@ export default function Kumanda() {
                                     // Formülle aynı kural: alt sayfa yalnız
                                     // kayıt GERÇEKTEN gidince kapanıyor.
                                     if (out.queued) { setNoteWrite('queued'); return; }
+                                    // Not de damgayı ilerletiyor (092): kendi
+                                    // yazmamız — sonraki kalem kaydı eski
+                                    // damgaya takılmasın.
+                                    observe(out.observation);
                                     setNoteSaved(out.saved);
                                     setNoteWrite('idle');
                                     setSheet(null);

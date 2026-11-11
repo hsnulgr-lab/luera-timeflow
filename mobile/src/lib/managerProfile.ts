@@ -15,6 +15,7 @@
  */
 
 import { upperTR } from './text.ts';
+import { formatTRAmountDraft, parseTRAmount, sameAmount } from './trAmount.ts';
 
 // ── Çalışma saatleri ────────────────────────────────────────────────────────
 
@@ -240,9 +241,43 @@ export function serviceValid(draft: { name: string; minutes: number }): boolean 
  * AYNI ŞEY DEĞİL.
  */
 export function parsePrice(text: string): number | null {
-    const cleaned = text.replace(/[^\d]/g, '');
-    if (cleaned.length === 0) return null;
-    return Number(cleaned);
+    // Ortak TR ayrıştırıcı: "149,90" artık 1499 değil (Paket C · madde 3).
+    return parseTRAmount(text);
+}
+
+/** Fiyat alanının ilk metni — `parsePrice`ın eşleniği ("149,90", "1500", boş). */
+export function priceDraft(price: number | null | undefined): string {
+    return formatTRAmountDraft(price);
+}
+
+/** Alan doluysa okunabilmeli: "1,495" gibi anlaşılmayan metin kaydedilemez. */
+export function priceTextValid(text: string): boolean {
+    return text.trim().length === 0 || parsePrice(text) !== null;
+}
+
+/**
+ * Kaydedilecek fiyat. Alan DEĞİŞMEDİYSE ya da aynı tutara okunuyorsa eski
+ * değer olduğu gibi kalıyor — ad değiştirmek fiyata hiç dokunmasın.
+ */
+export function priceToSave(text: string, initialText: string, original: number | null): number | null {
+    if (text === initialText) return original;
+    const next = parsePrice(text);
+    if (next !== null && original !== null && sameAmount(next, original)) return original;
+    return next;
+}
+
+/**
+ * "Hizmeti sil" SİSTEM UYARISIYLA onaylanıyor — Kasa'daki `voidDialog`
+ * kalıbı. Tek dokunuş hizmeti kalıcı siliyordu (Paket C · madde 6).
+ */
+export function serviceDeleteDialog(name: string): { title: string; message: string; confirm: string; cancel: string } {
+    const label = name.trim() || 'Bu hizmet';
+    return {
+        title: 'Hizmeti sil',
+        message: `${label} hizmet listesinden kalıcı olarak silinsin mi? Bu geri alınamaz.`,
+        confirm: 'Sil',
+        cancel: 'Vazgeç',
+    };
 }
 
 // ── Bildirimler ─────────────────────────────────────────────────────────────

@@ -137,7 +137,8 @@ test('07c · kalemler yazıldı ama kapanış TAKILDI — "kasada" DEMİYOR', ()
 });
 
 test('08 · tahsil edilmiş randevu GECİKTİ görünmez', () => {
-    const s = cardState({ ...base, start_time: '09:00', end_time: '09:45', is_paid: true }, NOW);
+    // Kapanmış (`completed`) + tahsil edilmiş: kapanış hâli.
+    const s = cardState({ ...base, status: 'completed', start_time: '09:00', end_time: '09:45', is_paid: true }, NOW);
     assert.equal(s.kind, 'paid');
     assert.equal(s.dim, 2);
 });

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet, SheetGrab } from './Sheet';
 import {
@@ -27,7 +27,10 @@ import {
     dayName,
     formatPrice,
     hhmm,
-    parsePrice,
+    priceDraft,
+    priceTextValid,
+    priceToSave,
+    serviceDeleteDialog,
     serviceValid,
     stepDuration,
     stepHour,
@@ -168,18 +171,23 @@ export function ServiceSheet({ visible, service, onDismiss, onSave, onDelete }: 
     const [priceText, setPriceText] = useState('');
     const [color, setColor] = useState<string>(SERVICE_COLORS[0].hex);
     const [busy, setBusy] = useState(false);
+    /** Hizmetin kayıtlı fiyatının metni — alan değişmediyse fiyat yazılmaz. */
+    const initialPriceText = service ? priceDraft(service.price) : '';
 
     useEffect(() => {
         if (!visible) return;
         setName(service?.name ?? '');
         setMinutes(service?.minutes ?? 30);
-        setPriceText(service && service.price !== null ? String(service.price) : '');
+        // `String(149.9)` = "149.9" idi; rakam dışını silen ayrıştırıcı onu
+        // 1499 okuyordu — ad değiştirmek fiyatı 10× yapıyordu.
+        setPriceText(service ? priceDraft(service.price) : '');
         setColor(service?.color ?? SERVICE_COLORS[0].hex);
         setBusy(false);
     }, [visible, service]);
 
-    const price = parsePrice(priceText);
-    const valid = serviceValid({ name, minutes });
+    const price = priceToSave(priceText, initialPriceText, service?.price ?? null);
+    // Anlaşılmayan fiyat ("1,495") sessizce silinmesin: kaydedilemez.
+    const valid = serviceValid({ name, minutes }) && priceTextValid(priceText);
 
     return (
         <BottomSheet visible={visible} onDismiss={onDismiss} fill system>
@@ -312,8 +320,22 @@ export function ServiceSheet({ visible, service, onDismiss, onSave, onDelete }: 
                             title="Hizmeti sil"
                             icon={<TrashIcon color={c.rd} />}
                             onPress={() => {
-                                setBusy(true);
-                                void onDelete(service.id).finally(() => setBusy(false));
+                                // İstek sürerken ikinci dokunuş yok; silme
+                                // KALICI, sistem uyarısıyla onaylanıyor
+                                // (Kasa'nın "Geri al"ıyla aynı kalıp).
+                                if (busy) return;
+                                const dialog = serviceDeleteDialog(service.name);
+                                Alert.alert(dialog.title, dialog.message, [
+                                    { text: dialog.cancel, style: 'cancel' },
+                                    {
+                                        text: dialog.confirm,
+                                        style: 'destructive',
+                                        onPress: () => {
+                                            setBusy(true);
+                                            void onDelete(service.id).finally(() => setBusy(false));
+                                        },
+                                    },
+                                ]);
                             }}
                         />
                     </View>
@@ -325,6 +347,7 @@ export function ServiceSheet({ visible, service, onDismiss, onSave, onDelete }: 
                         disabled={!valid}
                         busy={busy}
                         onPress={() => {
+                            if (busy) return;
                             setBusy(true);
                             void onSave({
                                 id: service?.id ?? `svc-${Date.now()}`,
@@ -414,7 +437,9 @@ export function PackageTypeSheet({ visible, type, onDismiss, onSave, onRemove }:
         }
     }
 
-    const price = parseSalePrice(priceText);
+    // Alan DEĞİŞMEDİYSE kayıtlı fiyat olduğu gibi: `formatTRY` yuvarlıyor ve
+    // kuruşlu bir tür fiyatı yalnız adı değiştirince yuvarlanmasın.
+    const price = type && priceText === formatTRY(type.price) ? type.price : parseSalePrice(priceText);
     const valid = typeValid({ name, price });
 
     return (

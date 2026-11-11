@@ -61,9 +61,10 @@ test('kumanda: son dokunuştan sonra yazıyor; kendi yazması gözlem, çakışm
     const kumanda = read('mobile/app/(staff-flow)/kumanda.tsx');
     assert.match(kumanda, /loaded: savedFor\.current === base\.id,\s*sendIdle: send === 'idle',\s*delivered,\s*foreignChange,\s*deleting: pending !== null,/);
     // Yazma bir SÖZ olarak tutuluyor: gönderim onu bekliyor (2026-10-15).
-    assert.match(kumanda, /\.then\(\(fresh\) => saveVisitItems\(reservationId, list, chainedStamp\(fresh, stamp\)\)\)/);
+    assert.match(kumanda, /const write = \(at: string \| null\) => saveVisitItems\(reservationId, list, at\);/);
+    assert.match(kumanda, /\.then\(\(fresh\) => write\(chainedStamp\(fresh, stamp\)\)\)/);
     assert.match(kumanda, /setTimeout\(\(\) => startSave\(reservationId, lines, key, lockStamp\), ITEMS_SAVE_MS\)/);
-    assert.match(kumanda, /if \(out\.stale\) observe\(out\.stale\);\s*else observe\(out\.observation, out\.ownItems === true\);/);
+    assert.match(kumanda, /if \(out\.stale\) \{\s*observe\(out\.stale\);[\s\S]{0,300}?\} else observe\(out\.observation, out\.ownItems === true\);/);
     // Benimsenen liste yeniden yazılmıyor — açılışta da tazelemede de.
     assert.equal((kumanda.match(/savedKey\.current = itemsKey\(linesFromItems\(base\?\.adisyon_items\)\);/g) ?? []).length, 2);
     assert.match(kumanda, /savedFor\.current = base\?\.id \?\? null;/);

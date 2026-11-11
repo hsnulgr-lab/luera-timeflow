@@ -190,7 +190,9 @@ const kumanda = read('mobile/app/(staff-flow)/kumanda.tsx');
 test('tahsilat güvertesi YALNIZ tek kişilik modda', () => {
     // Ekip modunda son adım "Adisyonu kasaya gönder" olarak kalıyor: orada
     // parayı başkası alıyor ve personelin kasaya erişimi yok.
-    assert.match(kumanda, /params\.from === 'tek' && !kasaOnly \? \(\s*<CollectBar/);
+    // Önceden tahsil edilmiş (masaüstü/paket) açık ziyarette güverte yok:
+    // aynı parayı ikinci kez almaya davet edilmez, kasaya gönderim kalır.
+    assert.match(kumanda, /params\.from === 'tek' && !kasaOnly && !paidAhead \? \(\s*<CollectBar/);
     assert.match(kumanda, /\) : phase === 'closing' \|\| phase === 'closed' \? \(\s*<SendToCash/);
 });
 

@@ -136,9 +136,39 @@ export function cardState(appointment: StaffCardSource, nowMs: number = Date.now
         return { ...base, kind: 'cancelled', word: 'İptal', tone: 'rd', dim: 2, strike: true };
     }
 
-    if (appointment.is_paid) {
+    /*
+     * TAHSİL EDİLDİ yalnız KAPANMIŞ ziyarette kapanış hâli (2026-11-12 ·
+     * Paket C, madde 4). Masaüstü kasası önce tahsil ederse ya da müşteri
+     * paketliyse `is_paid` iş başlamadan true oluyor; kart "kapalı" açılıyor,
+     * kumanda başlatılamıyor, `visit.finish` hiç çalışmıyor ve paket seansı
+     * düşmüyordu. Açık ziyarette normal akış sürüyor; ödendi bilgisi durum
+     * satırının ekinde ("ödendi") — düzen değişmiyor.
+     */
+    if (appointment.is_paid && appointment.status === 'completed') {
         return { ...base, kind: 'paid', word: 'Tahsil edildi', tone: 'gr', dim: 2 };
     }
+    const open = openState(appointment, nowMs, planned, duration, base);
+    return appointment.is_paid ? withPaidNote(open) : open;
+}
+
+/** Önceden tahsil edilmiş açık ziyaretin eki — mevcut ek yuvasında. */
+export const PAID_AHEAD_NOTE = 'ödendi';
+
+function withPaidNote(state: StaffCardState): StaffCardState {
+    if (state.kind === 'cancelled' || state.kind === 'paid') return state;
+    // Gelecek kartın durum satırı yok; ek yuvası da yok. Bilgi kaybolmasın:
+    // satır mevcut kelime + yeşil tonla kuruluyor.
+    if (state.word === null) return { ...state, word: 'Ödendi', tone: 'gr' };
+    return { ...state, suffix: state.suffix ? `${state.suffix} · ${PAID_AHEAD_NOTE}` : PAID_AHEAD_NOTE };
+}
+
+function openState(
+    appointment: StaffCardSource,
+    nowMs: number,
+    planned: number,
+    duration: string,
+    base: { suffix: null; counter: null; duration: string; strike: false; beatKey: null },
+): StaffCardState {
 
     /*
      * Kasaya gönderilmiş ama tahsil edilmemiş: yeşil "benden çıktı" demek,

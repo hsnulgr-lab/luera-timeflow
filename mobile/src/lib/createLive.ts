@@ -20,6 +20,7 @@ import { waConfirmation } from './waText.ts';
 import type { CatalogService } from './cashBuild.ts';
 import type { CustomerOption, ServiceOption, StaffOption } from './createFlow.ts';
 import { initialsOf } from './text.ts';
+import { isSubscriptionRefusal } from './managerWriteMap.ts';
 
 // ── Hizmet ──────────────────────────────────────────────────────────────────
 
@@ -408,6 +409,8 @@ export type CreateOutcome =
     | { ok: false; kind: 'past'; message: string }
     /** Yazma vanası kapalı (095). */
     | { ok: false; kind: 'paused' }
+    /** Abonelik bitmiş — 087'nin RLS'i `42501` ile reddediyor. */
+    | { ok: false; kind: 'subscription' }
     | { ok: false; kind: 'failed' };
 
 export const PAST_LINE = 'Bu saat geçti. Geçmişe randevu kurulamaz — başka bir saat seçin.';
@@ -446,6 +449,7 @@ export function createOutcomeOf(
                 : 'O saat dolu — başka bir saat seçin.',
         };
     }
+    if (isSubscriptionRefusal(error)) return { ok: false, kind: 'subscription' };
     return { ok: false, kind: 'failed' };
 }
 
@@ -606,6 +610,13 @@ export function refusalCopy(outcome: Exclude<CreateOutcome, { ok: true }>): Refu
                 title: 'Bu müşteriye bu hizmet verilemiyor',
                 lines: [outcome.message, 'Randevu oluşmadı.'],
                 action: { label: 'Hizmeti değiştir', move: 'service' },
+            };
+        case 'subscription':
+            return {
+                tone: 'red',
+                title: 'Aboneliğiniz kapalı',
+                lines: ['Aboneliğiniz kapalı; randevu oluşmadı.'],
+                action: { label: 'Anladım', move: 'dismiss' },
             };
         case 'paused':
             return {

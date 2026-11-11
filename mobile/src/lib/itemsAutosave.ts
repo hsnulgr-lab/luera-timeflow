@@ -10,7 +10,7 @@
  * Saf — React ve Expo taşımıyor; Node testleri doğrudan okuyor.
  */
 
-import { sendableOf, type AdisyonLine } from './adisyon.ts';
+import { linesDiffer, linesFromItems, sendableOf, type AdisyonLine } from './adisyon.ts';
 
 /**
  * Son dokunuştan sonra bekleme. Art arda "+ + +" tek yazma olsun; personel
@@ -81,4 +81,40 @@ export function shouldFlushItems(gate: Omit<SaveGate, 'deleting'>): boolean {
  */
 export function chainedStamp(fresh: string | null, lockStamp: string | null): string | null {
     return fresh ?? lockStamp;
+}
+
+/**
+ * BAYAT CEVAPTA NE YAPILACAK (2026-11-12 · Paket C, madde 2).
+ *
+ * Telefonda bulunan kusur: not kaydı (ya da başlatma, formül, bekleme)
+ * sunucuda `updated_at`i ilerletiyor (092). Ardından eklenen kalemin
+ * otomatik kaydı eski damgayla gidip `items_stale` alıyordu; kumanda yalnız
+ * GÖZLEYİP yeniden denemiyordu ve `savedKey` o listeyi "yazıldı" saydığı için
+ * kalem sunucuya hiç gitmiyordu — ekrandan çıkınca kayboluyordu.
+ *
+ *   'landed'  — sunucudaki kalemler zaten yazmak istediğimiz liste
+ *               (kuyruktan sonradan giden kendi işimiz). Yazılacak bir şey yok.
+ *   'retry'   — sunucudaki kalemler benimsenen temel liste ya da kendi son
+ *               yazmamızla AYNI: damgayı adisyon dışı bir alan ilerletmiş.
+ *               Yeni damgayla BİR KEZ daha denenir.
+ *   'foreign' — kalemlere gerçekten başka biri dokunmuş. Ezilmez; "değişti"
+ *               şeridi eskisi gibi çizilir.
+ */
+export type StaleVerdict = 'landed' | 'retry' | 'foreign';
+
+export function staleVerdict(input: {
+    /** Sunucunun reddinde dönen güncel kalemler. */
+    staleItems: unknown;
+    /** Yazmak istediğimiz liste. */
+    list: readonly AdisyonLine[];
+    /** Benimsenmiş temel kalemler. */
+    baseItems: unknown;
+    /** Kumandanın son BAŞARIYLA yazdığı kalemler; yoksa `null`. */
+    ownItems: unknown;
+}): StaleVerdict {
+    const server = linesFromItems(input.staleItems);
+    if (!linesDiffer(input.list, server)) return 'landed';
+    if (!linesDiffer(linesFromItems(input.baseItems), server)) return 'retry';
+    if (input.ownItems != null && !linesDiffer(linesFromItems(input.ownItems), server)) return 'retry';
+    return 'foreign';
 }

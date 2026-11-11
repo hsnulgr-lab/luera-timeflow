@@ -369,10 +369,12 @@ export default function Today() {
                             entering={live.entering.has(appointment.id)}
                             // Dört ekran (appointment · visit · finish · sent)
                             // tek kumandaya indi; evreyi o sayfa kendi
-                            // verisinden okuyor.
+                            // verisinden okuyor. `date` ŞART: kumanda tarih
+                            // yoksa BUGÜNÜ okuyor ve başka günün kartı "Bu
+                            // randevu bulunamadı" açıyordu.
                             onPress={() => router.push({
                                 pathname: '/(staff-flow)/kumanda',
-                                params: { id: appointment.id },
+                                params: { id: appointment.id, date: appointment.date },
                             })}
                         />
                         <NowLineSlot active={appointment.id === lineAfterId} time={clockOf(now)} />

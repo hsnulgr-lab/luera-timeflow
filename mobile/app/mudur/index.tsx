@@ -16,7 +16,7 @@ import { authApi } from '../../src/api/session';
 import { dialable } from '../../src/lib/phone';
 import { DurumBlock, DurumUnread } from '../../src/components/Durum';
 import { orgDurum } from '../../src/lib/managerDurum';
-import { STALE_LINE, STALE_TITLE, type WriteOutcome } from '../../src/lib/managerWriteMap';
+import { STALE_LINE, STALE_TITLE, SUBSCRIPTION_LINE, type WriteOutcome } from '../../src/lib/managerWriteMap';
 import { sendStaffNudge, sendWaNudge } from '../../src/lib/managerWrite';
 import {
     numberUsable, waNudgeText, type CellKey,
@@ -1023,7 +1023,8 @@ export default function ManagerFlow() {
                             refused.kind === 'stale' ? STALE_LINE
                                 : refused.kind === 'conflict' ? refused.message
                                     : refused.kind === 'paused' ? 'Kısa bir süre sonra tekrar deneyin.'
-                                        : 'Bağlantı kesilmiş olabilir. Tekrar deneyin.',
+                                        : refused.kind === 'subscription' ? SUBSCRIPTION_LINE
+                                            : 'Bağlantı kesilmiş olabilir. Tekrar deneyin.',
                         ]}
                         actions={[{
                             label: 'Anladım',

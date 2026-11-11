@@ -22,6 +22,7 @@
  */
 
 import { formatMoney } from './cash.ts';
+import { formatTRAmountDraft, parseTRAmount } from './trAmount.ts';
 import type { CollectMethod } from './collect.ts';
 
 export type PlanPaymentMethod = Exclude<CollectMethod, 'package'>;
@@ -38,20 +39,19 @@ export interface PlanPaymentInput {
 }
 
 /**
- * Tutar alanının ilk hâli: paketin kalan borcu. Alan tam lira kabul ediyor
- * (`cash.parseAmount` gibi); kuruşlu borçta aşağı yuvarlanıyor — yukarı
- * yuvarlamak borcu aşar ve sunucu reddeder.
+ * Tutar alanının ilk hâli: paketin kalan borcu, KURUŞUYLA ("1234,50").
+ * Eskiden alan yalnız tam lira okuyordu ve kuruşlu borç aşağı yuvarlanıyordu:
+ * borç hiçbir zaman tam kapanamıyordu. Ortak TR ayrıştırıcı (`trAmount.ts`)
+ * kuruşu okuyor (Paket C · madde 3).
  */
 export function defaultAmountText(owed: number): string {
-    return owed > 0 ? String(Math.floor(owed)) : '';
+    return owed > 0 ? formatTRAmountDraft(owed) : '';
 }
 
-/** "1.000" de "1000" de aynı: rakam dışı her şey atılıyor. */
+/** "1.000", "1000", "1.000,50" — ortak TR ayrıştırıcı; sıfır geçersiz. */
 export function parsePlanAmount(text: string): number | null {
-    const digits = text.replace(/\D/g, '');
-    if (!digits) return null;
-    const value = Number(digits);
-    return Number.isFinite(value) && value > 0 ? value : null;
+    const value = parseTRAmount(text);
+    return value !== null && value > 0 ? value : null;
 }
 
 export type AmountProblem = 'empty' | 'over';

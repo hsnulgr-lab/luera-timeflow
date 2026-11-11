@@ -20,6 +20,7 @@ import { waNudgeText, type CellKey } from '../../src/lib/actionPill';
 import { CALL_FAILED, REMINDER_FAILED } from '../../src/lib/appointmentDetail';
 import { nowInMinutes, todayISO, toMinutes, weekDays, type Appt } from '../../src/lib/calendar';
 import { sendWaNudge, updateAppointment } from '../../src/lib/managerWrite';
+import { SUBSCRIPTION_LINE } from '../../src/lib/managerWriteMap';
 import { dialable, waLink } from '../../src/lib/phone';
 import { useManagerCalendarDay } from '../../src/lib/managerCalendarDay';
 import { fetchServices, fetchWaLine } from '../../src/lib/managerSource';
@@ -412,7 +413,8 @@ export default function SoloDay() {
                     cell === 'nox' ? 'Gelmedi kaydedilmedi' : 'Geldi geri alınmadı',
                     outcome.kind === 'stale'
                         ? 'Randevu bu arada değişmiş. Gün yenilendi; tekrar deneyin.'
-                        : 'Bağlantı kesilmiş olabilir. Tekrar deneyin.',
+                        : outcome.kind === 'subscription' ? SUBSCRIPTION_LINE
+                            : 'Bağlantı kesilmiş olabilir. Tekrar deneyin.',
                 );
             });
         }

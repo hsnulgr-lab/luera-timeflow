@@ -229,7 +229,11 @@ export default function StaffCalendar() {
                         // canlıda herkesin takvimi ya "hepsi benim" ya
                         // "hiçbiri benim değil" diye okunurdu.
                         if (mine.has(appointment.id)) {
-                            router.push({ pathname: '/(staff-flow)/kumanda', params: { id: appointment.id } });
+                            // `date` ŞART: kumanda tarih yoksa bugünü okuyor.
+                            router.push({
+                                pathname: '/(staff-flow)/kumanda',
+                                params: { id: appointment.id, date: appointment.date },
+                            });
                             return;
                         }
                         setPeek(appointment);

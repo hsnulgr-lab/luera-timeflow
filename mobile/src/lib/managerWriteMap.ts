@@ -20,6 +20,11 @@ export type WriteOutcome =
     | { ok: false; kind: 'conflict'; message: string }
     /** Yazma vanası kapalı (095 · `MANAGER_WRITES_ENABLED`). */
     | { ok: false; kind: 'paused' }
+    /**
+     * Abonelik bitmiş: 087'nin RLS'i yazmayı `42501` ile reddediyor. Eskiden
+     * `failed` sayılıyor ve müdür "Bağlantı kesilmiş olabilir" okuyordu.
+     */
+    | { ok: false; kind: 'subscription' }
     /** Öteki her şey. */
     | { ok: false; kind: 'failed' };
 
@@ -60,6 +65,7 @@ export function outcomeOf(
         if (/çakış|conflict|overlap|dolu|kapasite/.test(text)) {
             return { ok: false, kind: 'conflict', message: conflictLine(staffName) };
         }
+        if (isSubscriptionRefusal(error)) return { ok: false, kind: 'subscription' };
         return { ok: false, kind: 'failed' };
     }
     /*
@@ -73,6 +79,20 @@ export function outcomeOf(
     if (rowsWritten === 0) return { ok: false, kind: 'stale' };
     return { ok: true, updatedAt: null };
 }
+
+/**
+ * Abonelik kapısının hayırı mı? 087'nin RLS'i `42501` (yetki yok) döner;
+ * tetikleyici yolu `subscription_inactive` metniyle konuşur. `planPayment`
+ * ve `cash` aynı iki işarete bakıyor.
+ */
+export function isSubscriptionRefusal(error: { code?: string | null; message?: string | null } | null): boolean {
+    if (!error) return false;
+    return error.code === '42501' || String(error.message ?? '').includes('subscription_inactive');
+}
+
+/** Abonelik kapalıyken ekranın söyleyeceği söz — Kasa'nın cümlesiyle aynı dil. */
+export const SUBSCRIPTION_TITLE = 'Aboneliğiniz kapalı';
+export const SUBSCRIPTION_LINE = 'Aboneliğiniz kapalı; değişiklik kaydedilmedi.';
 
 /** Kilit tutmayınca ekranın söyleyeceği söz. */
 export const STALE_TITLE = 'Bu randevu başka bir cihazda değişti';

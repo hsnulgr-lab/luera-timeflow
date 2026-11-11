@@ -17,6 +17,7 @@ import {
 import { COLLECT_METHODS } from '../lib/collect';
 import { apptCardMetrics, cashInk, cashMetrics, font, useTheme } from '../theme';
 import { upperTR } from '../lib/text';
+import { formatTRAmountDraft, sameAmount } from '../lib/trAmount';
 
 /**
  * Müdür 14b — hareket detayı; tek kişilikte Düzelt / Geri al (v4 · C2/C3).
@@ -303,7 +304,8 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
                                     value={draft}
                                     onChangeText={(next) => { setDraft(next); setSaveError(null); }}
                                     autoFocus
-                                    keyboardType="number-pad"
+                                    // Kuruş yazılabilsin: "149,50" (Paket C · madde 3).
+                                    keyboardType="decimal-pad"
                                     selectionColor={c.or}
                                     selectTextOnFocus
                                     editable={!saving}
@@ -382,8 +384,15 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
                             accessibilityState={{ disabled: !canSave || saving, busy: saving }}
                             disabled={!canSave || saving}
                             onPress={async () => {
-                                const amount = parseAmount(draft);
-                                if (amount === null || methodDraft === null) return;
+                                const parsed = parseAmount(draft);
+                                if (parsed === null || methodDraft === null) return;
+                                // Tutar alanı DEĞİŞMEDİYSE eski tutar olduğu gibi
+                                // gidiyor — yalnız yöntem düzeltmesi tutarı
+                                // yeniden yazmasın (Paket C · madde 3).
+                                const amount = draft === formatTRAmountDraft(movement.amount)
+                                    || sameAmount(parsed, movement.amount)
+                                    ? movement.amount
+                                    : parsed;
                                 setSaving(true);
                                 setSaveError(null);
                                 const failure = await onCorrect?.(amount, methodDraft) ?? null;
@@ -444,7 +453,9 @@ export function MovementSheet({ movement, onClose, onVoid, onCorrect, onOpenCust
                                 // Onay Kasa ekranının sistem uyarısında, sayfanın
                                 // ÜSTÜNDE; Vazgeç fişi açık bırakıyor.
                                 if (row.danger) { onVoid?.(); return; }
-                                setDraft(String(movement.amount));
+                                // `String(149.5)` = "149.5" idi ve rakam dışını
+                                // silen ayrıştırıcı onu 1.495 okuyordu.
+                                setDraft(formatTRAmountDraft(movement.amount));
                                 setMethodDraft(correctableMethod);
                                 setSaveError(null);
                                 setCorrecting(true);
