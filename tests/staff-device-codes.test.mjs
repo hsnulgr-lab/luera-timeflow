@@ -143,7 +143,9 @@ test('kilit denemeden ÖNCE denetlenir', () => {
 test('eksik haneli kod da deneme sayılır', () => {
     // Aksi hâlde saldırgan beş haneli istekle sayacı atlatırdı.
     const redeem = block('device.code.redeem');
-    assert.match(redeem, /digits\.length !== PAIR_CODE_LENGTH[\s\S]*?failedPairAttempt/);
+    // 142: hak kod biçimine bakılmadan ÖNCE ayrılıyor ve bu dalda geri verilmiyor.
+    assert.ok(redeem.indexOf('reservePairAttempt(admin, ip)') < redeem.indexOf('digits.length !== PAIR_CODE_LENGTH'));
+    assert.match(redeem, /if \(digits\.length !== PAIR_CODE_LENGTH\) \{\s*return json\(\{ error: 'invalid_pair_code' \}, 401\);\s*\}/);
 });
 
 // ── Yazma yetkisi ve denetim izi ────────────────────────────────────────────

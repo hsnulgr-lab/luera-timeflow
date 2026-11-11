@@ -88,7 +88,7 @@ test('kendi randevusu filtresi SORGUDA', () => {
 
 test('işlemi ikinci kez başlatmak sayacı SIFIRLAMAZ', () => {
     // Yanlışlıkla ikinci dokunuş, geçen 40 dakikayı silerdi.
-    assert.match(api, /if \(!res!\.arrived_at\) patch\.arrived_at/);
+    assert.match(api, /if \(!res!\.arrived_at\) \{\s*patch\.arrived_at/);
 });
 
 test('iptal edilmiş randevu hiçbir ziyaret mutasyonuna giremez', () => {

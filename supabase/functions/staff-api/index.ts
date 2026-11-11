@@ -8,6 +8,7 @@ import {
     DEVICE_TOKEN_TTL_SEC, PIN_LOCK_MINUTES, PIN_MAX_ATTEMPTS, RING_TOKEN_TTL_SEC,
 } from '../_shared/staffToken.ts';
 import { pinProblem } from '../_shared/pinRules.ts';
+import { clientIp } from './clientIp.ts';
 import {
     UUID_RE, freeMaterialName, hasPackageLink, kasaOnlyReason, packageCovered, packagesEnabledFor,
     planVisitItems, resolveVisitItems,
@@ -193,38 +194,125 @@ async function issuePairCode(
     return null;
 }
 
-/** Kilit açıksa kalan süreyi bildirir; kilit yoksa null. */
-async function pairAttemptLock(admin: Admin, ip: string | null): Promise<boolean> {
-    if (!ip) return false;
-    const { data } = await admin
-        .from('staff_pair_attempts')
-        .select('locked_until')
-        .eq('ip', ip)
-        .maybeSingle();
-    return Boolean(data?.locked_until && new Date(data.locked_until) > new Date());
+/**
+ * Bütün sunucu için dakikalık BAŞARISIZ/genel eşleştirme denemesi tavanı (142).
+ * IP başına sayaç tek başına yetmiyor: IP'yi değiştiren bir saldırgan her IP
+ * için 20 hak alırdı. 60/dk meşru kullanımın çok üstünde (bir salonun bütün
+ * ekibi aynı dakikada yazsa bile), kaba kuvveti saatlerden haftalara itiyor.
+ */
+const PAIR_GLOBAL_MAX_PER_MINUTE = 60;
+
+/** RPC henüz yüklenmemiş mi (göç 142 yok)? Öyleyse eski yola düşülür. */
+function missingRpc(error: { code?: string; message?: string } | null): boolean {
+    if (!error) return false;
+    return error.code === 'PGRST202' || error.code === '42883'
+        || /could not find the function|does not exist/i.test(error.message ?? '');
 }
 
-async function failedPairAttempt(admin: Admin, ip: string | null): Promise<void> {
-    if (!ip) return;
+/**
+ * Deneme hakkını kod aranmadan ÖNCE ayırır (142 · `staff_pair_reserve`).
+ * Kilitliyse kalan dakikayı döner; değilse null.
+ *
+ * Eskiden sayaç yalnız yanlış koddan SONRA okunup geri yazılıyordu: paralel
+ * istekler aynı değeri okuyup tek artış yazıyordu ve IP yoksa sınır hiç
+ * yoktu. Şimdi IP yoksa bütün istekler TEK ortak kovayı paylaşıyor.
+ */
+async function reservePairAttempt(admin: Admin, ip: string | null): Promise<number | null> {
+    const { data, error } = await admin.rpc('staff_pair_reserve', {
+        p_ip: ip ?? '',
+        p_max: PAIR_MAX_ATTEMPTS,
+        p_lock_minutes: PAIR_LOCK_MINUTES,
+        p_global_max: PAIR_GLOBAL_MAX_PER_MINUTE,
+    });
+    if (error) {
+        if (!missingRpc(error)) console.error('staff_pair_reserve', error);
+        return await legacyPairLock(admin, ip);
+    }
+    const row = (Array.isArray(data) ? data[0] : data) as { locked?: boolean; minutes?: number } | null;
+    return row?.locked ? (Number(row.minutes) || PAIR_LOCK_MINUTES) : null;
+}
+
+/** Var olan (açık, kapanmış ya da süresi dolmuş) kod tahmin değildir: hak geri. */
+async function refundPairAttempt(admin: Admin, ip: string | null): Promise<void> {
+    const { error } = await admin.rpc('staff_pair_refund', { p_ip: ip ?? '' });
+    if (error && !missingRpc(error)) console.error('staff_pair_refund', error);
+}
+
+/**
+ * Göç 142 yoksa eski davranış: kilide bak, ayırmayı yanlış kod gibi say.
+ * Yalnız yükleme sırası ters giderse çalışır.
+ */
+async function legacyPairLock(admin: Admin, ip: string | null): Promise<number | null> {
+    const key = ip ?? '__no_ip__';
     const { data } = await admin
         .from('staff_pair_attempts')
-        .select('failures')
-        .eq('ip', ip)
+        .select('failures, locked_until')
+        .eq('ip', key)
         .maybeSingle();
-
+    if (data?.locked_until && new Date(data.locked_until) > new Date()) return PAIR_LOCK_MINUTES;
     const failures = (Number(data?.failures) || 0) + 1;
     const locked = failures >= PAIR_MAX_ATTEMPTS;
     await admin.from('staff_pair_attempts').upsert({
-        ip,
+        ip: key,
         failures: locked ? 0 : failures,
         locked_until: locked
             ? new Date(Date.now() + PAIR_LOCK_MINUTES * 60_000).toISOString()
             : null,
         updated_at: new Date().toISOString(),
     });
+    return null;
+}
+
+/**
+ * PIN deneme hakkını karşılaştırmadan ÖNCE ayırır (142 · `staff_pin_reserve`).
+ *
+ * Eskiden sayaç yanlış PIN'den SONRA okunup koşulsuz geri yazılıyordu: 50
+ * eşzamanlı tahmin tek deneme sayılıyordu ve kilit basılırken uçuştaki
+ * tahminler zaten karşılaştırılmış oluyordu. Şimdi her tahmin önce hak
+ * ayırıyor; eşiğe ulaşan ayırma kilidi aynı güncellemede basıyor. Kilit
+ * süresi başına en çok PIN_MAX_ATTEMPTS tahmin değerlendirilir.
+ *
+ *   reserved=false → kilitli (eşzamanlı başka istek kilidi bastı)
+ *   lockedUntil    → bu deneme son hakkı kullandı; yanlışsa cevap `locked`
+ *
+ * Doğru PIN'de çağıran sayacı sıfırlıyor (eski davranış).
+ */
+type PinSlot = { reserved: boolean; attempts: number; lockedUntil: string | null };
+
+async function reservePinAttempt(
+    admin: Admin,
+    member: Pick<StaffRow, 'id' | 'pin_attempts'>,
+): Promise<PinSlot> {
+    const { data, error } = await admin.rpc('staff_pin_reserve', {
+        p_staff: member.id,
+        p_max: PIN_MAX_ATTEMPTS,
+        p_lock_minutes: PIN_LOCK_MINUTES,
+    });
+    if (!error) {
+        const row = (Array.isArray(data) ? data[0] : data) as
+            { reserved?: boolean; attempts?: number | null; locked_until?: string | null } | null;
+        return {
+            reserved: Boolean(row?.reserved),
+            attempts: Number(row?.attempts) || 0,
+            lockedUntil: row?.locked_until ?? null,
+        };
+    }
+    if (!missingRpc(error)) console.error('staff_pin_reserve', error);
+    // Göç 142 yoksa eski (yarışa açık) yol — yalnız yükleme sırası ters giderse.
+    const attempts = (member.pin_attempts || 0) + 1;
+    const lockedUntil = attempts >= PIN_MAX_ATTEMPTS
+        ? new Date(Date.now() + PIN_LOCK_MINUTES * 60_000).toISOString()
+        : null;
+    await admin.from('staff').update({
+        pin_attempts: lockedUntil ? 0 : attempts,
+        pin_locked_until: lockedUntil,
+    }).eq('id', member.id);
+    return { reserved: true, attempts, lockedUntil };
 }
 
 async function clearPairAttempts(admin: Admin, ip: string | null): Promise<void> {
+    // Ortak kova (IP yok) bir başarıyla SIFIRLANMAZ: aynı kovadaki başka
+    // biri o başarıdan pay almasın.
     if (!ip) return;
     await admin.from('staff_pair_attempts').delete().eq('ip', ip);
 }
@@ -255,7 +343,7 @@ Deno.serve(async (req: Request) => {
 
         const body = await req.json().catch(() => ({}));
         const action = body.action as Action;
-        const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
+        const ip = clientIp(req.headers.get('x-forwarded-for'));
         const userAgent = req.headers.get('user-agent')?.slice(0, 200) || null;
 
         const audit = (organizationId: string, staffId: string | null, event: string, detail: string | null = null) =>
@@ -612,12 +700,13 @@ Deno.serve(async (req: Request) => {
 
         // ── device.code.redeem — personel kodu cihaz token'ına çevirir ────────
         if (action === 'device.code.redeem') {
-            const lock = await pairAttemptLock(admin, ip);
-            if (lock) return json({ error: 'pair_locked', minutes: PAIR_LOCK_MINUTES }, 429);
+            // Hak kod aranmadan ÖNCE ayrılıyor (142): paralel tahminlerin her
+            // biri sayılır. Var olan kod çıkarsa hak aşağıda geri veriliyor.
+            const lockMinutes = await reservePairAttempt(admin, ip);
+            if (lockMinutes !== null) return json({ error: 'pair_locked', minutes: lockMinutes }, 429);
 
             const digits = String(body.code ?? '').replace(/\D/g, '');
             if (digits.length !== PAIR_CODE_LENGTH) {
-                await failedPairAttempt(admin, ip);
                 return json({ error: 'invalid_pair_code' }, 401);
             }
             const codeHash = await hashPin(digits);
@@ -648,13 +737,15 @@ Deno.serve(async (req: Request) => {
                     .limit(1)
                     .maybeSingle();
                 if (closed) {
+                    await refundPairAttempt(admin, ip);
                     const expired = new Date(closed.expires_at) <= new Date();
                     await audit(closed.organization_id, null, 'failed_pair', expired ? 'expired' : 'used');
                     return json({ error: expired ? 'expired_pair_code' : 'used_pair_code' }, 401);
                 }
-                await failedPairAttempt(admin, ip);
                 return json({ error: 'invalid_pair_code' }, 401);
             }
+            // Kod VAR: tahmin değil, hak geri (süresi dolmuş da olsa — 099).
+            await refundPairAttempt(admin, ip);
 
             // Süresi dolmuş kod YANLIŞ kod değildir: kullanıcı doğru yazdı, kod
             // eskidi. Çözümü de başka — yenisini işletme sahibi üretecek. Aynı
@@ -891,19 +982,20 @@ Deno.serve(async (req: Request) => {
                 return json({ error: 'locked', until: member.pin_locked_until }, 429);
             }
 
+            // Hak karşılaştırmadan ÖNCE (142).
+            const slot = await reservePinAttempt(admin, member);
+            if (!slot.reserved) {
+                return slot.lockedUntil
+                    ? json({ error: 'locked', until: slot.lockedUntil }, 429)
+                    : json({ error: 'locked', minutes: PIN_LOCK_MINUTES }, 429);
+            }
+
             if (!safeEqual(await hashPin(pin), member.pin)) {
-                const attempts = (member.pin_attempts || 0) + 1;
-                const lock = attempts >= PIN_MAX_ATTEMPTS;
-                await admin.from('staff').update({
-                    pin_attempts: lock ? 0 : attempts,
-                    pin_locked_until: lock
-                        ? new Date(Date.now() + PIN_LOCK_MINUTES * 60_000).toISOString()
-                        : null,
-                }).eq('id', member.id);
+                const lock = slot.lockedUntil !== null;
                 await audit(claims.org, member.id, lock ? 'locked' : 'failed_pin');
                 return lock
                     ? json({ error: 'locked', minutes: PIN_LOCK_MINUTES }, 429)
-                    : json({ error: 'invalid_credentials', remaining: PIN_MAX_ATTEMPTS - attempts }, 401);
+                    : json({ error: 'invalid_credentials', remaining: PIN_MAX_ATTEMPTS - slot.attempts }, 401);
             }
 
             // Doğru PIN — sayacı sıfırla. `session_epoch` tetikleyicisi yalnız
@@ -1159,19 +1251,19 @@ Deno.serve(async (req: Request) => {
             if (lockedUntil && lockedUntil > new Date()) {
                 return json({ error: 'locked', until: member.pin_locked_until }, 429);
             }
+            // Hak karşılaştırmadan ÖNCE (142).
+            const slot = await reservePinAttempt(admin, member);
+            if (!slot.reserved) {
+                return slot.lockedUntil
+                    ? json({ error: 'locked', until: slot.lockedUntil }, 429)
+                    : json({ error: 'locked', minutes: PIN_LOCK_MINUTES }, 429);
+            }
             if (!member.pin || !safeEqual(await hashPin(currentPin), member.pin)) {
-                const attempts = (member.pin_attempts || 0) + 1;
-                const lock = attempts >= PIN_MAX_ATTEMPTS;
-                await admin.from('staff').update({
-                    pin_attempts: lock ? 0 : attempts,
-                    pin_locked_until: lock
-                        ? new Date(Date.now() + PIN_LOCK_MINUTES * 60_000).toISOString()
-                        : null,
-                }).eq('id', member.id);
+                const lock = slot.lockedUntil !== null;
                 await audit(me.organization_id, member.id, lock ? 'locked' : 'failed_pin', 'pin.change');
                 return lock
                     ? json({ error: 'locked', minutes: PIN_LOCK_MINUTES }, 429)
-                    : json({ error: 'invalid_credentials', remaining: PIN_MAX_ATTEMPTS - attempts }, 401);
+                    : json({ error: 'invalid_credentials', remaining: PIN_MAX_ATTEMPTS - slot.attempts }, 401);
             }
 
             const { data: changed, error: changeErr } = await admin
@@ -1621,7 +1713,13 @@ Deno.serve(async (req: Request) => {
             // İkinci kez başlatmak sayacı sıfırlar — bu bir hata değil, veri
             // kaybı. Zaten başlamışsa mevcut damgayı KORU.
             const patch: Record<string, unknown> = {};
-            if (!res!.arrived_at) patch.arrived_at = new Date().toISOString();
+            if (!res!.arrived_at) {
+                patch.arrived_at = new Date().toISOString();
+                // Başlayan iş "gelmedi" değildir (142): yanlışlıkla basılmış
+                // damga kalırsa Gün ve rapor müşteriyi hem gelmiş hem
+                // gelmemiş sayar.
+                patch.no_show_at = null;
+            }
             if (res!.status === 'pending') patch.status = 'confirmed';
             if (Object.keys(patch).length > 0) {
                 let update = admin.from('reservations').update(patch)
@@ -1687,10 +1785,20 @@ Deno.serve(async (req: Request) => {
             const { data: updated, error } = await admin.from('reservations').update(patch)
                 .eq('id', res!.id)
                 .eq('organization_id', me.organization_id)
+                // Biten işin beklemesi yazılmaz (142): okuma ile yazma
+                // arasında iş kapandıysa koşul satırı dışarıda bırakır.
+                .neq('status', 'completed')
                 .select(RES_COLS)
                 .maybeSingle();
             if (error) { console.error('visit.wait', error); return json({ error: 'write_failed' }, 500); }
-            if (!updated) return json({ error: 'not_found' }, 404);
+            if (!updated) {
+                // Kaldırmak her durumda kabul ediliyordu: bitmiş işte de
+                // "tamam" de, satıra dokunmadan.
+                if (minutes === null && res!.status === 'completed') {
+                    return await done({ ok: true, reservation: res });
+                }
+                return json({ error: minutes === null ? 'not_found' : 'not_running' }, minutes === null ? 404 : 409);
+            }
             return await done({ ok: true, reservation: updated });
         }
 
@@ -1893,9 +2001,14 @@ Deno.serve(async (req: Request) => {
             const { data: updated, error } = await admin.from('reservations')
                 .update({ formula })
                 .eq('id', res!.id)
+                .eq('organization_id', me.organization_id)
+                // Okuma ile yazma arasında kasaya giden adisyonun formülü
+                // kilitli (142).
+                .neq('status', 'completed')
                 .select(RES_COLS)
                 .maybeSingle();
             if (error) { console.error('visit.formula', error); return json({ error: 'write_failed' }, 500); }
+            if (!updated) return json({ error: 'formula_locked' }, 409);
             return await done({ ok: true, reservation: updated });
         }
 
@@ -2162,6 +2275,26 @@ Deno.serve(async (req: Request) => {
                 return json({ error: 'invalid_method' }, 400);
             }
 
+            /*
+             * YETKİ (142). `payments:collect` düz `staff` rolünde YOK; sunucu
+             * bakmıyordu ve ekip personeli kendi biten işini "kartla tahsil
+             * edildi" yazabiliyordu. TEK KİŞİLİK işletmede tek personel
+             * sahibin kendisi (`solo.session`) — kasası da onun; orada rol
+             * sorulmuyor. 1.0.1'de bu ucu yalnız tek kişilik kabuk çağırıyor.
+             */
+            if (!can(me.role, 'payments:collect')) {
+                const { data: org, error: orgErr } = await admin.from('organizations')
+                    .select('solo').eq('id', me.organization_id).maybeSingle();
+                if (orgErr) {
+                    console.error('visit.collect org', orgErr);
+                    return json({ error: 'lookup_failed' }, 500);
+                }
+                if (!org?.solo) {
+                    await audit(me.organization_id, me.id, 'visit.forbidden', 'collect');
+                    return json({ error: 'forbidden' }, 403);
+                }
+            }
+
             const { res, err } = await loadOwnReservation(body.reservationId);
             if (err) return err;
 
@@ -2322,19 +2455,61 @@ Deno.serve(async (req: Request) => {
 
             if (!(amount > 0)) return json({ error: 'zero_amount' }, 409);
 
-            const { data: payment, error: payErr } = await admin.from('payments').insert({
-                organization_id: me.organization_id,
-                customer_id: res!.customer_id,
-                reservation_id: res!.id,
-                type: 'service',
-                description: res!.service,
-                amount,
-                method,
-            }).select('id, amount, method, paid_at').maybeSingle();
-            if (payErr || !payment) {
-                console.error('visit.collect payment', payErr);
-                return json({ error: 'write_failed' }, 500);
+            /*
+             * ÇİFT TAHSİLAT (142). Yukarıdaki "var olan tahsilat" sorgusu ile
+             * bu yazma arasında ikinci bir istek (farklı idempotens anahtarı:
+             * iki telefon, ekranı kapatıp açma) aynı boşluğu görüp ikinci
+             * kaydı yazabiliyordu. `staff_collect_payment` rezervasyon satırını
+             * FOR UPDATE kilitleyip geri alınmamış tahsilatı YENİDEN soruyor;
+             * varsa onu dönüyor. Masaüstünün kısmi ödemesi ve 111 geri alma
+             * bu fonksiyona uğramıyor. Komisyon için `staff_id` işin
+             * personeli (073 payments.staff_id'den okuyor).
+             */
+            let payment: { id: string; amount: number; method: string; paid_at: string } | null = null;
+            const { data: rpcOut, error: rpcErr } = await admin.rpc('staff_collect_payment', {
+                p_org: me.organization_id,
+                p_reservation: res!.id,
+                p_customer: res!.customer_id ?? null,
+                p_description: res!.service ?? null,
+                p_amount: amount,
+                p_method: method,
+                p_staff: res!.staff_id ?? null,
+            });
+            if (!rpcErr) {
+                const out = (rpcOut ?? {}) as { status?: string; payment?: typeof payment; paid?: number };
+                if (out.status === 'not_found') return json({ error: 'not_found' }, 404);
+                if (out.status === 'exists') {
+                    // Arada yazılan kayıt kısmiyse kalanı Kasa hesaplar (D6) —
+                    // yukarıdaki "var olan tahsilat" kapısıyla aynı kural.
+                    if ((Number(out.paid) || 0) + 0.005 < amount) {
+                        return json({ error: 'collect_in_kasa', reason: 'partial' }, 409);
+                    }
+                    const { error: flagErr } = await admin.from('reservations')
+                        .update({ is_paid: true })
+                        .eq('id', res!.id)
+                        .eq('organization_id', me.organization_id);
+                    if (flagErr) console.error('visit.collect is_paid (race)', flagErr);
+                    return await done({ ok: true, alreadyCollected: true, payment: out.payment ?? null });
+                }
+                payment = out.payment ?? null;
+            } else if (missingRpc(rpcErr)) {
+                // Göç 142 yoksa eski yol (kilitsiz) — yalnız yükleme sırası ters giderse.
+                const { data, error: payErr } = await admin.from('payments').insert({
+                    organization_id: me.organization_id,
+                    customer_id: res!.customer_id,
+                    reservation_id: res!.id,
+                    type: 'service',
+                    description: res!.service,
+                    amount,
+                    method,
+                    staff_id: res!.staff_id ?? null,
+                }).select('id, amount, method, paid_at').maybeSingle();
+                if (payErr) console.error('visit.collect payment', payErr);
+                payment = data ?? null;
+            } else {
+                console.error('visit.collect staff_collect_payment', rpcErr);
             }
+            if (!payment) return json({ error: 'write_failed' }, 500);
 
             /*
              * `is_paid` PARA KAYDINDAN SONRA ve hatası isteği DÜŞÜRMÜYOR.

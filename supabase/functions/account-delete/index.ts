@@ -139,6 +139,30 @@ Deno.serve(async (req: Request) => {
 
         if (role !== 'owner') return json({ error: 'forbidden_role' }, 403);
 
+        /*
+         * BAŞKA İŞLETMESİ VARSA HİÇBİR ŞEY SİLİNMEZ (142).
+         *
+         * `organizations.owner_id → auth.users ON DELETE CASCADE`: en sondaki
+         * `deleteUser` kişinin SAHİBİ OLDUĞU BÜTÜN işletmeleri götürüyordu.
+         * Abonelik yalnız seçili işletme için iptal ediliyordu; öbürlerinin
+         * Dodo aboneliği açık kalıp hizmetsiz tahsilat yapmaya devam ederdi
+         * ve işletmeler sessizce kaybolurdu. Hepsini burada iptal etmek
+         * yerine durmak doğru: hangi işletmenin gideceğine kullanıcı karar
+         * vermeli. Kontrol Apple adımından ÖNCE — durulacaksa Apple belgesi
+         * boşa iptal edilmesin.
+         */
+        const { data: otherOwned, error: otherErr } = await admin
+            .from('organizations')
+            .select('id')
+            .eq('owner_id', userId)
+            .neq('id', orgId)
+            .limit(1);
+        if (otherErr) {
+            console.error('other owned org lookup failed', otherErr);
+            return json({ error: 'owner_lookup_failed' }, 500);
+        }
+        if ((otherOwned ?? []).length > 0) return json({ error: 'other_orgs_owned' }, 409);
+
         // Apple — yetki tamam, henüz hiçbir şey silinmedi.
         const appleStop = await appleStep();
         if (appleStop) return appleStop;

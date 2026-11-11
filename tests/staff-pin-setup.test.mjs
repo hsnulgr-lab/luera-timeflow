@@ -198,7 +198,8 @@ test('pin.change: personel token\'ı, eski şifre sayaçlı, yeni token', () => 
     // Cihaz token'ı buraya ulaşamaz: blok personel kapısının ARDINDA.
     assert.ok(api.indexOf("if (action === 'pin.change')") > api.indexOf("if (isDevice) return json({ error: 'staff_token_required' }, 403)"));
     assert.match(change, /if \(currentPin === nextPin\) return json\(\{ error: 'same_pin' \}, 400\);/);
-    assert.match(change, /const lock = attempts >= PIN_MAX_ATTEMPTS;/);
+    // 142: hak karşılaştırmadan ÖNCE atomik ayrılıyor; son hak kilidi basıyor.
+    assert.match(change, /const slot = await reservePinAttempt\(admin, member\);[\s\S]*?const lock = slot\.lockedUntil !== null;/);
     assert.match(change, /\.eq\('pin', member\.pin\)/);
     assert.match(change, /audit\(me\.organization_id, member\.id, 'pin_changed'\)/);
     assert.match(change, /return loginResponse\(changed as StaffRow, claims\.did\);/);

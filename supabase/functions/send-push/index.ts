@@ -81,6 +81,28 @@ Deno.serve(async (req: Request) => {
             }
         }
 
+        /*
+         * PASİF PERSONEL BİLDİRİM ALMAZ (142). Pasife alma yalnız
+         * `is_active=false` yazıyordu; 082 oturumu düşürüyor ama abonelik
+         * kalıyordu ve bildirim gitmeye devam ediyordu. 142'nin tetikleyicisi
+         * abonelikleri siliyor; bu kapı aradaki pencereyi (ve tetikleyiciden
+         * önce kalmış satırları) kapatıyor. Personel bulunamazsa da gönderilmez.
+         */
+        if (target.staffId) {
+            const { data: member, error: memberErr } = await admin.from('staff')
+                .select('is_active')
+                .eq('id', target.staffId)
+                .eq('organization_id', organization_id)
+                .maybeSingle();
+            if (memberErr) {
+                console.error('push personel okunamadı', memberErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+            if (!member || member.is_active === false) {
+                return json({ sent: 0, note: 'inactive_staff' }, 200);
+            }
+        }
+
         // Hedef abonelikleri seç
         let q = admin.from('push_subscriptions')
             .select('id, kind, endpoint, p256dh, auth')
