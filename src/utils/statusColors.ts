@@ -30,12 +30,18 @@ export const STATUS_DOT: Record<ResStatus, string> = {
 // "Hizmette" gösterir; diğer durumlar normal durum rozetine düşer.
 // apptPhase ile aynı yaşam döngüsünü paylaşır (tek kaynak).
 import type { Reservation } from '@/types';
-import { apptPhase } from '@/lib/appointmentFlow';
+import { apptPhase, PHASE_LABEL } from '@/lib/appointmentFlow';
 
 export function phaseBadge(
-  r: Pick<Reservation, 'status' | 'arrivedAt' | 'customerArrivedAt' | 'date' | 'startTime'>,
+  r: Pick<Reservation, 'status' | 'arrivedAt' | 'customerArrivedAt' | 'date' | 'startTime'> & Pick<Partial<Reservation>, 'noShowAt'>,
 ): { label: string; badge: string; dot: string } {
   const ph = apptPhase(r);
+  if (ph === 'missed') {
+    // "Gelmedi" — telefonla aynı evre (apptPhase · NO_SHOW_AFTER_MIN / noShowAt).
+    // Eskiden haritada yoktu, `?? 'confirmed'` ile "Onaylı" görünüyordu.
+    // Renk iptal kırmızısı (mevcut token); etiket ayrışır.
+    return { label: PHASE_LABEL.missed, badge: STATUS_BADGE.cancelled, dot: STATUS_DOT.cancelled };
+  }
   if (ph === 'inService') {
     // Turuncu — "aktif/devam ediyor" hissi; bekleyen(amber) ve onaylı(yeşil)dan ayrışır
     return { label: 'Hizmette', badge: 'bg-[#FFE7D6] text-[#C2410C]', dot: 'bg-[#EA580C]' };

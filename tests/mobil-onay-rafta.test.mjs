@@ -37,15 +37,16 @@ test('beklemede durumunu okuyan her yer anahtardan geçiyor', () => {
     }
 });
 
-// 2026-10-17 (denetim A1): elle randevunun durumu artık sektör profilinden.
-// Güzellik `confirmed` yazıyor; diş/sağlık/dövme vb. bilerek `pending`
-// (Teyit bekliyor / talep) — rafın sebebi o sektörlerde ve dış kanallarda
-// (otomatik onay kapalıyken) sürüyor. Onay akışı kullanıcı kararıyla kapalı kalır.
-test('masaüstü elle randevu: durum profilden — güzellik onaylı, diğerleri pending (rafın sebebi)', async () => {
+// 2026-10-17 (denetim A1): elle randevunun durumu sektör profilinden.
+// 2026-11-12 (Paket D): profil her sektörde `confirmed` — telefon `pending`'i
+// onaylı sayıp "Gelmedi"ye düşürüyordu, masaüstü "Onay Bekliyor"da tutuyordu.
+// Dış kanalların (otomatik onay kapalıyken) `pending`'i sürüyor; onay akışı
+// kullanıcı kararıyla kapalı kalır.
+test('masaüstü elle randevu: durum profilden — her sektörde onaylı', async () => {
     assert.match(read('../src/pages/CalendarPage.tsx'), /status: calendarProfileFor\(settings\.sector\)\.manualStatus, notes: newRes\.notes/);
     const { calendarProfileFor } = await import('../src/lib/calendarSectorProfiles.ts');
     assert.equal(calendarProfileFor('guzellik').manualStatus, 'confirmed');
-    assert.equal(calendarProfileFor('dis').manualStatus, 'pending');
+    assert.equal(calendarProfileFor('dis').manualStatus, 'confirmed');
 });
 
 test('geri sayım tek satır: rakam büyük, birim küçük, sığmazsa küçülür', () => {

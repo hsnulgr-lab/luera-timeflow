@@ -41,6 +41,13 @@ export interface CalendarProfile {
      * düzeltme 2026-10-17). Güzellik panosu ve hızlı randevu zaten
      * `confirmed` yazıyor; takvim onlara uyar. Dış kanallar (randevu sayfası,
      * WhatsApp) bundan etkilenmez — onlar `booking_auto_confirm`a bakar.
+     *
+     * 2026-11-12 (mobil↔masaüstü uyum denetimi, Paket D): varsayılan da
+     * `confirmed`. Telefonda onay akışı rafta ("Onayla" kapalı) ve telefon
+     * `pending`'i onaylı sayıp 30 dk sonra "Gelmedi" gösteriyordu; masaüstü
+     * aynı randevuyu sonsuza dek "Onay Bekliyor" tutuyordu. Elle açılan randevu
+     * artık her sektörde onaylı. Online randevu / WhatsApp `pending` yolları
+     * bu alana bakmaz, değişmedi.
      */
     manualStatus: 'pending' | 'confirmed';
 }
@@ -50,7 +57,7 @@ const DEFAULT_PROFILE: CalendarProfile = {
     reservations: 'genel',
     customers: 'genel',
     mobileCalendar: 'genel',
-    manualStatus: 'pending',
+    manualStatus: 'confirmed',
 };
 
 const SALON: CalendarProfile = {

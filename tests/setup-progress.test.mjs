@@ -275,7 +275,10 @@ test('kurulumu tek bir sayaç sayıyor — paneller kendi adımlarını saymıyo
 test('Ayarlar kaydı dokunulmamış yer tutucu hizmetleri veritabanına yazmaz (2026-10-30)', () => {
     const hook = readFileSync(new URL('../src/hooks/useReservations.ts', import.meta.url), 'utf8');
     // Tek kapı updateSettings: Ayarlar'ın bütün bölümleri oradan yazar.
-    assert.match(hook, /const toInsert = newSettings\.services\.filter\(s => !existingIds\.has\(s\.id\) && !isUntouchedPlaceholder\(s\)\);/);
+    // 2026-11-12: plan lib/ayarYazimi'de; yer tutucu süzgeci oraya geçirilir.
+    assert.match(hook, /planServiceWrites\([\s\S]*?newSettings\.services,\s*isUntouchedPlaceholder,\s*\)/);
+    const plan = readFileSync(new URL('../src/lib/ayarYazimi.ts', import.meta.url), 'utf8');
+    assert.match(plan, /const toInsert = next\.filter\(\(s\) => !dbIds\.has\(s\.id\) && !loadedIds\.has\(s\.id\) && !isPlaceholder\(s\)\);/);
     // Düzenlenen yer tutucu kullanıcının hizmetidir: ad, süre, renk ya da fiyat değişince yazılır.
     assert.match(hook, /s\.name === d\.name && s\.duration === d\.duration && s\.color === d\.color && !s\.price/);
 });

@@ -14,6 +14,8 @@ import { buildConfirmationMessage, buildRebookMessage } from '@/services/waTempl
 import { sendWhatsApp, lastProxyError, WA_FAIL_TEXT } from '@/services/whatsapp';
 import { DEFAULT_ARRIVAL_TOLERANCE_MIN, didBecomeClosed, recallDaysFor } from '@/lib/appointmentFlow';
 import type { Reservation, Settings, Service, ServiceRecipeLine } from '@/types';
+import { readAllPages } from '@/lib/sayfaliOku';
+import { changedSettingsColumns, dedupeByName, mergeSettingsFields, pickColumnFields, planServiceWrites, servicesChanged, settingsColumnsOf } from '@/lib/ayarYazimi';
 
 /*
  * HİZMET REÇETESİ — 2026-10-19'a kadar HİÇ KAYDEDİLMİYORDU.
@@ -67,6 +69,24 @@ function recipeOf(raw: unknown): ServiceRecipeLine[] | undefined {
     return lines.length > 0 ? lines : undefined;
 }
 
+/** `services` satırı → Service (yükleme ve kayıt sonrası yenileme aynı eşlemeyi kullanır). */
+function mapServiceRow(s: any): Service {
+    return {
+        id: s.id,
+        name: s.name,
+        duration: s.duration,
+        color: s.color,
+        price: s.price ? Number(s.price) : undefined,
+        recallDays: s.recall_days ? Number(s.recall_days) : undefined,
+        // 076 uygulanmadıysa kolon yoktur — hizmet etiketsiz kabul edilir ve
+        // kontrendikasyon ad eşleşmesine düşer (bkz. lib/serviceEligibility).
+        tags: Array.isArray(s.tags) && s.tags.length > 0 ? (s.tags as string[]) : undefined,
+        recipe: recipeOf(s.recipe),
+        description: typeof s.description === 'string' && s.description.trim() ? s.description : undefined,
+        prepNote: typeof s.prep_note === 'string' && s.prep_note.trim() ? s.prep_note : undefined,
+    };
+}
+
 // Renkler Luera paletinden (src/utils/palette.ts) — tasarımla uyumlu, sıcak tonlar
 const defaultServices: Service[] = [
     { id: '1', name: 'Genel Randevu', duration: 30, color: '#FF5A1F' }, // turuncu
@@ -102,6 +122,26 @@ const defaultSettings: Settings = {
     services: defaultServices,
     slotDuration: 30,
 };
+
+/** `settings` satırı → Settings (yükleme ve kilit çakışmasında yeniden okuma aynı eşlemeyi kullanır). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function settingsFromRow(row: any, services: Service[]): Settings {
+    return {
+        businessName: row.business_name,
+        workingHours: row.working_hours || defaultSettings.workingHours,
+        services,
+        slotDuration: row.slot_duration,
+        webhookUrl: row.webhook_url || undefined,
+        sector: row.sector || 'genel',
+        managerPin: row.manager_pin || undefined,
+        loyaltyEnabled: row.loyalty_enabled ?? false,
+        loyaltyThreshold: row.loyalty_threshold ?? 10,
+        loyaltyReward: row.loyalty_reward || 'Ücretsiz hizmet',
+        rebookEnabled: row.rebook_enabled ?? false,
+        rebookNote: row.rebook_note || '',
+        arrivalToleranceMin: row.arrival_tolerance_min ?? undefined,
+    };
+}
 
 function timeToMinutes(time: string): number {
     if (!time || !time.includes(':')) return 0;
@@ -212,6 +252,13 @@ function useReservationsState() {
     const settingsRequestRef = useRef(0);
     // Okunan ayar satırının sahibi (işletme sahibi); kayıt da o satıra gider.
     const settingsUserRef = useRef<string | null>(null);
+    // Yazım tabanı (lib/ayarYazimi): veritabanından en son okunan/yazılan ayar
+    // satırı ve damgası. Yalnız bundan farklı kolonlar, bu damgayla yazılır.
+    // null = satır henüz yok/okunmadı → ilk oluşturma yolu (upsert).
+    const settingsRowRef = useRef<{ base: Settings; stamp: string | null } | null>(null);
+    // Hizmet tabanı: ekranda gösterilen liste + yüklemede DB'de görülen TÜM
+    // kimlikler (ad ikizleri dahil). Silme yalnız bu kümeden yapılır.
+    const servicesBaseRef = useRef<{ shown: Service[]; loadedIds: Set<string> } | null>(null);
     useEffect(() => { webhookUrlRef.current = settings.webhookUrl; }, [settings.webhookUrl]);
 
     // Güncelleme ÖNCESİ satırı okumak için — updateReservation, kaydın bu
@@ -250,7 +297,6 @@ function useReservationsState() {
         setIsLoading(true);
         setError(null);
 
-        // Tenant izolasyonu — orgId bilindiğinde açık filtre (RLS'e ek savunma)
         const resolvedOrgId = currentOrgId ?? orgId;
 
         // SWR: önce son bilinen liste anında gösterilir (hard refresh'te
@@ -260,21 +306,28 @@ function useReservationsState() {
             if (cached) { setReservations(cached); setIsLoading(false); }
         }
 
-        let query = supabase
-            .from('reservations')
-            .select('*, staff(name, color)');
-        if (resolvedOrgId) query = query.eq('organization_id', resolvedOrgId);
-
-        // Son 90 gün + gelecekteki tüm rezervasyonlar; 1000-satır truncation'ı engeller
+        // Son 90 gün + gelecekteki tüm rezervasyonlar. Eskiden `.limit(500)`
+        // vardı: tarih azalan sıralı olduğundan yoğun salonda (tekrarlayan
+        // gelecek randevularla) bugün ve geçmiş haftalar sessizce düşüyor;
+        // kasa, pano ve prim eksik sayıyordu. Artık kısa sayfa gelene kadar
+        // sayfalı okunur; `id` sayfa sınırında sıralamayı kararlı tutar.
         const ninetyDaysAgo = new Date();
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
         const cutoff = ninetyDaysAgo.toISOString().slice(0, 10);
 
-        const { data, error } = await query
-            .gte('date', cutoff)
-            .order('date', { ascending: false })
-            .order('start_time', { ascending: true })
-            .limit(500);
+        const { rows: data, error } = await readAllPages<Record<string, unknown>>((from, to) => {
+            let query = supabase
+                .from('reservations')
+                .select('*, staff(name, color)');
+            // Tenant izolasyonu — orgId bilindiğinde açık filtre (RLS'e ek savunma)
+            if (resolvedOrgId) query = query.eq('organization_id', resolvedOrgId);
+            return query
+                .gte('date', cutoff)
+                .order('date', { ascending: false })
+                .order('start_time', { ascending: true })
+                .order('id', { ascending: true })
+                .range(from, to);
+        });
 
         if (error) {
             loadFailed('Rezervasyonlar yüklenemedi', error);
@@ -289,7 +342,7 @@ function useReservationsState() {
     }, [user, orgId]);
 
     // Ziyaret ekranı geçmiş bir randevuya doğrudan bağlanabilir. Ana liste
-    // performans için son 90 gün / 500 satırla sınırlı olduğundan yalnızca
+    // performans için son 90 günle sınırlı olduğundan yalnızca
     // provider state'inde aramak eski deep-link'leri yanlışlıkla 404 yapar.
     // Tam kimlikli sorgu tenant filtresiyle çalışır ve bulunan satırı ortak
     // listeye bir kez merge eder; böylece alt bileşenler de aynı bağlamı görür.
@@ -384,45 +437,19 @@ function useReservationsState() {
             return;
         }
 
-        const allServices: Service[] = (servicesData || []).map((s: any) => ({
-            id: s.id,
-            name: s.name,
-            duration: s.duration,
-            color: s.color,
-            price: s.price ? Number(s.price) : undefined,
-            recallDays: s.recall_days ? Number(s.recall_days) : undefined,
-            // 076 uygulanmadıysa kolon yoktur — hizmet etiketsiz kabul edilir ve
-            // kontrendikasyon ad eşleşmesine düşer (bkz. lib/serviceEligibility).
-            tags: Array.isArray(s.tags) && s.tags.length > 0 ? (s.tags as string[]) : undefined,
-            recipe: recipeOf(s.recipe),
-            description: typeof s.description === 'string' && s.description.trim() ? s.description : undefined,
-            prepNote: typeof s.prep_note === 'string' && s.prep_note.trim() ? s.prep_note : undefined,
-        }));
-
-        const seen = new Set<string>();
-        const services = allServices.filter(s => {
-            if (seen.has(s.name)) return false;
-            seen.add(s.name);
-            return true;
-        });
+        const allServices: Service[] = (servicesData || []).map(mapServiceRow);
+        // Aynı adlı ikiz ekranda bir kez görünür; elenen ikiz SİLİNMEZ
+        // (updateSettings yalnız ekranda gösterileni silebilir).
+        const services = dedupeByName(allServices);
+        servicesBaseRef.current = {
+            shown: services.length > 0 ? services : defaultSettings.services,
+            loadedIds: new Set(allServices.map((x) => x.id)),
+        };
 
         if (settingsData) {
-            const fresh: Settings = {
-                businessName: settingsData.business_name,
-                workingHours: settingsData.working_hours || defaultSettings.workingHours,
-                services: services.length > 0 ? services : defaultSettings.services,
-                slotDuration: settingsData.slot_duration,
-                webhookUrl: settingsData.webhook_url || undefined,
-                sector: settingsData.sector || 'genel',
-                managerPin: settingsData.manager_pin || undefined,
-                loyaltyEnabled: settingsData.loyalty_enabled ?? false,
-                loyaltyThreshold: settingsData.loyalty_threshold ?? 10,
-                loyaltyReward: settingsData.loyalty_reward || 'Ücretsiz hizmet',
-                rebookEnabled: settingsData.rebook_enabled ?? false,
-                rebookNote: settingsData.rebook_note || '',
-                arrivalToleranceMin: settingsData.arrival_tolerance_min ?? undefined,
-            };
+            const fresh = settingsFromRow(settingsData, services.length > 0 ? services : defaultSettings.services);
             setSettings(fresh);
+            settingsRowRef.current = { base: fresh, stamp: (settingsData.updated_at as string | null) ?? null };
             if (resolvedOrgId) writeCache(`settings:${resolvedOrgId}`, fresh);
             // Sektörel WhatsApp profilini DB'ye senkronla (066). Edge function
             // sektör tablosunu kod içinde taşımaz, yalnız bu kolonu okur.
@@ -430,6 +457,7 @@ function useReservationsState() {
             void syncSectorComms(resolvedOrgId, fresh.sector || 'genel', settingsData.comms);
             void syncSectorRules(resolvedOrgId, fresh.sector || 'genel', settingsData.risk_rules);
         } else {
+            settingsRowRef.current = null;
             // Fallback: handle_new_user trigger bu kaydı oluşturur,
             // ama organizasyon bulunabilirse manuel oluştur. Yalnız sahip (ya da
             // sahibi okunamadıysa kendisi) için: ekip üyesi adına varsayılan
@@ -1073,35 +1101,93 @@ function useReservationsState() {
             return false;
         }
 
-        const { error: settingsError } = await supabase
-            .from('settings')
-            .upsert({
-                user_id: settingsUserRef.current ?? user.id,
-                organization_id: orgId,
-                business_name: newSettings.businessName,
-                slot_duration: newSettings.slotDuration,
-                working_hours: newSettings.workingHours,
-                webhook_url: newSettings.webhookUrl || null,
-                sector: newSettings.sector || 'genel',
-                manager_pin: newSettings.managerPin || null,
-                loyalty_enabled: newSettings.loyaltyEnabled ?? false,
-                loyalty_threshold: newSettings.loyaltyThreshold ?? 10,
-                loyalty_reward: newSettings.loyaltyReward || 'Ücretsiz hizmet',
-                rebook_enabled: newSettings.rebookEnabled ?? false,
-                rebook_note: newSettings.rebookNote || '',
-                updated_at: new Date().toISOString(),
-            }, { onConflict: 'user_id' });
+        // Bellekteki ayar: tabandaki (DB'nin bildiğimiz son hâli) kolon alanları
+        // + bu çağrının değişiklikleri. Kilit turunda telefonun yeni saatleri
+        // okunduysa ekran da onları gösterir.
+        const syncedSettings = (prev: Settings, next: Settings): Settings => {
+            const b = settingsRowRef.current?.base;
+            return b ? { ...mergeSettingsFields(prev, next), ...pickColumnFields(b) } : mergeSettingsFields(prev, next);
+        };
 
-        if (settingsError) {
-            toast.error('Ayarlar kaydedilemedi');
-            console.error('Error updating settings:', settingsError);
-            return false;
+        // ── 1) settings satırı: yalnız değişen kolonlar, updated_at kilidiyle ──
+        // Çağıranlar `{...settings, X}` gönderir; bellekteki öteki alanlar bayat
+        // olabilir (telefon az önce saatleri değiştirmiş olabilir). Satırın
+        // tamamını yazmak onları sessizce geri alıyordu (lib/ayarYazimi).
+        const row = settingsRowRef.current;
+        const stampedAt = new Date().toISOString();
+        if (!row) {
+            // Satır yok ya da hiç okunamadı: ilk oluşturma yolu (eski davranış).
+            const { data: created, error: settingsError } = await supabase
+                .from('settings')
+                .upsert({
+                    user_id: settingsUserRef.current ?? user.id,
+                    organization_id: orgId,
+                    ...settingsColumnsOf(newSettings),
+                    updated_at: stampedAt,
+                }, { onConflict: 'user_id' })
+                .select('updated_at')
+                .maybeSingle();
+            if (settingsError) {
+                toast.error('Ayarlar kaydedilemedi');
+                console.error('Error updating settings:', settingsError);
+                return false;
+            }
+            settingsRowRef.current = { base: newSettings, stamp: (created?.updated_at as string | null) ?? stampedAt };
+        } else {
+            const ownerId = settingsUserRef.current ?? user.id;
+            let current = row;
+            const changed = changedSettingsColumns(current.base, newSettings);
+            // İkinci tur: kilit, bizim YAZMADIĞIMIZ bir kolon (telefonda saat,
+            // Bildirimler'de tercih, comms senkronu…) yüzünden tuttuysa satır
+            // yeniden okunur ve yalnız bizim kolonlarla bir kez daha denenir.
+            for (let attempt = 0; Object.keys(changed).length > 0; attempt++) {
+                let query = supabase
+                    .from('settings')
+                    .update({ ...changed, updated_at: stampedAt })
+                    .eq('user_id', ownerId);
+                query = current.stamp === null ? query.is('updated_at', null) : query.eq('updated_at', current.stamp);
+                const { data: saved, error: settingsError } = await query.select('updated_at');
+                if (settingsError) {
+                    toast.error('Ayarlar kaydedilemedi');
+                    console.error('Error updating settings:', settingsError);
+                    return false;
+                }
+                if (saved && saved.length > 0) {
+                    const merged = mergeSettingsFields(current.base, newSettings);
+                    settingsRowRef.current = {
+                        base: merged,
+                        stamp: (saved[0]?.updated_at as string | null) ?? stampedAt,
+                    };
+                    break;
+                }
+                // Kilit tuttu: satır başka yerde değişti. Aynı kolon mu?
+                const { data: latest } = await supabase
+                    .from('settings').select('*').eq('user_id', ownerId).maybeSingle();
+                const latestBase = latest ? settingsFromRow(latest, current.base.services) : null;
+                const sameColumnChanged = !latestBase || Object.keys(changed).some((col) => {
+                    const k = col as keyof typeof changed;
+                    return JSON.stringify(settingsColumnsOf(latestBase)[k]) !== JSON.stringify(settingsColumnsOf(current.base)[k]);
+                });
+                if (sameColumnChanged || attempt >= 1) {
+                    toast.error('Ayarlar başka yerde değişti, yenilendi. Değişikliğinizi tekrar yapın.');
+                    void fetchSettings(orgId);
+                    return false;
+                }
+                current = { base: latestBase, stamp: (latest?.updated_at as string | null) ?? null };
+            }
         }
 
-        // Hizmetleri diff-upsert ile güncelle — mevcut ID'ler KORUNUR.
-        // Eski "tümünü sil + yeniden ekle" yaklaşımı her kayıtta servis ID'lerini
-        // değiştiriyor, böylece rezervasyon referansları ve geçmiş bütünlüğü
-        // bozulabiliyordu. Artık sadece eklenen/değişen/kaldırılan satırlara dokunulur.
+        // ── 2) Hizmetler: yalnız liste bu çağrıda gerçekten değiştiyse ──
+        // Eskiden her ayar kaydı DB'deki bütün hizmet kimliklerini okuyup
+        // bellekte olmayanları siliyordu: telefondan eklenen ya da yüklemede
+        // elenen aynı adlı hizmet, saat değişince kalıcı gidiyordu.
+        const svcBase = servicesBaseRef.current;
+        if (svcBase && !servicesChanged(svcBase.shown, newSettings.services)) {
+            setSettings((prev) => syncedSettings(prev, newSettings));
+            return true;
+        }
+
+        // Hizmetleri diff ile güncelle — mevcut ID'ler KORUNUR.
         const { data: existingRows, error: exErr } = await supabase
             .from('services').select('id').eq('organization_id', orgId);
         if (exErr) {
@@ -1113,10 +1199,13 @@ function useReservationsState() {
         // DB'de gerçekten var olan ID'ler — varsayılan ('1'..'5') ID'ler buraya girmez,
         // dolayısıyla onlar otomatik olarak "yeni satır" (insert) sayılır.
         const existingIds = new Set((existingRows || []).map((r: any) => r.id as string));
-        const toUpdate = newSettings.services.filter(s => existingIds.has(s.id));
-        const toInsert = newSettings.services.filter(s => !existingIds.has(s.id) && !isUntouchedPlaceholder(s));
-        const keepIds = new Set(toUpdate.map(s => s.id));
-        const toDelete = [...existingIds].filter(id => !keepIds.has(id));
+        const { toDelete, toUpdate, toInsert } = planServiceWrites(
+            svcBase?.shown ?? [],
+            svcBase?.loadedIds ?? new Set<string>(),
+            existingIds,
+            newSettings.services,
+            isUntouchedPlaceholder,
+        );
 
         // 1) Kaldırılan hizmetleri sil
         if (toDelete.length > 0) {
@@ -1188,22 +1277,19 @@ function useReservationsState() {
             return false;
         }
 
-        const updatedServices: Service[] = (servicesData || []).map((s: any) => ({
-            id: s.id,
-            name: s.name,
-            duration: s.duration,
-            color: s.color,
-            price: s.price ? Number(s.price) : undefined,
-            recallDays: s.recall_days ? Number(s.recall_days) : undefined,
-            // 076 uygulanmadıysa kolon yoktur — hizmet etiketsiz kabul edilir ve
-            // kontrendikasyon ad eşleşmesine düşer (bkz. lib/serviceEligibility).
-            tags: Array.isArray(s.tags) && s.tags.length > 0 ? (s.tags as string[]) : undefined,
-            recipe: recipeOf(s.recipe),
-        }));
+        const allUpdated: Service[] = (servicesData || []).map(mapServiceRow);
+        const updatedServices = dedupeByName(allUpdated);
+        servicesBaseRef.current = {
+            shown: updatedServices.length > 0 ? updatedServices : newSettings.services,
+            loadedIds: new Set(allUpdated.map((x) => x.id)),
+        };
 
-        setSettings({ ...newSettings, services: updatedServices.length > 0 ? updatedServices : newSettings.services });
+        setSettings((prev) => ({
+            ...syncedSettings(prev, newSettings),
+            services: updatedServices.length > 0 ? updatedServices : newSettings.services,
+        }));
         return true;
-    }, [user, orgId]);
+    }, [user, orgId, fetchSettings]);
 
     // ─── Çakışma kontrolü (kaynak = personel bazlı doluluk) ──────────────────
     // Çakışma yalnızca AYNI kaynak içinde geçerlidir:

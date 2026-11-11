@@ -70,12 +70,12 @@ test('sectorFaces yüz seçimini profilden okur, if zinciriyle değil', () => {
 
 // Denetim A1 (2026-09-27, düzeltme 2026-10-17): güzellikte takvimden elle
 // açılan randevu `pending` yazılıyordu → masaüstünde sonsuza dek "Onay
-// Bekliyor", telefonda "Gelmedi". Düzeltme YALNIZ güzellikte: diş/sağlıkta
-// `pending` "Teyit bekliyor", dövmede "talep" demek — onlar bozulmasın.
-test('elle açılan randevu: güzellik onaylı, diğer sektörler bugünkü gibi bekliyor', () => {
-    assert.equal(calendarProfileFor('guzellik').manualStatus, 'confirmed');
-    for (const sector of ['dis', 'saglik', 'fizyoterapi', 'dovme', 'estetik', 'kuafor', 'genel', undefined, null, '']) {
-        assert.equal(calendarProfileFor(sector).manualStatus, 'pending', `${sector} değişmemeli`);
+// Bekliyor", telefonda "Gelmedi". 2026-11-12 (uyum denetimi, Paket D): aynı
+// ayrışma diş/sağlık/genel dahil HER sektörde sürüyordu; telefonda onay akışı
+// rafta olduğu için elle randevu artık her sektörde onaylı.
+test('elle açılan randevu: her sektörde onaylı', () => {
+    for (const sector of ['guzellik', 'dis', 'saglik', 'fizyoterapi', 'dovme', 'estetik', 'kuafor', 'genel', undefined, null, '']) {
+        assert.equal(calendarProfileFor(sector).manualStatus, 'confirmed', `${sector} onaylı yazmalı`);
     }
 });
 
