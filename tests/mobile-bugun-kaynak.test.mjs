@@ -48,7 +48,7 @@ test('hata ELDEKİ listeyi silmiyor', () => {
     // `setRows` hiç çağrılmasın" diye ölçülüyordu; çevrimdışı kopya geldiğinde
     // o dal artık `setRows(hit.rows)` çağırıyor — liste SİLİNMİYOR, tersine
     // dolduruluyor. Ölçü kuralın kendisine çevrildi.
-    const cut = source.slice(source.indexOf('.catch(()'), source.indexOf('return () => { alive = false; };'));
+    const cut = source.slice(source.indexOf('.catch((cause'), source.indexOf('return () => { alive = false; };'));
     // Boşaltan hiçbir yazma yok.
     assert.doesNotMatch(cut, /setRows\(\[\]\)/);
     // Ve hata dalı asla "okuduk" demiyor.
@@ -207,13 +207,13 @@ test('SESSİZ yenilemenin hatası çalışan ekranı BOZMUYOR', () => {
     assert.match(source, /read\(false\)/);
     // Sessiz dalda HİÇBİR durum yazması yok.
     const quiet = source.slice(source.indexOf('if (!visible) return;'));
-    assert.ok(source.indexOf('if (!visible) return;') < source.indexOf("setState('error')", source.indexOf('.catch(() => {')),
+    assert.ok(source.indexOf('if (!visible) return;') < source.indexOf("setState('error')", source.indexOf('.catch((cause: unknown) => {')),
         'sessiz dönüş, hata yazmasından ÖNCE olmalı');
     assert.ok(quiet.length > 0);
     // Yoklama başarısızken hiçbir şeye DOKUNULMUYOR: kopyaya düşme bile
     // yalnız görünür okumada oluyor, çünkü elde canlı liste duruyor ve onu
     // diskteki kopyayla değiştirmek çalışan ekranı geriye almak olurdu.
-    const fail = source.slice(source.indexOf('.catch(() => {'), source.indexOf('}, [dateISO, todayISO]);'));
+    const fail = source.slice(source.indexOf('.catch((cause: unknown) => {'), source.indexOf('}, [dateISO, todayISO]);'));
     assert.match(fail, /if \(!visible\) return;/);
     assert.doesNotMatch(fail, /setRows\(\[\]\)/);
 });

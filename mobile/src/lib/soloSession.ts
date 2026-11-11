@@ -28,7 +28,8 @@
  */
 
 import { authApi } from '../api/session';
-import { setStaffTokenRefresher, tokens } from '../api/staff';
+import { expectStaffOrg, setStaffTokenRefresher, tokens } from '../api/staff';
+import { identityOf } from './staffIdentity.ts';
 import { supabase } from './supabase';
 
 export type SoloSessionFailure =
@@ -80,6 +81,19 @@ export async function openSoloSession(): Promise<void> {
         // Sunucu 200 dedi ama jeton yok. Sessizce geçmek, bir sonraki
         // isteğin anlaşılmaz bir 401'le düşmesi demekti.
         console.error('[tek] solo.session jetonsuz cevap döndü');
+        throw new SoloSessionError('failed');
+    }
+
+    /*
+     * JETON SEÇİLİ SALONUN MU (2026-11-12). Sunucu jetonu oturumun salonu
+     * için basıyor; cihazda seçili salon başkaysa (çok salonlu sahip, bayat
+     * profil) bu jetonu saklamak kumandayı öteki salona yazdırmak olurdu.
+     */
+    const stored = await authApi.resume.get();
+    const wanted = stored.ok && stored.data.actor === 'manager' ? stored.data.profile.business.id : null;
+    const minted = identityOf(token);
+    if (wanted && minted && minted.orgId !== wanted) {
+        console.error('[tek] sunucu başka salonun jetonunu verdi; saklanmadı');
         throw new SoloSessionError('failed');
     }
 
@@ -180,5 +194,20 @@ export async function confirmSoloMode(): Promise<boolean | undefined> {
  */
 export function attachSoloTokenRefresher(): () => void {
     setStaffTokenRefresher(refresh);
-    return () => setStaffTokenRefresher(null);
+    /*
+     * Jetonun SALONU denetleniyor (2026-11-12): jetonun kendi `org` iddiası
+     * seçili salonla tutmuyorsa `call()` onu kullanmıyor, siliyor ve
+     * tazeleyiciden yenisini istiyor. Org kimliği jetonun içinde saklı —
+     * ayrı bir anahtarda tutulsaydı jetonla ayrışabilirdi.
+     */
+    let alive = true;
+    void authApi.resume.get().then((stored) => {
+        if (!alive) return;
+        expectStaffOrg(stored.ok && stored.data.actor === 'manager' ? stored.data.profile.business.id : null);
+    }).catch(() => undefined);
+    return () => {
+        alive = false;
+        setStaffTokenRefresher(null);
+        expectStaffOrg(null);
+    };
 }

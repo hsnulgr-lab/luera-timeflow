@@ -25,27 +25,29 @@ const screen = code(read('app/personel/index.tsx'));
 
 const TODAY = '2026-09-14';
 const rows = [{ id: 'a1', customer_name: 'Ayşe' }];
+/** Kopyanın sahibi — jetonun `org:sub`'u (2026-11-12, kiracı sınırı). */
+const OWNER = 'org-1:staff-1';
 
 // ── Yazma kapısı ────────────────────────────────────────────────────────────
 
 test('YALNIZ bugün diske yazılıyor', () => {
     // Şeritten yarına bakan personel, bugünün kopyasını yarınınkiyle ezerdi ve
     // bodrumda YANLIŞ günü görürdü.
-    assert.ok(cachePayload(TODAY, TODAY, 1000, rows));
-    assert.equal(cachePayload('2026-09-15', TODAY, 1000, rows), null);
-    assert.equal(cachePayload('2026-09-13', TODAY, 1000, rows), null);
+    assert.ok(cachePayload(TODAY, TODAY, 1000, rows, OWNER));
+    assert.equal(cachePayload('2026-09-15', TODAY, 1000, rows, OWNER), null);
+    assert.equal(cachePayload('2026-09-13', TODAY, 1000, rows, OWNER), null);
 });
 
 test('BOŞ liste de yazılıyor', () => {
     // "Bugün randevun yok" gerçek bir cevap. Yazmamak, çevrimdışı açılışta onu
     // "okunamadı"ya çevirirdi.
-    const body = cachePayload(TODAY, TODAY, 1000, []);
+    const body = cachePayload(TODAY, TODAY, 1000, [], OWNER);
     assert.ok(body);
-    assert.deepEqual(parseCache(body, TODAY).rows, []);
+    assert.deepEqual(parseCache(body, TODAY, OWNER).rows, []);
 });
 
 test('yazılan gövde damgayı TAŞIYOR', () => {
-    const hit = parseCache(cachePayload(TODAY, TODAY, 1757000000000, rows), TODAY);
+    const hit = parseCache(cachePayload(TODAY, TODAY, 1757000000000, rows, OWNER), TODAY, OWNER);
     assert.equal(hit.at, 1757000000000);
     assert.equal(hit.date, TODAY);
     assert.equal(hit.rows.length, 1);
@@ -56,22 +58,22 @@ test('yazılan gövde damgayı TAŞIYOR', () => {
 test('BAŞKA güne ait kayıt kullanılmıyor', () => {
     // Tarihin kendisi ömrü sınırlıyor: yarın açıldığında kayıt başka bir güne
     // ait olur ve hiç kullanılmaz. Ayrı bir "son kullanma" alanı gerekmiyor.
-    const dun = cachePayload('2026-09-13', '2026-09-13', 1000, rows);
-    assert.equal(parseCache(dun, TODAY), null);
+    const dun = cachePayload('2026-09-13', '2026-09-13', 1000, rows, OWNER);
+    assert.equal(parseCache(dun, TODAY, OWNER), null);
 });
 
 test('BOZUK kayıt kullanılmıyor', () => {
     // Yarım bir kayda güvenip ekrana basmak, bozuk veriyi gerçek gibi
     // göstermek olurdu — kayıt uygulamanın eski bir sürümünden de gelebilir.
-    assert.equal(parseCache(null, TODAY), null);
-    assert.equal(parseCache('', TODAY), null);
-    assert.equal(parseCache('{bozuk', TODAY), null);
-    assert.equal(parseCache('null', TODAY), null);
-    assert.equal(parseCache('"metin"', TODAY), null);
-    assert.equal(parseCache(JSON.stringify({ date: TODAY, rows: [] }), TODAY), null, 'damgasız');
-    assert.equal(parseCache(JSON.stringify({ date: TODAY, at: 'dün', rows: [] }), TODAY), null);
-    assert.equal(parseCache(JSON.stringify({ date: TODAY, at: 1, rows: 'yok' }), TODAY), null);
-    assert.equal(parseCache(JSON.stringify({ at: 1, rows: [] }), TODAY), null, 'tarihsiz');
+    assert.equal(parseCache(null, TODAY, OWNER), null);
+    assert.equal(parseCache('', TODAY, OWNER), null);
+    assert.equal(parseCache('{bozuk', TODAY, OWNER), null);
+    assert.equal(parseCache('null', TODAY, OWNER), null);
+    assert.equal(parseCache('"metin"', TODAY, OWNER), null);
+    assert.equal(parseCache(JSON.stringify({ date: TODAY, rows: [] }), TODAY, OWNER), null, 'damgasız');
+    assert.equal(parseCache(JSON.stringify({ date: TODAY, at: 'dün', rows: [] }), TODAY, OWNER), null);
+    assert.equal(parseCache(JSON.stringify({ date: TODAY, at: 1, rows: 'yok' }), TODAY, OWNER), null);
+    assert.equal(parseCache(JSON.stringify({ at: 1, rows: [] }), TODAY, OWNER), null, 'tarihsiz');
 });
 
 // ── Kaynak ──────────────────────────────────────────────────────────────────

@@ -1,10 +1,13 @@
 import { useEffect } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import * as Network from 'expo-network';
+import { router } from 'expo-router';
 
-import { api, flushQueue, tokens } from '../api/staff';
+import { api, flushQueue, onStaffSessionStop, tokens } from '../api/staff';
 import { myActor, myStaffId } from './me.ts';
 import { syncManagerPush, syncPush } from './push.ts';
+import { onTenantReset } from './tenantReset';
+import type { SessionStop } from './staffIdentity.ts';
 
 /**
  * Uygulamanın arka plan işleri — kuyruğu boşaltmak ve token'ı tazelemek.
@@ -37,6 +40,51 @@ let lastRefresh = 0;
 export function resetSyncClock(): void {
     lastRefresh = 0;
 }
+
+// Çıkışta / salon değişiminde saat sıfırlanıyor: yeni kişinin jetonu ilk
+// öne dönüşte tazelensin, öncekinin saatini miras almasın.
+onTenantReset(resetSyncClock);
+
+/**
+ * OTURUM DURDU → doğru kapı (2026-11-12).
+ *
+ * `staff.ts · call()` 401 `revoked`/`invalid_token` ya da 403
+ * `subscription_inactive` görünce buraya haber veriyor. Koparılmış oturum
+ * PIN ekranına (eşleşme duruyor; telefon da koparıldıysa PIN ekranı kadroyu
+ * okuyamaz ve eşleştirmeye gönderir), biten abonelik kapalı kapıya.
+ *
+ * Aynı anda birkaç istek düşebiliyor (gün + takvim + zil): ekran bir kez
+ * değişsin diye kısa bir kilit var.
+ */
+const STOP_QUIET_MS = 5_000;
+let lastStop: { stop: SessionStop; at: number } | null = null;
+
+export function routeForStop(stop: SessionStop): '/(auth)/staff/pin' | '/(auth)/locked' {
+    return stop === 'locked' ? '/(auth)/locked' : '/(auth)/staff/pin';
+}
+
+onStaffSessionStop((stop) => {
+    const now = Date.now();
+    if (lastStop && lastStop.stop === stop && now - lastStop.at < STOP_QUIET_MS) return;
+    lastStop = { stop, at: now };
+    void myActor().catch(() => null).then((actor) => {
+        /*
+         * PIN ekranı YALNIZ personelin kapısı. Tek kişilik sahipte jeton
+         * sessizce yeniden alınıyor (`solo.session`); soğuk açılışta tazeleyici
+         * takılmadan önce süresi dolmuş jetonla düşen bir istek sahibi PIN
+         * ekranına atmamalı. Kapalı kapı ise iki role de doğru.
+         */
+        if (stop === 'revoked' && actor !== 'staff') return;
+        try {
+            if (router.canDismiss()) router.dismissAll();
+            router.replace(routeForStop(stop));
+        } catch (cause) {
+            // Yönlendirici henüz kurulmadıysa (açılışın ilk anı) bir sonraki
+            // istek yeniden haber verecek.
+            console.warn('[oturum] kapıya yönlendirilemedi', String(cause));
+        }
+    });
+});
 
 async function refreshIfStale(now: number): Promise<void> {
     if (now - lastRefresh < REFRESH_EVERY_MS) return;

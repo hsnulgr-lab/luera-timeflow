@@ -37,6 +37,7 @@ import {
 import type { CustomerRecord, VisitRecord } from './createLive.ts';
 import { deletionFactsOf } from './accountMap.ts';
 import { waLineDropped, waLineReady } from './actionPill.ts';
+import { onTenantReset } from './tenantReset';
 
 /**
  * Org çözülemediğinde atılan hata.
@@ -64,8 +65,15 @@ export class OrgError extends Error {
  * ÖNCEKİNİN org'unu ikinciye taşırdı. RLS o sorguyu boş döndürür — veri
  * sızmaz ama ekran sebepsiz boş kalır ve kimse nedenini anlamaz. Anahtar
  * kullanıcı kimliği olunca önbellek kendiliğinden ıskalıyor.
+ *
+ * SEÇİLİ SALON DA ANAHTARDA (2026-11-12). Yalnız kullanıcı kimliğiyle
+ * anahtarlıyken "İşletme değiştir" aynı kullanıcı olduğu için önbelleği
+ * ISKALAMIYORDU: telefon yeni salonu gösterdiğini sanıp ESKİ salona okuyup
+ * yazıyordu (iki salon da RLS'te açık — boş da kalmıyordu). Salon seçimi
+ * ayrıca `forgetOrg`u da tetikliyor (`tenantReset`), canlı kanal da yeni
+ * salona geçsin diye; anahtar ikinci emniyet.
  */
-let cached: { userId: string; choice: OrgChoice } | null = null;
+let cached: { userId: string; stored: string | null; choice: OrgChoice } | null = null;
 
 /** Okunabilen org'lar — liste RLS'in süzdüğü hâliyle geliyor. */
 async function readableOrgIds(): Promise<string[]> {
@@ -100,11 +108,12 @@ export async function resolveOrg(): Promise<OrgChoice> {
         cached = null;
         return { ok: false, reason: 'no_session' };
     }
-    if (cached?.userId === userId) return cached.choice;
+    const stored = await storedOrgId();
+    if (cached?.userId === userId && cached.stored === stored) return cached.choice;
 
-    const [stored, readable] = await Promise.all([storedOrgId(), readableOrgIds()]);
+    const readable = await readableOrgIds();
     const choice = chooseOrg(stored, readable);
-    cached = { userId, choice };
+    cached = { userId, stored, choice };
     return choice;
 }
 
@@ -135,6 +144,10 @@ export function forgetOrg(): void {
  * liveSignal) döngü yaratırdı.
  */
 const forgetHooks = new Set<() => void>();
+
+// Çıkış, hesap silme ve salon değişimi org kararını da unutturur — canlı
+// kanal da onunla birlikte kapanıp doğru salona yeniden kurulur.
+onTenantReset(forgetOrg);
 
 export function onForgetOrg(hook: () => void): void {
     forgetHooks.add(hook);

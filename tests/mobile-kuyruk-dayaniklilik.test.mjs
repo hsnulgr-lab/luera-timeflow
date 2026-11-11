@@ -96,7 +96,8 @@ test('sonsuza kadar denenmiyor', () => {
 test('geçici hata işi SİLMİYOR, kalıcı hata bildiriliyor', () => {
     const flush = client.slice(client.indexOf('export async function flushQueue'));
     // Kalıcıda atılıyor AMA sessizce değil.
-    assert.match(flush, /if \(fateOf\(\{ status \}\) === 'permanent'\) \{\s*queue\.shift\(\);\s*dropped\.push\(/);
+    // Kuyruk artık `kept` listesine süzülüyor: atılan iş oraya girmiyor.
+    assert.match(flush, /if \(fateOf\(\{ status \}\) === 'permanent'\) \{\s*dropped\.push\(/);
     // Geçicide sayaç artıyor ve iş KUYRUKTA KALIYOR.
     assert.match(flush, /job\.attempts \+= 1;/);
     assert.match(flush, /job\.nextAt = now \+ backoffMs\(job\.attempts, Math\.random\(\)\);/);
@@ -117,7 +118,8 @@ test('atılan iş SESSİZCE kaybolmuyor', () => {
 test('bekleme dolmadıysa sıra BEKLİYOR', () => {
     // Sıradaki iş de aynı sunucuya gidecek; atlayıp denemek onu da yakardı.
     const flush = client.slice(client.indexOf('export async function flushQueue'));
-    assert.match(flush, /if \(job\.nextAt > now\) break;/);
+    assert.match(flush, /if \(job\.nextAt > now\) \{ halted = true; kept\.push\(job\); continue; \}/);
+    assert.match(flush, /if \(halted \|\| !jobBelongs\(job\.owner, current\)\) \{ kept\.push\(job\); continue; \}/);
 });
 
 test('kuyruk dolduğunda ESKİLER atılmıyor', () => {

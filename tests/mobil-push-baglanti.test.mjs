@@ -88,8 +88,9 @@ test('kopar: personel jetonu yoksa CİHAZ jetonuyla', () => {
 });
 
 test('ÇIKIŞTA abonelik önce koparılıyor, sonra token siliniyor', () => {
-    const block = auth.slice(auth.indexOf('async function signOut'), auth.indexOf('async function signOut') + 900);
-    assert.ok(block.indexOf('unregisterPush()') < block.indexOf('tokens.clearStaff()'),
+    const block = auth.slice(auth.indexOf('async function signOut'), auth.indexOf('async function signOut') + 1800);
+    // Token artık kiracı sınırında siliniyor (`resetTenant` → `tokens.clearStaff`).
+    assert.ok(block.indexOf('unregisterPush()') < block.indexOf('resetTenant()'),
         'sıra ters olsaydı çağrı kimliksiz kalır ve bekleyen işe düşerdi');
     // Müdür oturumunda çağrılmıyor: müdürün expo kaydı Tur 1'de yok.
     assert.match(block, /if \(stored\?\.profile\.actor === 'staff'\) await unregisterPush\(\)/);

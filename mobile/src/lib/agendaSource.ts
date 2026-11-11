@@ -4,12 +4,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
 
 import { LIVE_AUTH } from '../api/session';
-import { api, type Appointment } from '../api/staff';
+import { api, ApiError, tokens, type Appointment } from '../api/staff';
 import { demoAgenda, demoAgendaFor, type DemoAppointment } from './staffDemo.ts';
 import { clockText } from './calendar.ts';
 import { POLL_MS } from './freshness.ts';
 import { useLiveSignal } from './liveSignal';
 import { AGENDA_CACHE_KEY, cachePayload, parseCache } from './agendaCache.ts';
+import { ownerKey, sessionStopOf } from './staffIdentity.ts';
 // Bayatlık kararı saf bir yaprakta: burası React'e ve api katmanına bağlı
 // olduğu için testten çağrılamıyor, orası çağrılabiliyor.
 export { isStale, POLL_MS, STALE_AFTER_MS } from './freshness.ts';
@@ -110,6 +111,20 @@ export async function fetchAgenda(
  */
 const LIVE_TABLES = ['reservations'] as const;
 
+/**
+ * Günün disk kopyası — SAHİBİYLE (2026-11-12). Sahip jetonun kendi
+ * iddiası (`org:sub`); okunamazsa kopya yazılmıyor. Hata yutuluyor:
+ * önbellek bir kolaylık, ekranın çalışması ona bağlı değil.
+ */
+async function saveCopy(dateISO: string, todayISO: string, at: number, rows: AgendaRow[]): Promise<void> {
+    try {
+        const body = cachePayload(dateISO, todayISO, at, rows, ownerKey(await tokens.identity()));
+        if (body) void AsyncStorage.setItem(AGENDA_CACHE_KEY, body).catch(() => undefined);
+    } catch {
+        // kimlik okunamadı: kopya yok
+    }
+}
+
 export function useAgenda(dateISO: string, todayISO: string): AgendaSnapshot {
     const [state, setState] = useState<AgendaState>('loading');
     const [rows, setRows] = useState<AgendaRow[]>([]);
@@ -147,14 +162,30 @@ export function useAgenda(dateISO: string, todayISO: string): AgendaSnapshot {
                 // Disk kopyası HER başarılı okumada tazeleniyor. Yazma
                 // başarısızlığı yutuluyor: önbellek bir kolaylık, ekranın
                 // çalışması ona bağlı değil.
-                const body = cachePayload(target, todayISO, now, next);
-                if (body) void AsyncStorage.setItem(AGENDA_CACHE_KEY, body).catch(() => undefined);
+                //
+                // Kopya KİMİN olduğuyla yazılıyor (jetonun `org`+`sub`'u):
+                // ortak telefonda başkası açınca bu liste ona gösterilmez.
+                void saveCopy(target, todayISO, now, next);
             })
-            .catch(() => {
+            .catch((cause: unknown) => {
                 if (wanted.current !== target) return;
                 // ELDEKİ liste her hâlde DURUYOR: okunamayan bir gün, boş bir
                 // gün değildir.
                 if (!visible) return;
+                /*
+                 * OTURUM KOPARILDI ya da ABONELİK BİTTİ — önbelleğe DÜŞÜLMÜYOR
+                 * (2026-11-12).
+                 *
+                 * Eskiden 401/403 de "ulaşamadık" sayılıyordu ve ekran
+                 * "Çevrimdışı liste" diyordu: kişi sinyal bekledi, sinyal
+                 * gelince de açılmadı. Yönlendirme (PIN / kapalı kapı)
+                 * `staff.ts · call()`te tek yerde; burada yalnız "okuduk"
+                 * ya da "çevrimdışı" denmiyor.
+                 */
+                if (cause instanceof ApiError && sessionStopOf({ status: cause.status, code: cause.code })) {
+                    setState('error');
+                    return;
+                }
                 /*
                  * Sunucuya ulaşamadık. Diskte BU GÜNE ait bir kopya varsa onu
                  * çiziyoruz — ama `ok` demeden.
@@ -164,10 +195,10 @@ export function useAgenda(dateISO: string, todayISO: string): AgendaSnapshot {
                  * tek şey damganın şimdiye değil O ANA işaret etmesi — "tazeleyemedik,
                  * bu 09:14'ten" demenin tek dürüst yolu bu.
                  */
-                void AsyncStorage.getItem(AGENDA_CACHE_KEY)
-                    .then((raw) => {
+                void Promise.all([AsyncStorage.getItem(AGENDA_CACHE_KEY), tokens.identity()])
+                    .then(([raw, identity]) => {
                         if (wanted.current !== target) return;
-                        const hit = parseCache<AgendaRow>(raw, target);
+                        const hit = parseCache<AgendaRow>(raw, target, ownerKey(identity));
                         if (!hit) { setState('error'); return; }
                         setRows(hit.rows);
                         setAt(hit.at);

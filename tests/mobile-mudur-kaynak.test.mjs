@@ -219,8 +219,8 @@ test('org önbelleği KULLANICIYA bağlı', () => {
     // Süresiz önbellek, ortak cihazda müdür çıkıp başka müdür girdiğinde
     // öncekinin org'unu ikinciye taşırdı: RLS boş döner, ekran sebepsiz
     // boşalır ve kimse nedenini anlamaz.
-    assert.match(source, /cached\?\.userId === userId/);
-    assert.match(source, /cached = \{ userId, choice \};/);
+    assert.match(source, /cached\?\.userId === userId && cached\.stored === stored/);
+    assert.match(source, /cached = \{ userId, stored, choice \};/);
     // Oturum düşerse önbellek de düşüyor.
     assert.match(source, /if \(!userId\) \{\s*\n\s*cached = null;/);
 });

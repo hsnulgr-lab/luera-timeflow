@@ -75,6 +75,13 @@ export default function ResumeSignIn() {
                 : '/(auth)/welcome');
             return;
         }
+        // Müdürün oturumu cihazda duruyorsa doğrudan kabuk: Face ID
+        // açılmamış diye her açılışta e-posta ve şifre istemenin anlamı yok.
+        const ready = 'session' in result.data ? result.data.session as AuthSession | undefined : undefined;
+        if (ready) {
+            enterApp(ready);
+            return;
+        }
         router.replace(result.data.actor === 'manager'
             ? '/(auth)/manager/sign-in'
             : '/(auth)/staff/pin');

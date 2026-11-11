@@ -8,10 +8,11 @@ import {
 } from './staff';
 import { forgetIntent } from '../lib/pushIntent.ts';
 import { forgetDeviceId } from '../lib/pushDevice.ts';
-import { unregisterManagerPush, unregisterPush } from '../lib/push.ts';
+import { syncManagerPush, unregisterManagerPush, unregisterPush } from '../lib/push.ts';
+import { announceTenantReset, resetTenant } from '../lib/tenantReset';
 import type {
     AuthAccountBusinessSwitch, AuthAccountDeletionConfirmation, AuthAccountDeletionRequest,
-    AuthAccountExit, AuthAccountOverview, AuthBusiness, AuthFailure, AuthLoginMethod, AuthLoginProvider,
+    AuthAccountExit, AuthAccountOverview, AuthActor, AuthBusiness, AuthFailure, AuthLoginMethod, AuthLoginProvider,
     AuthProfile, AuthResult, AuthSession, CodeSent, LaunchState, LockedDoor, SignupAccountResult,
     SignupDraft, SignupSector, SocialBridge, SocialProvider, SocialSignIn, StaffEntry, StaffRosterMember,
     TeamEndResult,
@@ -196,6 +197,9 @@ async function managerStart(email: string, password: string): Promise<AuthResult
         password,
     });
     if (error || !data.user) {
+        // Ağ yoksa "şifre hatalı" DEMİYORUZ (2026-11-12): kişi doğru şifreyi
+        // defalarca yazıp sıfırlamaya koşuyordu. Ötekiler gibi `offline`.
+        if (error && isAuthRetryableFetchError(error)) return fail('offline');
         // Supabase kilit/oran sınırını ayırt et: kullanıcıya "yanlış şifre"
         // demek, kilitliyken yanlış bilgi olurdu.
         const locked = /rate|too many/i.test(error?.message ?? '');
@@ -227,7 +231,33 @@ async function selectManagerBusiness(businessId: string): Promise<AuthResult<Aut
         business,
     };
     const previous = await readProfile();
+    /*
+     * SALON DEĞİŞTİ Mİ (2026-11-12) — kiracı sınırı.
+     *
+     * "İşletme değiştir" yalnız profili yeniden yazıyordu: tek kişilik
+     * personel jetonu, müdürün org önbelleği ve canlı kanal ESKİ salonda
+     * kalıyordu — telefon yeni salonu gösterip eskisine okuyup yazıyordu.
+     * Aynı salon yeniden seçiliyorsa (`confirmSoloMode`) hiçbir şey silinmez.
+     */
+    const changed = !previous
+        || previous.profile.actor !== 'manager'
+        || previous.profile.id !== profile.id
+        || previous.profile.business.id !== business.id;
+    if (changed) {
+        // Eski salonun bildirimi ÖNCE koparılıyor — o salonun kimliğiyle.
+        if (previous?.profile.actor === 'manager' && previous.profile.business.id
+            && previous.profile.business.id !== business.id) {
+            await unregisterManagerPush(previous.profile.business.id).catch(() => undefined);
+        }
+        await resetTenant();
+    }
     await saveProfile(profile, previous?.biometricEnabled ?? false);
+    if (changed) {
+        // Profil yazıldıktan SONRA: org önbelleği ve canlı kanal yeni salonu
+        // okuyarak kuruluyor. Bildirim de yeni salona bağlanıyor.
+        announceTenantReset();
+        void syncManagerPush(business.id).catch(() => undefined);
+    }
     return done(sessionOf(profile, previous?.biometricEnabled ?? false));
 }
 
@@ -703,6 +733,44 @@ async function resumeSession(): Promise<AuthResult<AuthSession>> {
     return done(sessionOf(stored.profile, stored.biometricEnabled));
 }
 
+/**
+ * Face ID'siz (ya da iki kez tutmamış) açılışın yedek kapısı (2026-11-12).
+ *
+ * CANLI SÜRÜMÜ YOKTU: `session.ts` `resume`u stub'la birleştiriyor ve bu uç
+ * stub'a düşüyordu. Stub kendi depolama anahtarında oturum arıyor, bulamıyor,
+ * `no_session` dönüyordu — Face ID'yi açmamış HER müdür ve personel her
+ * soğuk açılışta karşılamaya atılıyordu.
+ *
+ *   müdür   — Supabase oturumu cihazda duruyorsa `session` da dönüyor ve
+ *             ekran doğrudan kabuğa giriyor; oturum ölmüşse giriş ekranı.
+ *   personel — telefon bağlıysa PIN ekranı (bekleyen kişi profilden
+ *             yazılıyor ki PIN ekranı kimin şifresini soracağını bilsin);
+ *             bağlı değilse `not_paired` → eşleştirme.
+ */
+async function prepareResumeFallback(): Promise<AuthResult<{ actor: AuthActor; session?: AuthSession }>> {
+    const stored = await readProfile();
+    if (!stored) return fail('no_session');
+    if (stored.profile.actor === 'manager') {
+        const live = supabaseConfigured && Boolean((await supabase.auth.getSession()).data.session);
+        return done(live
+            ? { actor: 'manager' as const, session: sessionOf(stored.profile, stored.biometricEnabled) }
+            : { actor: 'manager' as const });
+    }
+    if (!(await tokens.device())) return fail('not_paired');
+    if (!(await readPending())) {
+        await writePending({
+            id: stored.profile.id,
+            initials: stored.profile.initials,
+            name: stored.profile.name,
+            role: stored.profile.title ?? '',
+            hasPin: true,
+            businessName: stored.profile.business.name,
+        });
+    }
+    pendingStaffId = stored.profile.id;
+    return done({ actor: 'staff' as const });
+}
+
 async function signOut(): Promise<AuthResult<{ target: 'welcome' }>> {
     const stored = await readProfile();
     /*
@@ -716,10 +784,22 @@ async function signOut(): Promise<AuthResult<{ target: 'welcome' }>> {
      * ve cihaz token'ıyla tekrar deneniyor.
      */
     if (stored?.profile.actor === 'staff') await unregisterPush().catch(() => undefined);
-    else if (stored?.profile.actor === 'manager') await unregisterManagerPush().catch(() => undefined);
+    else if (stored?.profile.actor === 'manager') {
+        // Seçili salonun kimliğiyle — sunucu üyeliği doğrulayıp O salondaki
+        // satırı siliyor (iki salonlu müdürde `limit(1)` rastgele seçiyordu).
+        await unregisterManagerPush(stored.profile.business.id || null).catch(() => undefined);
+    }
     forgetIntent();
+    // Müdür çıkışı Supabase oturumunu kapatır — bildirim ondan ÖNCE koparıldı
+    // (uç müdürün JWT'sini istiyor).
     if (stored?.profile.actor === 'manager') await supabase.auth.signOut().catch(() => undefined);
-    else await tokens.clearStaff();
+    /*
+     * KİRACI SINIRI — HER ROLDE (2026-11-12). Müdür dalı personel jetonunu
+     * silmiyordu: tek kişilik sahibin jetonu çıkıştan sonra kalıyor, sonraki
+     * hesap ÖNCEKİ salonun jetonuyla okuyup yazıyor, `backgroundSync` onu
+     * saatte bir yeniliyor, canlı zil önceki salona bağlanıyordu.
+     */
+    await resetTenant();
     await clearProfile();
     return done({ target: 'welcome' });
 }
@@ -819,7 +899,14 @@ async function accountSignOut(): Promise<AuthResult<AuthAccountExit>> {
     if (stored.profile.actor === 'staff') {
         // ÇIKIŞ EŞLEŞMEYİ SİLMEZ (099, müdür kararı). Eskiden bu satır telefonu
         // işletmeden çıkarıyordu: her çıkıştan sonra müdürden yeni kod.
-        await tokens.clearStaff();
+        //
+        // BİLDİRİM ÖNCE KOPARILIYOR (2026-11-12) — `signOut`la aynı sıra:
+        // `pushUnregister` personel jetonunu istiyor, jeton silinmeden.
+        // Eskiden bu yol koparmıyordu ve ortak telefonda çıkan personelin
+        // bildirimleri sonraki kişinin elinde çalmaya devam ediyordu.
+        await unregisterPush().catch(() => undefined);
+        forgetIntent();
+        await resetTenant();
         await clearProfile();
         return done({ target: 'welcome' });
     }
@@ -900,6 +987,7 @@ async function accountConfirmDeletion(password: string): Promise<AuthResult<Auth
     if (error) return fail('invalid_credentials');
     const result = await deleteAccount(stored.profile.business.id);
     if (!result.ok) return fail(result.reason === 'no-session' ? 'no_session' : 'offline');
+    // `deleteAccount` başarıda kiracı izini zaten siliyor; profil burada.
     await clearProfile();
     return done({ target: 'welcome' });
 }
@@ -1427,7 +1515,7 @@ export const auth = {
             forgetIntent();
             await forgetDeviceId();
             await tokens.clearDevice();
-            await tokens.clearStaff();
+            await resetTenant();
             await clearProfile();
             await clearPending();
             return done({ target: 'welcome' as const });
@@ -1439,7 +1527,7 @@ export const auth = {
         skip: () => setBiometric(false),
         authenticate: authenticateBiometric,
     },
-    resume: { get: resumeSession, signOut },
+    resume: { get: resumeSession, prepareFallback: prepareResumeFallback, signOut },
     subscription: { locked: lockedDoor },
     account: {
         get: accountOverview,

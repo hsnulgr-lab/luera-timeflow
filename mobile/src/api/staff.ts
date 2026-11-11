@@ -6,6 +6,9 @@ import {
     backoffMs, fateOf, shouldRetry, supersedes, QUEUE_LIMIT,
 } from '../lib/retry';
 import { mergeFailures, type WriteFailure } from '../lib/writeFailure';
+import {
+    identityOf, jobBelongs, ownerKey, sessionStopOf, type SessionStop, type StaffIdentity,
+} from '../lib/staffIdentity.ts';
 
 // staff-api istemcisi.
 //
@@ -248,6 +251,12 @@ export const tokens = {
     setStaff: (t: string) => SecureStore.setItemAsync(K_STAFF, t, secureOptions),
     /** Tek kişilik modda sahibin personel satırı — bkz. `K_SOLO_STAFF`. */
     soloStaffId: () => readSecure(K_SOLO_STAFF),
+    /**
+     * Elimizdeki personel jetonunun sahibi — salon + kişi (2026-11-12).
+     * Jetonun kendi iddiası, ayrı bir anahtar değil: jetonla aynı anda doğup
+     * aynı anda ölüyor, ikisi ayrışamıyor. Bkz. `lib/staffIdentity.ts`.
+     */
+    identity: async (): Promise<StaffIdentity | null> => identityOf(await readSecure(K_STAFF)),
     setSoloStaffId: (id: string) => SecureStore.setItemAsync(K_SOLO_STAFF, id, secureOptions),
     /** Çıkış: personel oturumu düşer, CİHAZ EŞLEŞMESİ KALIR. Aksi hâlde her
      *  vardiya değişiminde org sahibinin gelip cihazı yeniden eşlemesi
@@ -310,15 +319,79 @@ export function setStaffTokenRefresher(fn: TokenRefresher | null): void {
     refreshStaffToken = fn;
 }
 
+/**
+ * TEK KİŞİLİK JETON HANGİ SALONUN OLMALI (2026-11-12).
+ *
+ * Sahip salon değiştirdiğinde (ya da çıkıp başka hesapla girdiğinde) cihazda
+ * ÖNCEKİ salonun jetonu kalabiliyordu ve `call()` onu sorgusuz kullanıyordu:
+ * kumanda eski salona okuyup yazıyordu. Tek kişilik kabuk seçili salonu
+ * buraya söylüyor; jetonun `org` iddiası tutmuyorsa jeton KULLANILMIYOR,
+ * silinip tazeleyiciden yenisi isteniyor. Personel kabuğunda boş: orada
+ * jetonun salonu zaten eşleşmenin salonu.
+ */
+let expectedStaffOrg: string | null = null;
+
+export function expectStaffOrg(orgId: string | null): void {
+    expectedStaffOrg = orgId;
+}
+
+/**
+ * OTURUM DURDU — kim dinliyorsa haber alır (2026-11-12).
+ *
+ * Koparılmış oturum (401 `revoked` / `invalid_token`) ya da biten abonelik
+ * (403 `subscription_inactive`) bir ağ sorunu değil: beklemek düzeltmez.
+ * Eskiden ekranlar bunu da önbelleğe düşürüp "Çevrimdışı liste" diyordu.
+ * Karar burada, TEK YERDE veriliyor; yönlendirmeyi kabuğun üstündeki dinleyici
+ * yapıyor (`backgroundSync` takıyor — bu dosya yönlendiriciyi tanımıyor).
+ */
+type StopListener = (stop: SessionStop) => void;
+let stopListener: StopListener | null = null;
+
+export function onStaffSessionStop(fn: StopListener | null): void {
+    stopListener = fn;
+}
+
+async function noteStop(cause: unknown): Promise<void> {
+    if (!(cause instanceof ApiError)) return;
+    const stop = sessionStopOf({ status: cause.status, code: cause.code });
+    if (!stop) return;
+    if (stop === 'revoked') {
+        // Tek kişilik kabukta tazeleyici takılı ve o zaten denedi; orada
+        // PIN ekranı yok, jeton bir sonraki çağrıda yeniden istenir.
+        if (refreshStaffToken) return;
+        await tokens.clearStaff().catch(() => undefined);
+    }
+    stopListener?.(stop);
+}
+
+/** Kimlikli çağrı — oturum durduysa önce haber verir, sonra hatayı atar. */
+async function call(action: string, body: Record<string, unknown> = {}) {
+    try {
+        return await callOnce(action, body);
+    } catch (cause) {
+        await noteStop(cause);
+        throw cause;
+    }
+}
+
+/** Elimizdeki jeton — tek kişilikte seçili salonun değilse YOK sayılır. */
+async function usableToken(): Promise<string | null> {
+    const t = await tokens.staff();
+    if (!t || !expectedStaffOrg) return t;
+    if (identityOf(t)?.orgId === expectedStaffOrg) return t;
+    await tokens.clearStaff();
+    return null;
+}
+
 /** Jeton yok ya da sunucu reddetti — tazeleyici varsa bir kez denenir. */
 const needsFreshToken = (code: string) => code === 'no_session' || code === 'invalid_token';
 
-/** Kimlikli çağrı: personel token'ı ile. */
-async function call(action: string, body: Record<string, unknown> = {}) {
-    const t = await tokens.staff();
+/** Tek deneme (tazeleme dahil): personel token'ı ile. */
+async function callOnce(action: string, body: Record<string, unknown> = {}) {
+    const t = await usableToken();
     if (!t) {
         if (!refreshStaffToken || !(await refreshStaffToken())) throw new ApiError('no_session', 401);
-        const fresh = await tokens.staff();
+        const fresh = await usableToken();
         if (!fresh) throw new ApiError('no_session', 401);
         return raw(action, body, fresh);
     }
@@ -332,7 +405,7 @@ async function call(action: string, body: Record<string, unknown> = {}) {
          */
         if (!(cause instanceof ApiError) || !needsFreshToken(cause.code)) throw cause;
         if (!refreshStaffToken || !(await refreshStaffToken())) throw cause;
-        const fresh = await tokens.staff();
+        const fresh = await usableToken();
         if (!fresh || fresh === t) throw cause;
         return raw(action, body, fresh);
     }
@@ -531,6 +604,12 @@ interface QueuedJob {
     nextAt: number;
     /** Son hatanın kodu — "gönderilemedi" listesinde gösterilecek. */
     lastError?: string;
+    /**
+     * İşi kuyruğa koyanın jeton kimliği — `orgId:staffId` (2026-11-12).
+     * Kuyruk YALNIZ o kişinin jetonuyla boşaltılıyor; başkası girdiyse iş
+     * bekliyor. 1.0.1'den kalan işlerde yok (bkz. `jobBelongs`).
+     */
+    owner?: string | null;
 }
 
 async function readQueue(): Promise<QueuedJob[]> {
@@ -601,6 +680,9 @@ async function enqueue(job: QueuedJob): Promise<QueueOutcome> {
  */
 async function write(action: string, body: Record<string, unknown>) {
     const key = `${action}:${body.reservationId}:${Date.now()}`;
+    // Sahip ÇAĞRIDAN ÖNCE okunuyor: 401 `revoked` jetonu siliyor ve sonra
+    // okunsaydı iş sahipsiz kalırdı.
+    const owner = ownerKey(await tokens.identity());
     try {
         const out = await call(action, { ...body, idempotencyKey: key });
         // Doğrudan yazılan liste kuyruktaki eski listeyi KAPSIYOR (D4): eski
@@ -610,7 +692,11 @@ async function write(action: string, body: Record<string, unknown>) {
         return out;
     } catch (e) {
         const status = e instanceof ApiError ? e.status : null;
-        if (fateOf({ status }) === 'permanent') throw e;
+        const code = e instanceof ApiError ? e.code : null;
+        // Oturum durdu (PIN / kapalı kapı): iş KALICI reddedilmedi, sahibi
+        // geri girince gidecek. Atılsaydı personelin yaptığı iş kaybolurdu.
+        const stopped = sessionStopOf({ status, code }) !== null;
+        if (!stopped && fateOf({ status }) === 'permanent') throw e;
         const outcome = await enqueue({
             key,
             action,
@@ -618,6 +704,7 @@ async function write(action: string, body: Record<string, unknown>) {
             at: Date.now(),
             attempts: 0,
             nextAt: 0,
+            owner,
             ...(e instanceof ApiError ? { lastError: e.code } : {}),
         });
         return { ok: false, ...outcome };
@@ -681,23 +768,51 @@ export async function flushQueue(): Promise<FlushResult> {
             return { sent: 0, left: queue.length, dropped: [] };
         }
 
-        while (queue.length > 0) {
-            const job = queue[0];
+        /*
+         * YALNIZ BU KİŞİNİN İŞLERİ (2026-11-12).
+         *
+         * Ortak telefonda Ayşe'nin çevrimdışı bıraktığı iş, Mehmet girince
+         * Mehmet'in jetonuyla gidiyordu — sunucu reddedince (başka personelin
+         * randevusu) de KALICI sayılıp atılıyordu. Artık sahibi tutmayan iş
+         * yerinde bekliyor; sırası korunuyor.
+         */
+        const current = ownerKey(await tokens.identity());
+        const kept: QueuedJob[] = [];
+        // Sıra durdu (ağ yok / bekleme dolmadı / oturum durdu): bu kişinin
+        // kalan işleri denenmeden saklanıyor.
+        let halted = false;
+
+        for (const job of queue) {
+            if (halted || !jobBelongs(job.owner, current)) { kept.push(job); continue; }
             // Üssel bekleme dolmadıysa sıra BEKLİYOR: sıradaki iş de aynı
             // sunucuya gidecek, atlayıp denemek onu da yakmak olurdu.
-            if (job.nextAt > now) break;
+            if (job.nextAt > now) { halted = true; kept.push(job); continue; }
 
             try {
                 await call(job.action, { ...job.body, idempotencyKey: job.key });
-                queue.shift();
                 sent++;
                 continue;
             } catch (e) {
                 const status = e instanceof ApiError ? e.status : null;
                 const code = e instanceof ApiError ? e.code : 'network';
 
+                /*
+                 * OTURUM DURDU — "dur ve sakla", "düşür" değil.
+                 *
+                 * 401 `revoked`/`invalid_token` ve 403 `subscription_inactive`
+                 * eskiden her 4xx gibi KALICI sayılıyordu: personelin oturumu
+                 * koparılınca ya da abonelik bitince bekleyen bütün işleri
+                 * birer birer siliniyordu. Kişi geri girince (ya da abonelik
+                 * açılınca) gidecekler.
+                 */
+                if (sessionStopOf({ status, code })) {
+                    job.lastError = code;
+                    halted = true;
+                    kept.push(job);
+                    continue;
+                }
+
                 if (fateOf({ status }) === 'permanent') {
-                    queue.shift();
                     dropped.push({ key: job.key, action: job.action, error: code, reservationId: reservationOf(job.body) });
                     continue;
                 }
@@ -705,17 +820,17 @@ export async function flushQueue(): Promise<FlushResult> {
                 job.attempts += 1;
                 job.lastError = code;
                 if (!shouldRetry(job.attempts)) {
-                    queue.shift();
                     dropped.push({ key: job.key, action: job.action, error: code, reservationId: reservationOf(job.body) });
                     continue;
                 }
                 job.nextAt = now + backoffMs(job.attempts, Math.random());
                 // Ağ hâlâ yoksa sıradakini denemenin anlamı yok.
-                break;
+                halted = true;
+                kept.push(job);
             }
         }
 
-        await writeQueue(queue);
+        await writeQueue(kept);
         // Kayıp DİSKE yazılıyor: çağıran okumasa bile duruyor, ve uygulama
         // kapanıp açılınca hâlâ orada.
         if (dropped.length > 0) {
@@ -729,7 +844,7 @@ export async function flushQueue(): Promise<FlushResult> {
             const merged = mergeFailures(await readFailures(), failures);
             await AsyncStorage.setItem(K_FAILED, JSON.stringify(merged));
         }
-        return { sent, left: queue.length, dropped };
+        return { sent, left: kept.length, dropped };
     });
 }
 

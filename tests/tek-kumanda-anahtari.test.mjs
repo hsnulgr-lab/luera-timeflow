@@ -113,7 +113,7 @@ test('tazeleyici kabuk kapanınca SÖKÜLÜYOR', () => {
      * bir 401'de org oturumuna uzanmaya çalışırdı.
      */
     assert.match(session, /setStaffTokenRefresher\(fn: TokenRefresher \| null\)|setStaffTokenRefresher\(null\)/);
-    assert.match(session, /return \(\) => setStaffTokenRefresher\(null\);/);
+    assert.match(session, /return \(\) => \{[\s\S]*?setStaffTokenRefresher\(null\);[\s\S]*?expectStaffOrg\(null\);/);
     assert.match(shell, /useEffect\(\(\) => attachSoloTokenRefresher\(\), \[\]\);/);
 });
 

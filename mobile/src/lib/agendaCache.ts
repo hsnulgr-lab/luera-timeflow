@@ -30,6 +30,14 @@ export const AGENDA_CACHE_KEY = 'tf.agenda.today';
 export interface CachedAgenda<T> {
     /** Hangi güne ait. Eşleşmeyen kayıt KULLANILMIYOR. */
     date: string;
+    /**
+     * KİMİN GÜNÜ — `orgId:staffId`, jetonun kendi iddiasından (2026-11-12).
+     *
+     * Yalnız tarih tutulurken ortak telefonda Mehmet çevrimdışı açılınca
+     * Ayşe'nin bugünkü listesi "Çevrimdışı liste" diye önüne geliyordu; salon
+     * değişince de öteki salonunki. Sahibi tutmayan kayıt KULLANILMIYOR.
+     */
+    owner: string;
     /** Okumanın anı — ekranda "09:14'te okundu" olarak görünen sayı. */
     at: number;
     rows: T[];
@@ -43,8 +51,13 @@ export interface CachedAgenda<T> {
  * göstermek olurdu — ve o kayıt uygulamanın kendi eski bir sürümünden de
  * gelmiş olabilir.
  */
-export function parseCache<T>(raw: string | null, wantDate: string): CachedAgenda<T> | null {
-    if (!raw) return null;
+export function parseCache<T>(
+    raw: string | null,
+    wantDate: string,
+    /** Şu anki jetonun sahibi. Bilinmiyorsa (`null`) hiçbir kayıt kimsenin değil. */
+    wantOwner: string | null,
+): CachedAgenda<T> | null {
+    if (!raw || !wantOwner) return null;
     let parsed: unknown;
     try {
         parsed = JSON.parse(raw);
@@ -54,9 +67,12 @@ export function parseCache<T>(raw: string | null, wantDate: string): CachedAgend
     const body = parsed as Partial<CachedAgenda<T>> | null;
     if (!body || typeof body !== 'object') return null;
     if (body.date !== wantDate) return null;
+    // Sahipsiz kayıt (bu düzeltmeden önceki sürüm yazdı) da GÖSTERİLMİYOR:
+    // kimin olduğu bilinmeyen bir liste kimseye gösterilmez.
+    if (body.owner !== wantOwner) return null;
     if (typeof body.at !== 'number' || !Number.isFinite(body.at)) return null;
     if (!Array.isArray(body.rows)) return null;
-    return { date: body.date, at: body.at, rows: body.rows as T[] };
+    return { date: body.date, owner: body.owner, at: body.at, rows: body.rows as T[] };
 }
 
 /**
@@ -73,7 +89,10 @@ export function cachePayload<T>(
     todayISO: string,
     at: number,
     rows: readonly T[],
+    /** Jetonun sahibi. Bilinmiyorsa YAZILMIYOR — sahipsiz kopya işe yaramaz. */
+    owner: string | null,
 ): string | null {
     if (dateISO !== todayISO) return null;
-    return JSON.stringify({ date: dateISO, at, rows });
+    if (!owner) return null;
+    return JSON.stringify({ date: dateISO, owner, at, rows });
 }

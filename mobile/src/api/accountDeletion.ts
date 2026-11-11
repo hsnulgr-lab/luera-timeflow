@@ -1,5 +1,6 @@
 import { supabase, supabaseConfigured } from '../lib/supabase';
 import { appleReauthCode } from '../lib/socialAuth';
+import { resetTenant } from '../lib/tenantReset';
 
 /**
  * Hesabı GERÇEKTEN siler — `account-delete` edge function'ı.
@@ -99,5 +100,8 @@ export async function deleteAccount(
      * silme gerçekleşti — bu yüzden sonucu değiştirmez.
      */
     await supabase.auth.signOut().catch(() => undefined);
+    // Kiracı izi de (2026-11-12): tek kişilik personel jetonu, günün kopyası,
+    // org önbelleği ve canlı kanal — silinen salonun hiçbir izi kalmasın.
+    await resetTenant();
     return { ok: true, reason: null };
 }

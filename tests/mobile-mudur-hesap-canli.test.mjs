@@ -53,7 +53,8 @@ test('personelde "oturumu kapat" telefonu işletmeden ÇIKARMIYOR (099) — stub
     // müdürden yeni kod — "personel sürekli eşleşemiyor"un bir sebebi.
     const fn = live.slice(live.indexOf('async function accountSignOut'), live.indexOf('async function accountRequestDeletion'));
     assert.doesNotMatch(fn, /tokens\.clearDevice\(\)/);
-    assert.match(fn, /tokens\.clearStaff\(\);[\s\S]*clearProfile\(\);/);
+    // Jeton kiracı sınırında siliniyor (`resetTenant` → `tokens.clearStaff`).
+    assert.match(fn, /resetTenant\(\);[\s\S]*clearProfile\(\);/);
     assert.match(fn, /return signOut\(\);/);
     const stub = read('mobile/src/api/authStub.ts');
     const stubFn = stub.slice(stub.indexOf('async function accountSignOut'), stub.indexOf('async function requestAccountDeletion'));
