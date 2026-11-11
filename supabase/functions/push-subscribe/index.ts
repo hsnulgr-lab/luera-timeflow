@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+import { resolveOrg } from '../_shared/org.ts';
+
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -24,8 +26,8 @@ const corsHeaders = {
  * Aksiyonlar:
  *   { action: 'config' } → { publicKey }
  *   { action: 'subscribe', subscription:{endpoint,keys:{p256dh,auth}}, staffId?, role } → { ok }
- *   { action: 'subscribe', kind:'expo', token, platform, deviceId, role:'manager' } → { ok }
- *   { action: 'unsubscribe', endpoint } | { action:'unsubscribe', deviceId } → { ok }
+ *   { action: 'subscribe', kind:'expo', token, platform, deviceId, role:'manager', orgId? } → { ok }
+ *   { action: 'unsubscribe', endpoint } | { action:'unsubscribe', deviceId, orgId? } → { ok }
  *   { action: 'status', endpoint, staffId? } | { action:'status', deviceId } → { subscribed }
  */
 
@@ -56,13 +58,33 @@ Deno.serve(async (req: Request) => {
         const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
         if (userErr || !userData?.user) return json({ error: 'unauthorized' }, 401);
 
-        const { data: member } = await admin
-            .from('organization_members')
-            .select('org_id')
-            .eq('user_id', userData.user.id)
-            .limit(1)
-            .maybeSingle();
-        const orgId = member?.org_id;
+        /*
+         * HANGİ İŞLETME — istemci söylüyorsa üyelik DOĞRULANARAK (2026-11-12).
+         *
+         * Eski yol `organization_members … limit(1)` idi: iki işletmeye üye
+         * müdürün telefonu bildirim için RASTGELE birine bağlanıyordu ve
+         * seçili salonun bildirimleri gelmiyordu. Telefon artık seçili
+         * işletmeyi (`orgId`) gönderiyor; `resolveOrg` üyeliği sunucuda
+         * denetliyor, üye olmadığı işletmeye 403.
+         *
+         * `orgId` GELMEZSE eski davranış: mağazadaki 1.0.1 bu alanı
+         * göndermiyor ve bozulmamalı.
+         */
+        const requestedOrgId = typeof body.orgId === 'string' && body.orgId.trim() ? body.orgId.trim() : null;
+        let orgId: string | null = null;
+        if (requestedOrgId) {
+            const resolved = await resolveOrg(admin, userData.user.id, requestedOrgId);
+            if ('error' in resolved) return json({ error: resolved.error }, resolved.status);
+            orgId = resolved.orgId;
+        } else {
+            const { data: member } = await admin
+                .from('organization_members')
+                .select('org_id')
+                .eq('user_id', userData.user.id)
+                .limit(1)
+                .maybeSingle();
+            orgId = member?.org_id ?? null;
+        }
         if (!orgId) return json({ error: 'no_org' }, 403);
 
         /*

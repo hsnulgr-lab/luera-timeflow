@@ -170,7 +170,7 @@ test('müdür de deviceId ile koparılabiliyor', () => {
     // İzin geri alınmışsa jeton üretilemiyor; cihaz kimliği ondan bağımsız.
     assert.match(subscribe, /if \(typeof body\.deviceId === 'string' && body\.deviceId\.trim\(\)\)/);
     assert.match(code(read('mobile/src/api/auth.ts')),
-        /actor === 'manager'\) await unregisterManagerPush\(\)/);
+        /actor === 'manager'\) \{\s*await unregisterManagerPush\(stored\.profile\.business\.id \|\| null\)/);
 });
 
 test('MÜDÜR oturumunda personel kaydı YAZILMIYOR', () => {

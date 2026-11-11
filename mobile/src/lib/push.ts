@@ -5,6 +5,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { api } from '../api/staff';
+import { authApi } from '../api/session';
 import { supabase } from './supabase';
 import { deviceIdOnce } from './pushDevice.ts';
 import { stateOf, type PushState } from './pushPermission.ts';
@@ -43,6 +44,33 @@ const NO_LAST: LastRegistration = { token: null, staffId: null, at: 0 };
  * çıkıp personel girdiğinde kaydın yeniden yazılmasını sağlıyor.
  */
 const MANAGER_MARK = 'manager';
+
+/**
+ * Müdür aboneliğinin işaretine SALON de giriyor (2026-11-12).
+ *
+ * İşaret yalnız 'manager' iken salon değişince `shouldRegister` "aynı kişi,
+ * aynı jeton" deyip yeniden bağlamıyordu: telefon eski salonun bildirimine
+ * bağlı kalıyordu. Salon kimliği işarette olunca değişim kendiliğinden
+ * yeniden bağlama sayılıyor.
+ */
+export const managerMark = (orgId: string | null): string => (orgId ? `${MANAGER_MARK}:${orgId}` : MANAGER_MARK);
+
+/**
+ * Müdürün BU telefonda seçili salonu — sunucuya `orgId` olarak gider.
+ *
+ * Sunucu eskiden üyeliği `limit(1)` ile seçiyordu: iki salona üye müdürün
+ * bildirimi rastgele salona bağlanıyordu. Okunamazsa `null`: sunucu o zaman
+ * eski davranışa düşer (tek üyelikte zaten doğru salon).
+ */
+async function selectedManagerOrg(): Promise<string | null> {
+    try {
+        const stored = await authApi.resume.get();
+        if (!stored.ok || stored.data.actor !== 'manager') return null;
+        return stored.data.profile.business?.id || null;
+    } catch {
+        return null;
+    }
+}
 
 async function readLast(): Promise<LastRegistration> {
     try {
@@ -173,12 +201,13 @@ export async function syncPush(staffId: string | null): Promise<PushState> {
  * `send-push` müdür olaylarını `role='manager'` ile hedefliyor ve salonda
  * birden çok yönetici olabilir.
  */
-export async function syncManagerPush(): Promise<PushState> {
+export async function syncManagerPush(orgId?: string | null): Promise<PushState> {
+    const org = orgId === undefined ? await selectedManagerOrg() : orgId;
     const state = await readPushState();
     const last = await readLast();
 
     if (shouldUnregister({ granted: state === 'granted', lastToken: last.token })) {
-        await unregisterManagerPush();
+        await unregisterManagerPush(org);
         return state;
     }
     if (state !== 'granted') return state;
@@ -191,7 +220,7 @@ export async function syncManagerPush(): Promise<PushState> {
     if (!shouldRegister({
         granted: true,
         token,
-        staffId: MANAGER_MARK,
+        staffId: managerMark(org),
         lastToken: last.token,
         lastStaffId: last.staffId,
         lastAt: last.at,
@@ -208,10 +237,11 @@ export async function syncManagerPush(): Promise<PushState> {
                 platform: Platform.OS === 'ios' ? 'ios' : 'android',
                 deviceId,
                 role: 'manager',
+                ...(org ? { orgId: org } : {}),
             },
         });
         if (error) throw error;
-        await AsyncStorage.setItem(K_LAST, JSON.stringify({ token, staffId: MANAGER_MARK, at: now }));
+        await AsyncStorage.setItem(K_LAST, JSON.stringify({ token, staffId: managerMark(org), at: now }));
     } catch (cause) {
         // İz YAZILMADI → bir sonraki öne dönüşte yeniden denenir.
         console.warn('müdür bildirim jetonu bağlanamadı', String(cause));
@@ -220,11 +250,12 @@ export async function syncManagerPush(): Promise<PushState> {
 }
 
 /** Müdürün aboneliğini koparır — çıkışta ve izin geri alınınca. */
-export async function unregisterManagerPush(): Promise<void> {
+export async function unregisterManagerPush(orgId?: string | null): Promise<void> {
+    const org = orgId === undefined ? await selectedManagerOrg() : orgId;
     const deviceId = await deviceIdOnce();
     try {
         const { error } = await supabase.functions.invoke('push-subscribe', {
-            body: { action: 'unsubscribe', deviceId },
+            body: { action: 'unsubscribe', deviceId, ...(org ? { orgId: org } : {}) },
         });
         if (error) throw error;
         await AsyncStorage.multiRemove([K_LAST]);
