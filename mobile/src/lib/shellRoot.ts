@@ -24,9 +24,10 @@ import { shellBeneath } from './shellBeneath';
  * liste burada `never`; rota adları çalışma zamanında dosya ağacından
  * geliyor. Tek gevşetilen yer bu.
  */
+type RootState = { index: number; routes: { name: string; params?: object }[] } & Record<string, unknown>;
 type RootNav = {
-    getState(): { index: number; routes: { name: string; params?: object }[] } | undefined;
-    reset(state: { index: number; routes: { name: string; params?: object }[] }): void;
+    getState(): RootState | undefined;
+    reset(state: RootState): void;
 };
 
 /** Kök yığındaki kabuk rotalarının adları — `app/_layout.tsx` ile aynı. */
@@ -112,8 +113,17 @@ export function useShellIsRoot(shell: ShellName): void {
              */
             if (current.name !== shell) return;
 
-            // Kabuk korunuyor, altındaki her şey siliniyor.
-            root.reset({ index: 0, routes: [{ name: current.name, params: current.params }] });
+            /*
+             * Kabuk korunuyor, altındaki her şey siliniyor.
+             *
+             * TAM DURUM — SDK 58 (2026-11-12). expo-router 58 yarım sıfırlama
+             * yükünü artık tamamlamıyor: `key`, `routeNames`, `routeKeySeq` ve
+             * `stale: false` yoksa komutu YOK SAYIYOR ("RESET … was not handled
+             * by any navigator") ve kabuğun altındaki girdiler kalıyordu. Yük
+             * yığının kendi durumundan türetiliyor; değişen yalnız rota listesi.
+             * Rota kendi anahtarıyla kalıyor: kabuk sökülüp yeniden kurulmuyor.
+             */
+            root.reset({ ...state, stale: false, index: 0, routes: [current] });
         });
         return () => cancelAnimationFrame(frame);
     });

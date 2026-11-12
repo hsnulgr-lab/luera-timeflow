@@ -72,6 +72,28 @@ async function selectedManagerOrg(): Promise<string | null> {
     }
 }
 
+/**
+ * `functions.invoke` hatasının SEBEBİ — durum kodu ve sunucunun `error` alanı.
+ *
+ * `FunctionsHttpError` mesajı hep aynı ("non-2xx status code"); asıl cevap
+ * `context` içindeki Response'ta duruyor. Okunmazsa 401 (oturum), 403 (işletme)
+ * ve 500 (kayıt) birbirinden ayrılamıyor. Yalnız tanı: jeton ya da kimlik
+ * yazılmıyor.
+ */
+async function reasonOf(cause: unknown): Promise<string> {
+    const context = (cause as { context?: unknown } | null)?.context;
+    if (context && typeof (context as Response).status === 'number') {
+        const response = context as Response;
+        let code = '';
+        try {
+            const body = await response.clone().json() as { error?: unknown };
+            if (typeof body?.error === 'string') code = ` ${body.error}`;
+        } catch { /* gövde JSON değil */ }
+        return `${response.status}${code}`;
+    }
+    return String(cause);
+}
+
 async function readLast(): Promise<LastRegistration> {
     try {
         const raw = await AsyncStorage.getItem(K_LAST);
@@ -244,7 +266,7 @@ export async function syncManagerPush(orgId?: string | null): Promise<PushState>
         await AsyncStorage.setItem(K_LAST, JSON.stringify({ token, staffId: managerMark(org), at: now }));
     } catch (cause) {
         // İz YAZILMADI → bir sonraki öne dönüşte yeniden denenir.
-        console.warn('müdür bildirim jetonu bağlanamadı', String(cause));
+        console.warn('müdür bildirim jetonu bağlanamadı', await reasonOf(cause));
     }
     return state;
 }
@@ -260,7 +282,7 @@ export async function unregisterManagerPush(orgId?: string | null): Promise<void
         if (error) throw error;
         await AsyncStorage.multiRemove([K_LAST]);
     } catch (cause) {
-        console.warn('müdür bildirim aboneliği koparılamadı', String(cause));
+        console.warn('müdür bildirim aboneliği koparılamadı', await reasonOf(cause));
         await AsyncStorage.multiRemove([K_LAST]);
     }
 }

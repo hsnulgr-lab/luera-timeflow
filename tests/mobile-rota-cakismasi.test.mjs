@@ -122,3 +122,27 @@ test('kabuk EN ÜSTTE değilken kök yığına dokunulmuyor', () => {
     // Kabuk adı tipten geliyor: yeni bir kabuk eklenirse tsc uyarır.
     assert.match(hook, /export type ShellName = 'mudur' \| 'personel'/);
 });
+
+test('kabuk sıfırlaması TAM yığın durumu gönderiyor (SDK 58 yarım yükü yok sayıyor)', () => {
+    // expo-router 58 · BaseRouter: `stale === false` olmayan (key, routeNames,
+    // routeKeySeq taşımayan) RESET yükü "Unhandled" dönüyor — telefonda
+    // "The action 'RESET' … was not handled by any navigator" ve kabuğun
+    // altındaki girdiler yerinde kalıyordu.
+    const hook = readFileSync(new URL('../mobile/src/lib/shellRoot.ts', import.meta.url), 'utf8');
+    assert.match(
+        hook,
+        /root\.reset\(\{ \.\.\.state, stale: false, index: 0, routes: \[current\] \}\);/,
+        'sıfırlama yükü yığının kendi durumundan türetilmiyor',
+    );
+    assert.doesNotMatch(
+        hook,
+        /root\.reset\(\{ index: 0, routes: \[\{ name:/,
+        'yarım sıfırlama yükü geri gelmiş',
+    );
+    // Yükün dayandığı kural kütüphanede hâlâ duruyor mu — sürüm değişirse haber versin.
+    let router = null;
+    try {
+        router = readFileSync(new URL('../mobile/node_modules/expo-router/build/react-navigation/routers/BaseRouter.js', import.meta.url), 'utf8');
+    } catch { /* bağımlılıklar kurulu değil */ }
+    if (router) assert.match(router, /nextState\.stale === false/);
+});
