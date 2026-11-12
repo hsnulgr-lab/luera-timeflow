@@ -88,7 +88,11 @@ test('eşleme: telefonun satırı KODDAN ÖNCE yazılıyor; yazılamazsa belge y
 test('kapı: iptal edilen telefonun iki belgesi de ölü — her uçtan ÖNCE', () => {
     const gate = block('const isDevice = claims.sub === \'device\';', "if (action === 'access')");
     assert.match(gate, /if \(claims\.did\) \{/);
-    assert.match(gate, /\.from\('staff_devices'\)\s*\.select\('revoked_at'\)\s*\.eq\('id', claims\.did\)\s*\.eq\('organization_id', claims\.org\)/);
+    // Hız 3: satır kapının paralel turunda okunuyor (gate.ts); süzgeç aynı.
+    assert.match(gate, /did: claims\.did \?\? null,/);
+    assert.match(gate, /const \{ data: device, error: deviceErr \} = gate\.device!;/);
+    assert.match(read('supabase/functions/staff-api/gate.ts'),
+        /input\.did\s*\? admin\.from\('staff_devices'\)\.select\('revoked_at'\)\s*\.eq\('id', input\.did\)\.eq\('organization_id', input\.org\)/);
     // Satır yoksa da ölü.
     assert.match(gate, /if \(!device \|\| device\.revoked_at\) \{/);
     // Cihaz belgesi → eşleştirme ekranı; personel belgesi → önce şifre ekranı.

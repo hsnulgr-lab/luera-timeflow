@@ -89,8 +89,10 @@ test('Kasa\'nın kuyruğu aynı kuraldan: paketli seans + ürün = yalnız ürü
 test('sektör sahibin ayar satırından, yalnız pakete bağlı randevuda soruluyor', () => {
     const fn = api.slice(api.indexOf('const orgPackagesEnabled = async'), api.indexOf('const reconcileUsageStock'));
     assert.match(fn, /from\('organizations'\)\s*\.select\('owner_id'\)/);
-    assert.match(fn, /from\('settings'\)\s*\.select\('sector'\)\.eq\('organization_id', me\.organization_id\)\.eq\('user_id', org\.owner_id\)/);
-    assert.match(fn, /return packagesEnabledFor\(settings\?\.sector\);/);
+    // Hız 3: sahip ve ayar satırları aynı turda; seçim YALNIZ sahibin satırı.
+    assert.match(fn, /from\('settings'\)\s*\.select\('sector, user_id'\)\.eq\('organization_id', me\.organization_id\)/);
+    assert.match(fn, /\.find\(\(row\) => row\.user_id === org\.owner_id\)/);
+    assert.match(fn, /return packagesEnabledFor\(settings\?\.sector as string \| null \| undefined\);/);
     // Okunamazsa ₺0 SAYILMIYOR — güvenli taraf Kasa.
     assert.equal((fn.match(/return false;/g) ?? []).length, 2);
     for (const block of [collect, charge]) {

@@ -1,7 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { getSecret } from '../_shared/wa.ts';
 import { resolveOrg } from '../_shared/org.ts';
-import { checkAccess } from '../_shared/entitlement.ts';
+import { accessWhen, checkAccess, type EntitlementRow } from '../_shared/entitlement.ts';
 import { can, canTouchReservation } from '../_shared/staffPerms.ts';
 import {
     hashPin, mintRingToken, mintStaffToken, safeEqual, verifyStaffToken,
@@ -9,6 +8,7 @@ import {
 } from '../_shared/staffToken.ts';
 import { pinProblem } from '../_shared/pinRules.ts';
 import { clientIp } from './clientIp.ts';
+import { cachedSecret, loadGate } from './gate.ts';
 import {
     UUID_RE, freeMaterialName, hasPackageLink, kasaOnlyReason, packageCovered, packagesEnabledFor,
     planVisitItems, resolveVisitItems,
@@ -317,6 +317,106 @@ async function clearPairAttempts(admin: Admin, ip: string | null): Promise<void>
     await admin.from('staff_pair_attempts').delete().eq('ip', ip);
 }
 
+const WRITE_ACTIONS = new Set<string>([
+    'visit.start', 'visit.items', 'visit.formula', 'visit.note', 'visit.finish',
+    // Tahsilat kuyruğa GİRMİYOR (istemci `call` ile gönderiyor) ama
+    // idempotens kapısı yine de şart: kötü sinyalde kullanıcı iki kez
+    // dokunabilir ve ikinci dokunuş ikinci bir para kaydı yazardı.
+    'visit.collect',
+    // Bekleme de kuyruğa girmiyor (bkz. `visit.wait`); kapı aynı
+    // isteğin iki kez gelip bitişi kaydırmaması için.
+    'visit.wait',
+]);
+
+// `customer_arrived_at` (043) ile `arrived_at` AYNI ŞEY DEĞİL: ilki
+// müşterinin salona geldiği an (resepsiyon basar), ikincisi hizmetin
+// başladığı an (personel basar). İkisi ayrılmadan personel kartı
+// "kapıda bekliyor" ile "işlem sürüyor"u ayıramaz.
+// `wait_ends_at` / `wait_minutes` 112 ile geldi: göç uygulanmadan bu
+// sürüm deploy edilirse HER ajanda okuması düşer. Sıra: önce göç.
+const RES_COLS = 'id, customer_id, customer_name, customer_phone, date, start_time, end_time, '
+    + 'service, service_color, status, staff_id, notes, customer_arrived_at, arrived_at, '
+    + 'service_ended_at, adisyon_items, is_paid, formula, updated_at, wait_ends_at, wait_minutes';
+
+/** İstemcinin günü — biçim doğrulanır (serbest metin sorguya girmesin); yoksa İstanbul'un bugünü. */
+function dayOf(raw: unknown): string {
+    return typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw)
+        ? raw
+        : new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Ajandanın sorgusu. "Kendi randevusu" kuralı SORGUDA uygulanır; filtreyi
+ * arayüze bırakmak, isteği elle atan birine tüm salonu açardı.
+ */
+function agendaQuery(admin: Admin, org: string, staffId: string, role: string | null | undefined, day: string) {
+    let q = admin.from('reservations').select(RES_COLS)
+        .eq('organization_id', org)
+        .eq('date', day)
+        .neq('status', 'cancelled')
+        .order('start_time');
+    if (!can(role, 'appointments:view-all')) q = q.eq('staff_id', staffId);
+    return q;
+}
+
+/** `staff_customer_book` (143) satırı — müşteri başına tek satır. */
+interface BookLine {
+    id: string;
+    name: string | null;
+    phone_tail: string | null;
+    last_date: string | null;
+    last_service: string | null;
+    last_staff_id: string | null;
+    has_formula: boolean | null;
+}
+
+/** Fonksiyon henüz yok mu (göç uygulanmadan yükleme)? PostgREST PGRST202 / Postgres 42883. */
+function missingFunction(error: { code?: string } | null | undefined): boolean {
+    return error?.code === 'PGRST202' || error?.code === '42883';
+}
+
+/**
+ * 143'ten ÖNCEKİ yol — yalnız fonksiyon yoksa (göç sırası şaşarsa). Davranışı
+ * eskisinin aynısı: org'un 24 aylık rezervasyonları, en yenisi önde, ilk
+ * görülen "son geliş"; formül herhangi bir ziyarette varsa `has_formula`.
+ */
+async function legacyCustomerBook(admin: Admin, org: string, from: string): Promise<{ rows: BookLine[]; error: unknown }> {
+    const [{ data: people, error }, { data: visits }] = await Promise.all([
+        admin.from('customers').select('id, name, phone')
+            .eq('organization_id', org).order('name'),
+        admin.from('reservations')
+            .select('customer_id, date, service, staff_id, formula, status')
+            .eq('organization_id', org)
+            .neq('status', 'cancelled')
+            .gte('date', from)
+            .order('date', { ascending: false }),
+    ]);
+    if (error) return { rows: [], error };
+    const latest = new Map<string, Record<string, unknown>>();
+    const hasFormula = new Set<string>();
+    for (const row of (visits ?? []) as Record<string, unknown>[]) {
+        const cid = row.customer_id as string | null;
+        if (!cid) continue;
+        if (!latest.has(cid)) latest.set(cid, row);
+        if (row.formula) hasFormula.add(cid);
+    }
+    return {
+        error: null,
+        rows: ((people ?? []) as Record<string, unknown>[]).map((person) => {
+            const last = latest.get(person.id as string);
+            return {
+                id: person.id as string,
+                name: (person.name as string | null) ?? null,
+                phone_tail: String(person.phone ?? '').replace(/\D/g, '').slice(-4),
+                last_date: (last?.date as string | undefined) ?? null,
+                last_service: (last?.service as string | undefined) ?? null,
+                last_staff_id: (last?.staff_id as string | undefined) ?? null,
+                has_formula: hasFormula.has(person.id as string),
+            };
+        }),
+    };
+}
+
 function json(body: unknown, status = 200): Response {
     return new Response(JSON.stringify(body), {
         status,
@@ -333,7 +433,10 @@ Deno.serve(async (req: Request) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
         );
 
-        const secret = await getSecret(admin, 'STAFF_TOKEN_SECRET');
+        // İzolat belleğinde en çok 60 sn (gate.ts · SECRET_TTL_MS). İmza
+        // tutmazsa aşağıda bir kez TAZE okunuyor: döndürülen sır bellekteki
+        // eskisi yüzünden yeni token'ları reddettirmesin.
+        let secret = await cachedSecret(admin, 'STAFF_TOKEN_SECRET');
         // Sır yoksa zayıf bir varsayılana DÜŞMEYİZ: imzasız kimlik, kimliksizden
         // beterdir — güveniliyormuş gibi görünür.
         if (!secret) {
@@ -814,10 +917,53 @@ Deno.serve(async (req: Request) => {
 
         // Bundan sonraki tüm uçlar token ister (cihaz ya da personel).
         const raw = req.headers.get('x-staff-token') || body.token || '';
-        const verified = await verifyStaffToken(String(raw), secret);
+        let verified = await verifyStaffToken(String(raw), secret);
+        if (!verified.ok && verified.reason === 'bad_signature') {
+            // Sır döndürülmüş olabilir: bellekteki eski sır yeni token'ı
+            // reddetmesin. Taze sırla BİR kez daha; o da tutmazsa token sahte.
+            const fresh = await cachedSecret(admin, 'STAFF_TOKEN_SECRET', { fresh: true });
+            if (fresh && fresh !== secret) {
+                secret = fresh;
+                verified = await verifyStaffToken(String(raw), secret);
+            }
+        }
         if (!verified.ok) return json({ error: 'invalid_token', reason: verified.reason }, 401);
         const claims = verified.claims;
         const isDevice = claims.sub === 'device';
+
+        /*
+         * ── KAPI TEK TURDA (Hız 3) ───────────────────────────────────────────
+         *
+         * Telefon satırı, ENFORCE bayrağı, abonelik satırı, personel satırı ve
+         * (yazmada) idempotens kütüğü + vana AYNI ANDA okunuyor (`gate.ts`).
+         * Hiçbiri bir öncekinin sonucuna bakmıyor; hepsi token'daki org /
+         * kişi / telefonla soruluyor. KARARLAR eskisiyle aynı sırada aşağıda
+         * tartılıyor — paralel olan yalnız okuma.
+         */
+        const writeAction = WRITE_ACTIONS.has(action);
+        const rawKey = body.idempotencyKey;
+        const idemKey: string | null = writeAction && typeof rawKey === 'string' && rawKey.trim()
+            ? rawKey.trim().slice(0, 200)
+            : null;
+        // Ajanda en sık çağrılan uç (her telefonda 25 sn'de bir + her zilde):
+        // sorgusu da kapıyla aynı turda gidiyor. Kapıdan geçemeyen isteğin
+        // satırları HİÇBİR cevaba girmiyor; rol token'dan tahmin ediliyor ve
+        // aşağıda DB'deki rolle doğrulanıyor, uymazsa yeniden soruluyor.
+        const agendaDay = action === 'agenda' ? dayOf(body.date) : null;
+        // `.then` sorguyu ŞİMDİ başlatıyor (supabase-js sorgusu beklenene kadar
+        // gitmez); ret yakalanıyor ki kapıda dönülürse sahipsiz hata kalmasın.
+        const agendaEarly = agendaDay && !isDevice
+            ? agendaQuery(admin, claims.org, claims.sub, claims.role, agendaDay)
+                .then((r: { data: unknown[] | null; error: unknown }) => r, (error: unknown) => ({ data: null, error }))
+            : null;
+        const gate = await loadGate(admin, {
+            org: claims.org,
+            sub: claims.sub,
+            did: claims.did ?? null,
+            isDevice,
+            write: writeAction,
+            idemKey,
+        });
 
         /*
          * ── KOPARILAN TELEFON (117) ──────────────────────────────────────────
@@ -832,12 +978,7 @@ Deno.serve(async (req: Request) => {
          * önce şifre ekranı, oradan cihaz belgesiyle eşleştirme ekranı.
          */
         if (claims.did) {
-            const { data: device, error: deviceErr } = await admin
-                .from('staff_devices')
-                .select('revoked_at')
-                .eq('id', claims.did)
-                .eq('organization_id', claims.org)
-                .maybeSingle();
+            const { data: device, error: deviceErr } = gate.device!;
             if (deviceErr) {
                 console.error('staff-api device lookup', deviceErr);
                 return json({ error: 'lookup_failed' }, 500);
@@ -852,7 +993,7 @@ Deno.serve(async (req: Request) => {
         // Abonelik kapısı. Personel kumandası ürünün bir parçası; işletmenin
         // aboneliği bittiyse personel tableti de çalışmamalı — aksi hâlde
         // salon panelsiz ama tabletli çalışmaya devam ederdi.
-        const staffAccess = await checkAccess(admin, claims.org);
+        const staffAccess = accessWhen(gate.enforce, gate.entitlement as EntitlementRow | null);
 
         // ── access — kapalı kapı ekranının bilgisi (Apple Eşiği · C) ───────
         // KAPIDAN ÖNCE, çünkü bu ucu tam da kapı kapalıyken soran telefon
@@ -1113,12 +1254,8 @@ Deno.serve(async (req: Request) => {
         // ── Buradan sonrası PERSONEL token'ı ister ───────────────────────────
         if (isDevice) return json({ error: 'staff_token_required' }, 403);
 
-        const { data: current, error: currentErr } = await admin
-            .from('staff')
-            .select('id, organization_id, name, color, role, is_active, session_epoch')
-            .eq('id', claims.sub)
-            .eq('organization_id', claims.org)
-            .maybeSingle();
+        // Kapıda okundu (`gate.ts · STAFF_GATE_COLS`, aynı kolonlar, aynı süzgeç).
+        const { data: current, error: currentErr } = gate.staff!;
         if (currentErr) {
             console.error('staff-api staff lookup error', currentErr);
             return json({ error: 'lookup_failed' }, 500);
@@ -1138,39 +1275,22 @@ Deno.serve(async (req: Request) => {
         // YALNIZ BAŞARILI yazmalar kütüğe giriyor. Hata dönen bir istek satırı
         // değiştirmedi; tekrar denenmesi zararsız, hatta doğru — kalıcı bir
         // 500'ü kütüğe yazsaydık o iş sonsuza kadar başarısız donardı.
-        const WRITE_ACTIONS = new Set([
-            'visit.start', 'visit.items', 'visit.formula', 'visit.note', 'visit.finish',
-            // Tahsilat kuyruğa GİRMİYOR (istemci `call` ile gönderiyor) ama
-            // idempotens kapısı yine de şart: kötü sinyalde kullanıcı iki kez
-            // dokunabilir ve ikinci dokunuş ikinci bir para kaydı yazardı.
-            'visit.collect',
-            // Bekleme de kuyruğa girmiyor (bkz. `visit.wait`); kapı aynı
-            // isteğin iki kez gelip bitişi kaydırmaması için.
-            'visit.wait',
-        ]);
-        let idemKey: string | null = null;
-        if (WRITE_ACTIONS.has(action)) {
-            const rawKey = body.idempotencyKey;
-            if (typeof rawKey === 'string' && rawKey.trim()) {
-                idemKey = rawKey.trim().slice(0, 200);
-                const { data: prior, error: priorErr } = await admin.from('staff_write_log')
-                    .select('staff_id, action, status, response')
-                    .eq('organization_id', me.organization_id)
-                    .eq('idempotency_key', idemKey)
-                    .maybeSingle();
-                if (priorErr) {
-                    console.error('staff-api write log read', priorErr);
-                    return json({ error: 'lookup_failed' }, 500);
+        // Kütük kapıyla aynı turda okundu (`gate.prior`); anahtar da orada
+        // kırpıldı (`idemKey`, yukarıda). Karar burada, eskisiyle aynı yerde.
+        if (writeAction && idemKey) {
+            const { data: prior, error: priorErr } = gate.prior!;
+            if (priorErr) {
+                console.error('staff-api write log read', priorErr);
+                return json({ error: 'lookup_failed' }, 500);
+            }
+            if (prior) {
+                // Aynı anahtar başka personelden ya da başka eylemden
+                // gelemez. Gelirse bu bir tekrar değil, çakışmadır — ve
+                // kayıtlı yanıtı dönmek başkasının verisini sızdırırdı.
+                if (prior.staff_id !== me.id || prior.action !== action) {
+                    return json({ error: 'idempotency_key_reused' }, 409);
                 }
-                if (prior) {
-                    // Aynı anahtar başka personelden ya da başka eylemden
-                    // gelemez. Gelirse bu bir tekrar değil, çakışmadır — ve
-                    // kayıtlı yanıtı dönmek başkasının verisini sızdırırdı.
-                    if (prior.staff_id !== me.id || prior.action !== action) {
-                        return json({ error: 'idempotency_key_reused' }, 409);
-                    }
-                    return json(prior.response, prior.status as number);
-                }
+                return json(prior.response, prior.status as number);
             }
         }
 
@@ -1187,8 +1307,9 @@ Deno.serve(async (req: Request) => {
         // 503 SEÇİLDİ, 403 değil: istemcinin kader ayrımı 5xx'i GEÇİCİ
         // sayıyor, iş telefonun kuyruğunda bekliyor ve vana açılınca
         // kendiliğinden gidiyor. 403 olsaydı iş kalıcı sayılıp ATILIRDI.
-        if (WRITE_ACTIONS.has(action)) {
-            const flag = await getSecret(admin, 'MOBILE_WRITES_ENABLED');
+        // Vana TAZE okunuyor (bellekte değil) — kapıyla aynı turda (`gate.writesFlag`).
+        if (writeAction) {
+            const flag = gate.writesFlag;
             // Satır yoksa AÇIK: unutulmuş bir satır bütün salonu durdurmasın.
             // Yalnız açık 'off' kapatıyor.
             if (String(flag ?? 'on').trim().toLowerCase() === 'off') {
@@ -1204,18 +1325,24 @@ Deno.serve(async (req: Request) => {
          * durumu ayrıca yakalıyor). Kütük hatası isteği DÜŞÜRMEZ — yazma
          * zaten gerçekleşti, geri alınamaz.
          */
-        const done = async (payload: Record<string, unknown>, status = 200) => {
-            if (idemKey) {
-                const { error } = await admin.from('staff_write_log').insert({
+        // `trail`: asıl yazmadan SONRA başlatılmış denetim izi (staff_auth_log).
+        // Kütük ile iz birbirine bakmıyor — aynı turda bekleniyor (Hız 3).
+        // "Önce yaz, sonra iz" sırası korunuyor: ikisi de yazma bittikten sonra
+        // başlıyor.
+        const done = async (payload: Record<string, unknown>, status = 200, trail?: PromiseLike<unknown>) => {
+            const log = idemKey
+                ? admin.from('staff_write_log').insert({
                     organization_id: me.organization_id,
                     idempotency_key: idemKey,
                     staff_id: me.id,
                     action,
                     status,
                     response: payload,
-                });
-                if (error && error.code !== '23505') console.error('staff-api write log', error);
-            }
+                }).then(({ error }: { error: { code?: string } | null }) => {
+                    if (error && error.code !== '23505') console.error('staff-api write log', error);
+                })
+                : null;
+            await Promise.all([log, trail]);
             return json(payload, status);
         };
 
@@ -1357,8 +1484,9 @@ Deno.serve(async (req: Request) => {
         }
 
         if (action === 'realtime.token') {
-            const jwtSecret = await getSecret(admin, 'JWT_SECRET')
-                ?? await getSecret(admin, 'SUPABASE_JWT_SECRET');
+            // İmza sırrı: izolat belleğinde en çok 60 sn (gate.ts).
+            const jwtSecret = await cachedSecret(admin, 'JWT_SECRET')
+                ?? await cachedSecret(admin, 'SUPABASE_JWT_SECRET');
             if (!jwtSecret) {
                 // Sır yoksa ZİL YOK — ama uygulama çalışmaya devam ediyor:
                 // telefon yoklamaya düşüyor, kimse bir şey kaybetmiyor.
@@ -1406,15 +1534,6 @@ Deno.serve(async (req: Request) => {
         // aynı gerçeğin iki kaydı olurdu ve ikisi bir gün ayrışırdı.
         // ════════════════════════════════════════════════════════════════════
 
-        // `customer_arrived_at` (043) ile `arrived_at` AYNI ŞEY DEĞİL: ilki
-        // müşterinin salona geldiği an (resepsiyon basar), ikincisi hizmetin
-        // başladığı an (personel basar). İkisi ayrılmadan personel kartı
-        // "kapıda bekliyor" ile "işlem sürüyor"u ayıramaz.
-        // `wait_ends_at` / `wait_minutes` 112 ile geldi: göç uygulanmadan bu
-        // sürüm deploy edilirse HER ajanda okuması düşer. Sıra: önce göç.
-        const RES_COLS = 'id, customer_id, customer_name, customer_phone, date, start_time, end_time, '
-            + 'service, service_color, status, staff_id, notes, customer_arrived_at, arrived_at, '
-            + 'service_ended_at, adisyon_items, is_paid, formula, updated_at, wait_ends_at, wait_minutes';
 
         /**
          * Organizasyonun ayar satırı.
@@ -1427,22 +1546,22 @@ Deno.serve(async (req: Request) => {
          * Doğru satır org SAHİBİNİNKİ. Sahibin satırı yoksa (elle taşınmış
          * veri) en eskiye düşüyoruz: yanlış olabilir ama en azından KARARLI.
          */
+        // TEK TUR (Hız 3): sahip kimliği ile org'un ayar satırları AYNI ANDA
+        // okunuyor, seçim burada yapılıyor. Önceden 2-3 ardışık turdu (sahip →
+        // sahibin satırı → yoksa en eski). Seçim kuralı aynı: sahibin satırı,
+        // yoksa en eski. Org başına satır sayısı üye sayısı kadar (birkaç).
         const orgSettings = async (cols: string) => {
-            const { data: org } = await admin.from('organizations')
-                .select('owner_id').eq('id', me.organization_id).maybeSingle();
-            if (org?.owner_id) {
-                const { data, error } = await admin.from('settings').select(cols)
+            const [{ data: org }, { data: rows, error }] = await Promise.all([
+                admin.from('organizations')
+                    .select('owner_id').eq('id', me.organization_id).maybeSingle(),
+                admin.from('settings').select(`${cols}, user_id, created_at`)
                     .eq('organization_id', me.organization_id)
-                    .eq('user_id', org.owner_id)
-                    .maybeSingle();
-                if (error) return { data: null, error };
-                if (data) return { data, error: null };
-            }
-            const { data, error } = await admin.from('settings').select(cols)
-                .eq('organization_id', me.organization_id)
-                .order('created_at', { ascending: true })
-                .limit(1).maybeSingle();
-            return { data, error };
+                    .order('created_at', { ascending: true }),
+            ]);
+            if (error) return { data: null, error };
+            const list = (rows ?? []) as Record<string, unknown>[];
+            const owned = org?.owner_id ? list.find((row) => row.user_id === org.owner_id) : undefined;
+            return { data: owned ?? list[0] ?? null, error: null };
         };
 
         /** Randevuyu getirir ve bu personelin ona dokunabildiğini doğrular. */
@@ -1474,21 +1593,25 @@ Deno.serve(async (req: Request) => {
          * eklemenin sebebi yok. Okunamazsa `false` — paketli seans eskisi
          * gibi Kasa'ya düşer; yanlışlıkla ₺0 saymaktan güvenli taraf bu.
          */
+        // Tek tur (Hız 3): sahip ve org'un ayar satırları aynı anda; seçim
+        // burada. Kural aynı: YALNIZ sahibin satırı, yedeğe düşülmez.
         const orgPackagesEnabled = async (): Promise<boolean> => {
-            const { data: org, error: orgErr } = await admin.from('organizations')
-                .select('owner_id').eq('id', me.organization_id).maybeSingle();
+            const [{ data: org, error: orgErr }, { data: rows, error: setErr }] = await Promise.all([
+                admin.from('organizations')
+                    .select('owner_id').eq('id', me.organization_id).maybeSingle(),
+                admin.from('settings')
+                    .select('sector, user_id').eq('organization_id', me.organization_id),
+            ]);
             if (orgErr || !org?.owner_id) {
                 if (orgErr) console.error('package sector org', orgErr);
                 return false;
             }
-            const { data: settings, error: setErr } = await admin.from('settings')
-                .select('sector').eq('organization_id', me.organization_id).eq('user_id', org.owner_id)
-                .maybeSingle();
             if (setErr) {
                 console.error('package sector settings', setErr);
                 return false;
             }
-            return packagesEnabledFor(settings?.sector);
+            const settings = ((rows ?? []) as Record<string, unknown>[]).find((row) => row.user_id === org.owner_id);
+            return packagesEnabledFor(settings?.sector as string | null | undefined);
         };
 
         /**
@@ -1534,10 +1657,22 @@ Deno.serve(async (req: Request) => {
             const productIds = [...candidates.keys()];
             if (productIds.length === 0) return { ok: true as const, appliedCount: 0 };
 
-            const { data: products, error: productErr } = await admin.from('products')
-                .select('id, kind, tracks_stock')
-                .eq('organization_id', me.organization_id)
-                .in('id', productIds);
+            const reservationId = String(reservation.id || '');
+            // Katalog ve mevcut hareketler AYNI turda (Hız 3). Hareketler
+            // aday kimliklerin tamamı için soruluyor (usage kümesi kataloğa
+            // bakmadan bilinmiyor); aşağıda yalnız usage'a girenler sayılıyor.
+            const [{ data: products, error: productErr }, { data: existingAll, error: existingErr }] = await Promise.all([
+                admin.from('products')
+                    .select('id, kind, tracks_stock')
+                    .eq('organization_id', me.organization_id)
+                    .in('id', productIds),
+                admin.from('stock_movements')
+                    .select('product_id, delta')
+                    .eq('organization_id', me.organization_id)
+                    .eq('reservation_id', reservationId)
+                    .eq('type', 'usage')
+                    .in('product_id', productIds),
+            ]);
             if (productErr) {
                 console.error('visit.finish stok katalog', productErr);
                 return { ok: false as const, warning: 'stock_write_failed', appliedCount: 0 };
@@ -1569,15 +1704,8 @@ Deno.serve(async (req: Request) => {
             }
             if (usage.size === 0) return { ok: true as const, appliedCount: 0 };
 
-            const usageProductIds = [...usage.keys()];
-
-            const reservationId = String(reservation.id || '');
-            const { data: existing, error: existingErr } = await admin.from('stock_movements')
-                .select('product_id, delta')
-                .eq('organization_id', me.organization_id)
-                .eq('reservation_id', reservationId)
-                .eq('type', 'usage')
-                .in('product_id', usageProductIds);
+            const existing = ((existingAll || []) as { product_id: string; delta: number }[])
+                .filter((movement) => usage.has(movement.product_id));
             if (existingErr) {
                 console.error('visit.finish stok mevcut hareket', existingErr);
                 return { ok: false as const, warning: 'stock_write_failed', appliedCount: 0 };
@@ -1639,22 +1767,14 @@ Deno.serve(async (req: Request) => {
         };
 
         if (action === 'agenda') {
-            // Gün, istemciden gelir ama biçimi doğrulanır: serbest metin
-            // sorguya girmemeli.
-            const date = typeof body.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date)
-                ? body.date
-                : new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
-
-            let q = admin.from('reservations').select(RES_COLS)
-                .eq('organization_id', me.organization_id)
-                .eq('date', date)
-                .neq('status', 'cancelled')
-                .order('start_time');
-            // Kendi randevusu kuralı SORGUDA uygulanır; filtreyi arayüze
-            // bırakmak, isteği elle atan birine tüm salonu açardı.
-            if (!can(me.role, 'appointments:view-all')) q = q.eq('staff_id', me.id);
-
-            const { data, error } = await q;
+            const date = agendaDay ?? dayOf(body.date);
+            // Kapıyla aynı turda giden sorgu, rolü TOKEN'dan tahmin etti. Yetki
+            // DB'deki rolden (`me.role`) — ikisi "salonun tamamı mı, kendi mi"
+            // sorusunda ayrışıyorsa erken satırlar atılıp yeniden soruluyor.
+            const sameScope = can(me.role, 'appointments:view-all') === can(claims.role, 'appointments:view-all');
+            const { data, error } = agendaEarly && sameScope
+                ? await agendaEarly
+                : await agendaQuery(admin, me.organization_id, me.id, me.role, date);
             if (error) { console.error('agenda', error); return json({ error: 'lookup_failed' }, 500); }
             return json({ ok: true, date, appointments: data ?? [] });
         }
@@ -1736,14 +1856,14 @@ Deno.serve(async (req: Request) => {
                     const latest = await loadOwnReservation(res!.id);
                     if (latest.err) return latest.err;
                     if (latest.res!.status === 'completed') return json({ error: 'already_finished' }, 409);
-                    await audit(me.organization_id, me.id, 'visit.start');
-                    return await done({ ok: true, reservation: latest.res });
+                    return await done({ ok: true, reservation: latest.res }, 200,
+                        audit(me.organization_id, me.id, 'visit.start'));
                 }
-                await audit(me.organization_id, me.id, 'visit.start');
-                return await done({ ok: true, reservation: updated });
+                return await done({ ok: true, reservation: updated }, 200,
+                    audit(me.organization_id, me.id, 'visit.start'));
             }
-            await audit(me.organization_id, me.id, 'visit.start');
-            return await done({ ok: true, reservation: { ...res, ...patch } });
+            return await done({ ok: true, reservation: { ...res, ...patch } }, 200,
+                audit(me.organization_id, me.id, 'visit.start'));
         }
 
         /*
@@ -1850,26 +1970,27 @@ Deno.serve(async (req: Request) => {
             if ('error' in plan) return json({ error: plan.error }, 400);
             const { productIds, serviceIds } = plan;
 
-            let productRows: CatalogProductRow[] = [];
-            if (productIds.length > 0) {
-                const { data, error } = await admin.from('products')
-                    .select('id, name, price, kind, tracks_stock')
-                    .eq('organization_id', me.organization_id)
-                    .eq('is_active', true)
-                    .in('id', productIds);
-                if (error) { console.error('visit.items products', error); return json({ error: 'lookup_failed' }, 500); }
-                productRows = (data || []) as CatalogProductRow[];
-            }
-
-            let serviceRows: CatalogServiceRow[] = [];
-            if (serviceIds.length > 0) {
-                const { data, error } = await admin.from('services')
-                    .select('id, name, price')
-                    .eq('organization_id', me.organization_id)
-                    .in('id', serviceIds);
-                if (error) { console.error('visit.items services', error); return json({ error: 'lookup_failed' }, 500); }
-                serviceRows = (data || []) as CatalogServiceRow[];
-            }
+            // Ürün ve hizmet kataloğu birbirine bakmıyor — aynı turda (Hız 3).
+            const empty = Promise.resolve({ data: [], error: null });
+            const [productsRes, servicesRes] = await Promise.all([
+                productIds.length > 0
+                    ? admin.from('products')
+                        .select('id, name, price, kind, tracks_stock')
+                        .eq('organization_id', me.organization_id)
+                        .eq('is_active', true)
+                        .in('id', productIds)
+                    : empty,
+                serviceIds.length > 0
+                    ? admin.from('services')
+                        .select('id, name, price')
+                        .eq('organization_id', me.organization_id)
+                        .in('id', serviceIds)
+                    : empty,
+            ]);
+            if (productsRes.error) { console.error('visit.items products', productsRes.error); return json({ error: 'lookup_failed' }, 500); }
+            if (servicesRes.error) { console.error('visit.items services', servicesRes.error); return json({ error: 'lookup_failed' }, 500); }
+            const productRows = (productsRes.data || []) as CatalogProductRow[];
+            const serviceRows = (servicesRes.data || []) as CatalogServiceRow[];
 
             const productById = new Map(productRows.map((row) => [row.id, row]));
             const serviceById = new Map(serviceRows.map((row) => [row.id, row]));
@@ -2069,7 +2190,10 @@ Deno.serve(async (req: Request) => {
 
             // Stok düşümü BURADA, kalem eklenirken değil. Hata hizmetin gerçek
             // tamamlanmasını geri almaz; fakat yanıt uyarıyı açıkça taşır.
-            const stock = await reconcileUsageStock(finalized as Record<string, unknown>);
+            //
+            // Stok ve paket hakkı birbirine bakmıyor (ayrı tablolar, ikisi de
+            // yalnız tamamlanmış satıra bakıyor) — aynı anda (Hız 3).
+            const stockRun = reconcileUsageStock(finalized as Record<string, unknown>);
 
             /*
              * PAKET HAKKI — telefondan bitirilende de düşüyor.
@@ -2089,8 +2213,8 @@ Deno.serve(async (req: Request) => {
              * ALMAZ, ama yanıt uyarıyı açıkça taşır. Sessizce yutmak, hakkı
              * düşmemiş bir paketi düşmüş sanmak demek.
              */
-            let planWarning: string | undefined;
-            {
+            const planRun = (async (): Promise<string | undefined> => {
+                let planWarning: string | undefined;
                 const { data: cf, error: cfErr } = await admin.from('reservations')
                     .select('custom_fields')
                     .eq('id', finalized.id)
@@ -2118,11 +2242,12 @@ Deno.serve(async (req: Request) => {
                         }
                     }
                 }
-            }
+                return planWarning;
+            })();
+            const [stock, planWarning] = await Promise.all([stockRun, planRun]);
             const items = Array.isArray(finalized.adisyon_items) ? finalized.adisyon_items : [];
             const total = items.reduce((s: number, i: Record<string, unknown>) =>
                 s + (Number(i?.price) || 0) * (Number(i?.qty) || 1), 0);
-            if (!alreadyFinished) await audit(me.organization_id, me.id, 'visit.finish');
             const stockWarning = stock.ok ? undefined : stock.warning;
             return await done({
                 ok: true,
@@ -2138,7 +2263,7 @@ Deno.serve(async (req: Request) => {
                 ...(stockWarning || planWarning
                     ? { warnings: [stockWarning, planWarning].filter(Boolean) }
                     : {}),
-            });
+            }, 200, alreadyFinished ? undefined : audit(me.organization_id, me.id, 'visit.finish'));
         }
 
         /*
@@ -2611,27 +2736,33 @@ Deno.serve(async (req: Request) => {
             const bookFrom = new Date(Date.now() + 3 * 3600_000 - 730 * 86_400_000)
                 .toISOString().slice(0, 10);
 
-            const [{ data: people, error }, { data: visits }, { data: crew }] = await Promise.all([
-                admin.from('customers').select('id, name, phone')
-                    .eq('organization_id', me.organization_id).order('name'),
-                // Son gelişi ve son işi randevulardan türetiyoruz: müşteri
-                // tablosunda böyle bir alan yok ve olmamalı — türetilmiş veri
-                // saklanırsa bir gün gerçekle ayrışır.
-                // TARİH SINIRI (092): sorgu org'un TÜM geçmişini tarıyordu.
-                // Üçüncü yılında bu, her defter açılışında on binlerce satır
-                // demek. 24 ay, "son gelişi" için fazlasıyla geniş — o kadar
-                // süredir gelmeyen müşteri zaten kayıp sayılır ve kartta
-                // "son geliş yok" görünmesi doğru bilgidir.
-                admin.from('reservations')
-                    .select('customer_id, date, service, staff_id, formula, status')
-                    .eq('organization_id', me.organization_id)
-                    .neq('status', 'cancelled')
-                    .gte('date', bookFrom)
-                    .order('date', { ascending: false }),
+            // SAYFA İSTEĞE BAĞLI (Hız 3). 1.0.1 sayfa istemiyor → eskisi gibi
+            // TAM liste. İsteyen istemci `limit` (1-500) ve `offset` gönderir;
+            // cevapta `nextOffset` (son sayfada null) döner.
+            const pageLimit = Number.isInteger(body.limit) && body.limit >= 1 && body.limit <= 500
+                ? body.limit as number
+                : null;
+            const pageOffset = pageLimit !== null && Number.isInteger(body.offset) && body.offset >= 0
+                ? body.offset as number
+                : 0;
+
+            /*
+             * "Son geliş" VERİTABANINDA (143 · staff_customer_book). Önceden
+             * org'un 24 aylık bütün rezervasyonları — her birinin `formula`
+             * JSON'u dahil — fonksiyona taşınıp burada tek tek eleniyordu.
+             * Şimdi müşteri başına tek satır geliyor: son ziyaret + formül var
+             * mı + telefonun son dört hanesi (numaranın kendisi DB'den çıkmıyor).
+             */
+            const [book, { data: crew }] = await Promise.all([
+                admin.rpc('staff_customer_book', {
+                    p_org: me.organization_id,
+                    p_from: bookFrom,
+                    p_limit: pageLimit,
+                    p_offset: pageOffset,
+                }),
                 admin.from('staff').select('id, name')
                     .eq('organization_id', me.organization_id),
             ]);
-            if (error) { console.error('customers', error); return json({ error: 'lookup_failed' }, 500); }
 
             const initials = new Map<string, string>();
             for (const person of crew ?? []) {
@@ -2640,32 +2771,36 @@ Deno.serve(async (req: Request) => {
                 initials.set(person.id as string, two.toLocaleUpperCase('tr-TR'));
             }
 
-            const latest = new Map<string, Record<string, unknown>>();
-            const hasFormula = new Set<string>();
-            for (const row of visits ?? []) {
-                const cid = row.customer_id as string | null;
-                if (!cid) continue;
-                if (!latest.has(cid)) latest.set(cid, row);
-                if (row.formula) hasFormula.add(cid);
+            let rows: BookLine[];
+            if (!book.error) {
+                rows = (book.data ?? []) as BookLine[];
+            } else if (missingFunction(book.error)) {
+                // Fonksiyon 143'ten önce yüklendiyse: eski yol (kırılmasın).
+                const legacy = await legacyCustomerBook(admin, me.organization_id, bookFrom);
+                if (legacy.error) { console.error('customers', legacy.error); return json({ error: 'lookup_failed' }, 500); }
+                rows = pageLimit === null ? legacy.rows : legacy.rows.slice(pageOffset, pageOffset + pageLimit);
+            } else {
+                console.error('customers', book.error);
+                return json({ error: 'lookup_failed' }, 500);
             }
 
             return json({
                 ok: true,
-                customers: (people ?? []).map((person: Record<string, unknown>) => {
-                    const last = latest.get(person.id as string);
-                    const staffId = last?.staff_id as string | null;
-                    return {
-                        id: person.id,
-                        name: person.name,
-                        lastVisitDate: last?.date ?? null,
-                        lastService: last?.service ?? null,
-                        hasFormula: hasFormula.has(person.id as string),
-                        // Disk işareti: son işi BU personel mi yaptı?
-                        mine: staffId === me.id,
-                        lastStaffInitials: staffId ? (initials.get(staffId) ?? '?') : '',
-                        phoneTail: String(person.phone ?? '').replace(/\D/g, '').slice(-4),
-                    };
-                }),
+                // 1.0.1'in okuduğu alanlar AYNI adlarla (BookRow).
+                customers: rows.map((row) => ({
+                    id: row.id,
+                    name: row.name,
+                    lastVisitDate: row.last_date ?? null,
+                    lastService: row.last_service ?? null,
+                    hasFormula: row.has_formula === true,
+                    // Disk işareti: son işi BU personel mi yaptı?
+                    mine: row.last_staff_id === me.id,
+                    lastStaffInitials: row.last_staff_id ? (initials.get(row.last_staff_id) ?? '?') : '',
+                    phoneTail: String(row.phone_tail ?? ''),
+                })),
+                ...(pageLimit !== null
+                    ? { nextOffset: rows.length === pageLimit ? pageOffset + pageLimit : null }
+                    : {}),
             });
         }
 
@@ -2674,7 +2809,7 @@ Deno.serve(async (req: Request) => {
             const cid = typeof body.customerId === 'string' ? body.customerId : '';
             if (!cid) return json({ error: 'customer_required' }, 400);
             const today = new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
-            const [{ data: c }, { data: past }, { data: legacyPacks }, { data: rules }, plansRes] = await Promise.all([
+            const [{ data: c }, { data: past }, { data: legacyPacks }, { data: rules }, plansRes, { data: crew }] = await Promise.all([
                 // Risk bayrakları AYRI bir kolonda değil, custom_fields
                 // içinde yaşıyor (076); kuralların kendisi settings.risk_rules'ta.
                 // İkisini de dönüyoruz, eşlemeyi istemci yapıyor — kural
@@ -2698,6 +2833,10 @@ Deno.serve(async (req: Request) => {
                 admin.from('treatment_plans').select('id, title, session_count, sessions_done')
                     .eq('organization_id', me.organization_id).eq('customer_id', cid)
                     .eq('plan_kind', 'paket').neq('status', 'cancelled').order('created_at'),
+                // Geçmiş satırının "kim yaptı" adı. Önceden ayrı bir turdu
+                // (Hız 3: aynı tura alındı).
+                admin.from('staff').select('id, name')
+                    .eq('organization_id', me.organization_id),
             ]);
             const packs = [
                 ...((plansRes.error ? [] : plansRes.data) ?? []).map((row: Record<string, unknown>) => ({
@@ -2712,11 +2851,7 @@ Deno.serve(async (req: Request) => {
             // Tahsilat ve borç BİLİNÇLİ olarak dönmüyor: kumandanın işi hizmet,
             // finans değil. Kasa yetkisi olan personel masaüstünü kullanır.
             const crewNames = new Map<string, string>();
-            {
-                const { data: crew } = await admin.from('staff').select('id, name')
-                    .eq('organization_id', me.organization_id);
-                for (const person of crew ?? []) crewNames.set(person.id as string, String(person.name ?? ''));
-            }
+            for (const person of crew ?? []) crewNames.set(person.id as string, String(person.name ?? ''));
 
             return json({
                 ok: true,

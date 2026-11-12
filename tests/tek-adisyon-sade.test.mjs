@@ -275,7 +275,9 @@ test('visit.charge YALNIZ OKUR: para yazmaz, tutarı istemciden almaz', () => {
     assert.match(block, /priceOfName\(name\)/);
     assert.match(block, /`Hizmet \$\{index \+ 1\}`/, 'satır adı serviceLines\'ınkiyle aynı');
     // Okuma: kuyruğa girmez, idempotens kütüğüne yazılmaz.
-    assert.ok(!/'visit\.charge'/.test(api.slice(api.indexOf('const WRITE_ACTIONS'), api.indexOf('let idemKey'))));
+    const writes = api.indexOf('const WRITE_ACTIONS');
+    assert.ok(writes > 0);
+    assert.ok(!/'visit\.charge'/.test(api.slice(writes, api.indexOf(']);', writes))));
     const client = code(read('../mobile/src/api/staff.ts'));
     assert.match(client, /visitCharge: \(reservationId: string\) => call\('visit\.charge', \{ reservationId \}\)/);
 });

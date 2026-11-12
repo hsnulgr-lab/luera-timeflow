@@ -197,13 +197,25 @@ type Admin = any; // service_role SupabaseClient (bkz. wa.ts — aynı desen)
 export async function checkAccess(admin: Admin, orgId: string): Promise<Access> {
     const { data: flag } = await admin.from('app_secrets')
         .select('value').eq('key', 'ENTITLEMENT_ENFORCE').maybeSingle();
-    if (flag?.value !== 'true') {
-        return { ok: true, state: 'active', effective: 'active', until: null, daysLeft: null };
-    }
+    if (flag?.value !== 'true') return accessWhen(flag?.value, null);
     const { data } = await admin.from('org_entitlement')
         .select('state, plan, cycle, trial_ends_at, expires_at, grace_until')
         .eq('organization_id', orgId).maybeSingle();
-    return computeAccess(data as EntitlementRow | null);
+    return accessWhen(flag?.value, data as EntitlementRow | null);
+}
+
+/**
+ * `checkAccess`in kararı, okumalar ELDEYKEN — SAF.
+ *
+ * staff-api bayrağı ve satırı tek turda paralel okuyor (Hız 3); karar yine
+ * buradan, `checkAccess`le aynı kuralla çıkıyor: bayrak 'true' değilse kapı
+ * açık, satıra bakılmaz.
+ */
+export function accessWhen(enforceFlag: unknown, row: EntitlementRow | null | undefined, now: number = Date.now()): Access {
+    if (enforceFlag !== 'true') {
+        return { ok: true, state: 'active', effective: 'active', until: null, daysLeft: null };
+    }
+    return computeAccess(row ?? null, now);
 }
 
 /**

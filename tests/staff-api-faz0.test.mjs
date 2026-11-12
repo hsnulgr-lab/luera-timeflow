@@ -66,8 +66,10 @@ test('kapı YALNIZ yazma uçlarında', () => {
 
 test('kapı, kimlik doğrulandıktan SONRA', () => {
     // Kimlikten önce olsaydı, kimliksiz bir istek kütüğü okuyabilirdi.
+    // Hız 3: kütük kapının paralel turunda OKUNUYOR (gate.ts), ama KARARI
+    // — kayıtlı cevabı dönmek — epoch denetiminden sonra veriliyor.
     const revoked = api.indexOf("!== claims.epoch) return json({ error: 'revoked' }");
-    const gate = api.indexOf('const WRITE_ACTIONS');
+    const gate = api.indexOf('const { data: prior, error: priorErr } = gate.prior!;');
     assert.ok(revoked > 0 && gate > revoked, 'kapı revoke denetiminden sonra gelmeli');
 });
 
@@ -213,7 +215,10 @@ test('performance sorgu hatası SIFIR CİRO gibi görünmüyor', () => {
 test('müşteri defteri org geçmişinin TAMAMINI taramıyor', () => {
     const c = api.slice(api.indexOf("action === 'customers'"), api.indexOf("action === 'customer'"));
     assert.match(c, /const bookFrom = new Date\(Date\.now\(\) \+ 3 \* 3600_000 - 730 \* 86_400_000\)/);
-    assert.match(c, /\.gte\('date', bookFrom\)/);
+    // Hız 3: pencere veritabanında (143 · staff_customer_book · `r.date >= p_from`);
+    // göç yoksa düşülen eski yol da aynı sınırı taşıyor.
+    assert.match(c, /p_from: bookFrom/);
+    assert.match(api, /\.gte\('date', from\)/);
 });
 
 // ── Acil durum vanası (093) ────────────────────────────────────────────────
@@ -223,7 +228,12 @@ test('vana YALNIZ yazma uçlarını kapatıyor', () => {
     const mig = readFileSync(
         new URL('../supabase/093_mobile_writes_flag.sql', import.meta.url), 'utf8');
     assert.match(mig, /MOBILE_WRITES_ENABLED/);
-    assert.match(api, /if \(WRITE_ACTIONS\.has\(action\)\) \{\s*const flag = await getSecret\(admin, 'MOBILE_WRITES_ENABLED'\)/);
+    // Hız 3: vana kapının paralel turunda TAZE okunuyor (bellekte değil) —
+    // yalnız yazma eyleminde.
+    assert.match(api, /if \(writeAction\) \{\s*const flag = gate\.writesFlag;/);
+    assert.match(api, /const writeAction = WRITE_ACTIONS\.has\(action\);/);
+    const gateSrc = readFileSync(new URL('../supabase/functions/staff-api/gate.ts', import.meta.url), 'utf8');
+    assert.match(gateSrc, /!input\.isDevice && input\.write\s*\? readSecret\(admin, 'MOBILE_WRITES_ENABLED'\)/);
 });
 
 test('vana 503 dönüyor — 403 DEĞİL', () => {
@@ -243,7 +253,7 @@ test('satır yoksa vana AÇIK', () => {
 test('vana idempotens kapısının ARDINDA', () => {
     // Zaten uygulanmış bir işin yanıtını dönmek yazma değil, geçmişi tekrar
     // okumaktır — vana kapalıyken de doğru cevap odur.
-    const gate = api.indexOf('const rawKey = body.idempotencyKey;');
-    const valve = api.indexOf("getSecret(admin, 'MOBILE_WRITES_ENABLED')");
+    const gate = api.indexOf('const { data: prior, error: priorErr } = gate.prior!;');
+    const valve = api.indexOf('const flag = gate.writesFlag;');
     assert.ok(gate > 0 && valve > gate, 'vana kapıdan önce gelmemeli');
 });

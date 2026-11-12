@@ -83,7 +83,11 @@ test('kumanda uçlarında kimlik gövdeden OKUNMAZ', () => {
 
 test('kendi randevusu filtresi SORGUDA', () => {
     // Arayüzde filtrelemek yetmez.
-    assert.match(api, /if \(!can\(me\.role, 'appointments:view-all'\)\) q = q\.eq\('staff_id', me\.id\)/);
+    // Hız 3: sorgu `agendaQuery`de; kapıyla aynı turda token rolüyle gidiyor,
+    // kapsam DB'deki rolle ayrışırsa `me.role` / `me.id` ile yeniden soruluyor.
+    assert.match(api, /if \(!can\(role, 'appointments:view-all'\)\) q = q\.eq\('staff_id', staffId\)/);
+    assert.match(api, /const sameScope = can\(me\.role, 'appointments:view-all'\) === can\(claims\.role, 'appointments:view-all'\);/);
+    assert.match(api, /agendaEarly && sameScope\s*\? await agendaEarly\s*: await agendaQuery\(admin, me\.organization_id, me\.id, me\.role, date\)/);
 });
 
 test('işlemi ikinci kez başlatmak sayacı SIFIRLAMAZ', () => {
@@ -93,7 +97,7 @@ test('işlemi ikinci kez başlatmak sayacı SIFIRLAMAZ', () => {
 
 test('iptal edilmiş randevu hiçbir ziyaret mutasyonuna giremez', () => {
     // UI eski bir ekranı açık tutabilir; güvenlik ve durum geçişi sunucudadır.
-    const own = api.slice(api.indexOf('const loadOwnReservation'), api.indexOf("action === 'agenda'"));
+    const own = api.slice(api.indexOf('const loadOwnReservation'), api.indexOf("if (action === 'agenda')"));
     assert.match(own, /data\.status === 'cancelled'/);
     assert.match(own, /reservation_cancelled/);
 
@@ -120,7 +124,7 @@ test('stok düşümü BİTİRİRKEN, kalem eklenirken değil', () => {
     // Kalemler işlem sırasında ekleniyor ve çıkarılıyor; her dokunuşta stok
     // oynatmak ambarı personelin fikir değişikliğine bağlardı.
     const finish = api.slice(api.indexOf("action === 'visit.finish'"));
-    const stock = api.slice(api.indexOf('const reconcileUsageStock'), api.indexOf("action === 'agenda'"));
+    const stock = api.slice(api.indexOf('const reconcileUsageStock'), api.indexOf("if (action === 'agenda')"));
     assert.match(stock, /stock_movements/);
     const items = api.slice(api.indexOf("action === 'visit.items'"), api.indexOf("action === 'visit.finish'"));
     assert.ok(!/stock_movements/.test(items), 'kalem eklerken stok oynatılmamalı');
@@ -129,14 +133,15 @@ test('stok düşümü BİTİRİRKEN, kalem eklenirken değil', () => {
     assert.match(stock, /product\.kind === 'consumable'/);
     assert.match(stock, /line\?\.kind !== 'material' && line\?\.kind !== 'product'/,
         'satış ürünü finish sırasında usage olarak ikinci kez düşülmemeli');
-    assert.match(finish, /await reconcileUsageStock/);
+    assert.match(finish, /const stockRun = reconcileUsageStock\(finalized/);
+    assert.match(finish, /await Promise\.all\(\[stockRun, planRun\]\)/);
 });
 
 test('stok hatası adisyonu geri almaz ama yanıtta görünür', () => {
     // Hizmet gerçekten yapıldı; sayım hatası düzeltilebilir, kaybolan adisyon
     // düzeltilemez.
     const finish = api.slice(api.indexOf("action === 'visit.finish'"));
-    assert.ok(finish.indexOf("status: 'completed'") < finish.indexOf('await reconcileUsageStock'),
+    assert.ok(finish.indexOf("status: 'completed'") < finish.indexOf('reconcileUsageStock(finalized'),
         'önce gerçek hizmet tamamlanmalı, sonra stok uzlaştırılmalı');
     assert.match(finish, /stockWarning/);
     assert.match(api, /stock_write_failed/);
@@ -183,7 +188,7 @@ test('masaüstü stok yazarı tekil usage indeksini idempotent karşılar', () =
 });
 
 test('eski product kalemi kimliksizse finish kilitlenmez, canonical material kilitlenir', () => {
-    const stock = api.slice(api.indexOf('const reconcileUsageStock'), api.indexOf("action === 'agenda'"));
+    const stock = api.slice(api.indexOf('const reconcileUsageStock'), api.indexOf("if (action === 'agenda')"));
     assert.match(stock, /if \(line\.kind === 'product'\) continue/);
     assert.match(stock, /if \(candidate\.requestedKind === 'product'\) continue/);
     assert.match(stock, /geçersiz ürün\/malzeme satırı/,

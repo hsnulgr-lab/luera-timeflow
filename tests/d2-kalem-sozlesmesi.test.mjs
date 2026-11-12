@@ -127,7 +127,7 @@ test('index.ts sunucu kuralını bu modülden alıyor; stok düşümü katalog d
     assert.match(items, /const plan = planVisitItems\(requested\);/);
     assert.match(items, /const items = resolveVisitItems\(requested, productById, serviceById\);/);
     assert.doesNotMatch(items, /qty !== 1/, 'ücretli kalemde ×2 yeniden reddediliyor');
-    const stock = api.slice(api.indexOf('const reconcileUsageStock'), api.indexOf("action === 'agenda'"));
+    const stock = api.slice(api.indexOf('const reconcileUsageStock'), api.indexOf("if (action === 'agenda')"));
     assert.match(stock, /if \(freeMaterialName\(line\)\) continue;/);
     assert.match(stock, /if \(product\.kind === 'consumable' && product\.tracks_stock === false\) continue;/);
 });

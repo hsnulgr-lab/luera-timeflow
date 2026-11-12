@@ -145,9 +145,13 @@ test('liste ucu TAM telefon döndürmüyor', () => {
 
 test('son geliş TÜRETİLİYOR, saklanmıyor', () => {
     // Türetilmiş veri saklanırsa bir gün gerçekle ayrışır.
+    // Hız 3 (143): türetme veritabanında, müşteri tablosunda değil — fonksiyon
+    // rezervasyonlardan son ziyareti her istekte yeniden buluyor.
     const cut = api.slice(api.indexOf("action === 'customers'"), api.indexOf("action === 'customer'"));
-    assert.ok(cut.includes("from('reservations')"));
-    assert.ok(cut.includes('mine: staffId === me.id'));
+    assert.ok(cut.includes("admin.rpc('staff_customer_book'"));
+    assert.ok(cut.includes('mine: row.last_staff_id === me.id'));
+    const m143 = readFileSync(new URL('../supabase/143_staff_api_hiz.sql', import.meta.url), 'utf8');
+    assert.match(m143, /LEFT JOIN LATERAL \(\s*SELECT r\.date, r\.service, r\.staff_id\s*FROM public\.reservations r/);
 });
 
 // ── Klavye ──────────────────────────────────────────────────────────────────
