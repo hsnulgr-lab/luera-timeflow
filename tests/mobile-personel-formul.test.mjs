@@ -166,14 +166,18 @@ test('işaret BÖLÜNMÜYOR: tür ve sayı açılan satırda', () => {
 test('iki ölü düğme bağlandı', () => {
     assert.ok(kumanda.includes('onPress={onCall}'));
     assert.ok(kumanda.includes('onPress={onCard}'));
-    assert.ok(kumanda.includes('`tel:${appointment.customer_phone'));
+    // Hız 2: eylemler kararlı (`Plate` memo) — numara kökte bir kez okunuyor.
+    assert.ok(kumanda.includes('`tel:${phone.replace(/\\s/g, \'\')}`'));
 });
 
 test('numara yoksa "Müşteriyi ara" SÖNÜK — basınca sessizce hiçbir şey yapmıyor değil', () => {
     // Eskiden onCall numara yokken `return` ediyordu: düğme dolu görünüp
     // ölüydü. Artık onCall hiç verilmiyor ve Tool kendini kapatıyor —
     // müşteri dosyasının ActionDisc'iyle aynı kural.
-    assert.match(kumanda, /onCall=\{appointment\.customer_phone\?\.trim\(\)\s*\?[\s\S]{0,120}\s*:\s*undefined\}/);
+    // Hız 2: `onCall={callCustomer}` — numara yoksa `undefined` (kural aynı).
+    assert.match(kumanda, /const phone = appointment\?\.customer_phone\?\.trim\(\) \? appointment\.customer_phone : null;/);
+    assert.match(kumanda, /const callCustomer = useMemo\(\(\) => \(phone\s*\?[\s\S]{0,120}\s*:\s*undefined\), \[phone\]\);/);
+    assert.match(kumanda, /onCall=\{callCustomer\}/);
     const tool = kumanda.slice(kumanda.indexOf('function Tool('), kumanda.indexOf('function PlanTrack('));
     assert.match(tool, /const off = !onPress;/);
     assert.match(tool, /disabled=\{off\}/);

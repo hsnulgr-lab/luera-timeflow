@@ -12,10 +12,10 @@
  * 5-10 kez dokunuyor. Her bakışta "neredeydim" sorusu olmamalı.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AppState, Animated, Easing, Keyboard, Linking, PanResponder, Pressable, ScrollView, Text,
-    TextInput, View, useWindowDimensions,
+    TextInput, View, useWindowDimensions, type StyleProp, type TextStyle,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,6 +33,7 @@ import {
 } from '../../src/lib/visitControl';
 import { cardState } from '../../src/lib/staffCard';
 import { formatCounter } from '../../src/lib/staffCard';
+import { nextSecondDelay, rootTickDelay } from '../../src/lib/kumandaClock';
 import {
     debtLine, formulaDoor, formulaErrorLine, mixDebtLine, mixSaveLabel,
     saveLabel, sendWarning,
@@ -133,6 +134,12 @@ export default function Kumanda() {
         serverAt, seenItems, ownItems, observe,
     } = useVisit(params.id, params.date || undefined);
 
+    /**
+     * Kökün saati — artık SANİYEDE BİR DEĞİL (Hız 2). Yalnız bir sonraki
+     * değişim anında ilerliyor (dakika sınırları, beklemenin 5 dk ve bitiş
+     * anı; bkz. `kumandaClock.ts`). Saniyeyi gösteren sayaç ve halka kendi
+     * küçük bileşenlerinde sayıyor: `LiveCounter`, `LiveWaitRing`.
+     */
     const [now, setNow] = useState(() => Date.now());
 
     /** Jestlerin yerel sonuçları — sunucuya bağlanınca bunlar oradan gelecek. */
@@ -379,7 +386,6 @@ export default function Kumanda() {
      * davet eden düğme çizilmiyor, `visit.finish` yine çalışıyor.
      */
     const paidAhead = appointment?.is_paid === true && closedCard === null;
-    const running = phase === 'running';
     /** Adisyon zaten kasada: bu oturumda gönderildi ya da veri öyle diyor. */
     const delivered = sent || phase === 'closed';
 
@@ -577,10 +583,45 @@ export default function Kumanda() {
     /** Karıştırma anı: işlem sürüyor ve yıkama daha geçilmedi. */
     const mixing = phase === 'running';
 
+    /*
+     * Kök saat OLAY BAZLI (Hız 2). Eskiden iş sürerken ya da bekleme varken
+     * 2600 satırlık ekranın tamamı her saniye baştan çiziliyordu — boya
+     * beklemesi boyunca 30–40 dakika, ~2400 çizim. Kökün `now`'dan
+     * türettikleri (plan çubuğu, kadran, ışığın rengi, şeritteki saat)
+     * dakika ya da eşik hassasiyetinde; kök yalnız o anlarda uyanıyor.
+     * Bekleme bittiği an da bir eşik: ışık o saniyede kırmızıdan dönüyor.
+     */
+    const runningSince = appointment?.arrived_at && !appointment.service_ended_at
+        ? Date.parse(appointment.arrived_at) : null;
+    const customerSince = phase === 'before' && appointment?.customer_arrived_at
+        ? Date.parse(appointment.customer_arrived_at) : null;
+    const waitEndsAt = wait?.endsAt ?? null;
     useEffect(() => {
-        const id = setInterval(() => setNow(Date.now()), running || wait ? 1000 : 20_000);
-        return () => clearInterval(id);
-    }, [running, wait]);
+        const id = setTimeout(
+            () => setNow(Date.now()),
+            rootTickDelay(now, Date.now(), { runningSince, customerSince, waitEndsAt }),
+        );
+        return () => clearTimeout(id);
+    }, [now, runningSince, customerSince, waitEndsAt]);
+
+    /*
+     * Plakanın eylemleri KARARLI (Hız 2): `Plate` artık `memo` ve her kök
+     * çiziminde yeni bir fonksiyon almıyor. Kancalar erken dönüşün üstünde.
+     */
+    const openNote = useCallback(() => setSheet('note'), []);
+    const phone = appointment?.customer_phone?.trim() ? appointment.customer_phone : null;
+    const callCustomer = useMemo(() => (phone
+        ? () => { void Linking.openURL(`tel:${phone.replace(/\s/g, '')}`); }
+        : undefined), [phone]);
+    const cardCustomerId = appointment?.customer_id ?? null;
+    const cardName = appointment?.customer_name ?? '';
+    const openCard = useCallback(() => router.push({
+        pathname: '/(staff-flow)/musteri',
+        params: {
+            ...(cardCustomerId ? { customerId: cardCustomerId } : {}),
+            name: cardName,
+        },
+    }), [router, cardCustomerId, cardName]);
 
 
     /**
@@ -1074,23 +1115,15 @@ export default function Kumanda() {
                         ? `${startClock} – ${clockOf(Date.parse(appointment.service_ended_at ?? ''))} · ${Math.round(elapsedSec / 60)} dk sürdü`
                         : `${startClock} başlangıç · ${bar.label.split(' · ')[0]}`}
                     risks={risks}
-                    onNote={() => setSheet('note')}
+                    onNote={openNote}
                     // Numara yoksa düğme SÖNÜK çiziliyor (müşteri dosyasıyla
                     // aynı kural): eskiden basınca sessizce hiçbir şey
                     // yapmıyordu — ölü kontrol.
-                    onCall={appointment.customer_phone?.trim()
-                        ? () => { void Linking.openURL(`tel:${appointment.customer_phone!.replace(/\s/g, '')}`); }
-                        : undefined}
+                    onCall={callCustomer}
                     // Kimlik de gidiyor: sayfa artık kimlikten okuyor ve ad
                     // yalnız köprü. Yalnız ad göndermek, aynı adlı iki
                     // müşteride yanlış defteri açma riski taşırdı.
-                    onCard={() => router.push({
-                        pathname: '/(staff-flow)/musteri',
-                        params: {
-                            ...(appointment.customer_id ? { customerId: appointment.customer_id } : {}),
-                            name: appointment.customer_name,
-                        },
-                    })}
+                    onCard={openCard}
                 />
 
                 {/*
@@ -1139,15 +1172,13 @@ export default function Kumanda() {
 
                 {phase === 'running' && !wait ? (
                     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 20 }}>
-                        <Text style={[{
+                        <LiveCounter since={appointment.arrived_at} style={[{
                             fontSize: small ? 76 : 96,
                             lineHeight: small ? 78 : 96,
                             fontWeight: '800',
                             letterSpacing: -5.3,
                             color: c.or,
-                        }, numeric]}>
-                            {formatCounter(elapsedSec)}
-                        </Text>
+                        }, numeric]} />
                         <Text style={{ fontSize: 12, fontWeight: '700', letterSpacing: 2.4, color: c.tx3 }}>
                             GEÇEN SÜRE
                         </Text>
@@ -1167,18 +1198,18 @@ export default function Kumanda() {
                         {/* Geçen süre 96 puntodan 26'ya iniyor: aciliyet
                             beklemededir, geçen sürede değil. */}
                         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 9 }}>
-                            <Text style={[{ fontSize: 26, fontWeight: '800', letterSpacing: -0.78, color: c.tx2 }, numeric]}>
-                                {formatCounter(elapsedSec)}
-                            </Text>
+                            <LiveCounter
+                                since={appointment.arrived_at}
+                                style={[{ fontSize: 26, fontWeight: '800', letterSpacing: -0.78, color: c.tx2 }, numeric]}
+                            />
                             <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1.76, color: c.tx3 }}>
                                 {upperTR(`geçen · ${bar.label.split(' · ')[0]}`)}
                             </Text>
                         </View>
-                        <WaitRing
-                            remaining={remaining}
+                        <LiveWaitRing
+                            endsAt={wait.endsAt}
                             total={wait.total}
                             source={wait.source}
-                            level={level ?? 'calm'}
                             onPress={() => {
                                 setWait(null);
                                 rememberWait(appointment.id, null);
@@ -1683,6 +1714,69 @@ export default function Kumanda() {
 
 // ── Parçalar ────────────────────────────────────────────────────────────────
 
+/**
+ * Saniyelik tik — `origin`'e hizalı (Hız 2). Yalnız onu çağıran küçük
+ * bileşeni çiziyor; kumandanın kökü bundan habersiz.
+ */
+function useSecondTick(origin: number, until: number = Infinity): number {
+    const [tick, setTick] = useState(() => Date.now());
+    useEffect(() => {
+        if (!Number.isFinite(origin) || Date.now() >= until) return undefined;
+        let id: ReturnType<typeof setTimeout> | null = null;
+        const arm = () => {
+            id = setTimeout(() => {
+                const at = Date.now();
+                setTick(at);
+                // Bitiş anı geçildi: son çizim yapıldı, tik duruyor.
+                if (at < until) arm();
+            }, nextSecondDelay(Date.now(), origin));
+        };
+        arm();
+        return () => { if (id) clearTimeout(id); };
+    }, [origin, until]);
+    return tick;
+}
+
+/**
+ * Geçen süre sayacı "66:12" — saniyede bir çizilen TEK şey bu metin.
+ * Görünüm kökteki eski `<Text>`in aynısı: stil olduğu gibi geliyor.
+ */
+const LiveCounter = memo(function LiveCounter({ since, style }: {
+    since: string | null;
+    style: StyleProp<TextStyle>;
+}) {
+    const origin = since ? Date.parse(since) : NaN;
+    const tick = useSecondTick(origin);
+    const seconds = Number.isFinite(origin) ? Math.max(0, (tick - origin) / 1000) : 0;
+    return <Text style={style}>{formatCounter(seconds)}</Text>;
+});
+
+/**
+ * Bekleme halkası — kalan süreyi KENDİ sayıyor. Bitiş anında (`zero`)
+ * tik duruyor: halka "YIKA"da kalıyor, kökün ışığı aynı anda dönüyor
+ * (`kumandaClock` o anı kökün de uyanma anı sayıyor).
+ */
+function LiveWaitRing({ endsAt, total, source, onPress }: {
+    endsAt: number;
+    total: number;
+    source: string;
+    onPress: () => void;
+}) {
+    const tickNow = useSecondTick(endsAt, endsAt);
+    // Bekleme yeniden kurulduysa (yeni `endsAt`) tik bir saniyeye kadar
+    // eskiyebilir; kalan süre hiçbir zaman toplamın üstüne çıkmasın.
+    const remaining = Math.min(total, Math.ceil((endsAt - tickNow) / 1000));
+    return (
+        <WaitRing
+            remaining={remaining}
+            total={total}
+            source={source}
+            level={waitLevel(remaining)}
+            onPress={onPress}
+        />
+    );
+}
+
 function Chip({ tone, label, timer }: { tone: 'am' | 'cool'; label: string; timer?: boolean }) {
     const { c } = useTheme();
     const amber = tone === 'am';
@@ -1714,7 +1808,7 @@ function Chip({ tone, label, timer }: { tone: 'am' | 'cool'; label: string; time
  * Kimlik plakası — İKİNCİL ağırlıkta, çünkü müşteri koltukta oturuyor.
  * Kim olduğu ekrandan okunmuyor; ad 20 punto, kadran ondan beş kat büyük.
  */
-function Plate({
+const Plate = memo(function Plate({
     appointment, phase, delivered, send, closedCard, dialKind, tail, risks, onNote, onCall, onCard,
 }: {
     appointment: DemoAppointment;
@@ -1795,7 +1889,7 @@ function Plate({
         ) : null}
         </>
     );
-}
+});
 
 /**
  * Risk satırı — plakanın altında açılan kutu.

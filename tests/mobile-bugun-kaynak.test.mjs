@@ -191,8 +191,11 @@ test('uygulama ARKA PLANDAYKEN yoklama istek atmıyor', () => {
 test('öne dönüş ve sekmeye dönüş ayrı ayrı okuyor', () => {
     // Arka planda geçen süre yoklama aralığından uzun olabilir; sekme
     // değiştirip dönen personel de 25 saniye beklemek istemiyor.
-    assert.match(source, /AppState\.addEventListener\('change'[\s\S]{0,160}next === 'active'[\s\S]{0,60}read\(false\)/);
-    assert.match(source, /useFocusEffect\(useCallback\(\(\) => \{ void read\(false\); \}, \[read\]\)\)/);
+    // Hız 2: ikisi de sessiz okuma kapısından geçiyor (`quietReads.ts`) —
+    // kural aynı, odakta olmayan ekran okumuyor ama odağa dönünce okuyor.
+    assert.match(source, /AppState\.addEventListener\('change'[\s\S]{0,160}next === 'active'[\s\S]{0,60}quiet\.poll\(\)/);
+    assert.match(source, /useFocusEffect\(quiet\.onFocus\);/);
+    assert.match(source, /useQuietReads\(useCallback\(\(\) => read\(false\), \[read\]\), lastRead\)/);
 });
 
 test('SESSİZ yenilemenin hatası çalışan ekranı BOZMUYOR', () => {

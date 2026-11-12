@@ -183,8 +183,11 @@ test('müşteri sayfası DÖNÜŞTE yeniden okuyor', () => {
     // hiçbir şey yapmamış gibi olur. Kayıt sunucuda; dönüşteki okuma onu
     // geri getiriyor.
     assert.match(card, /useCustomerFile\(/);
-    assert.match(read('src/lib/fileSource.ts'),
-        /useFocusEffect\(useCallback\(\(\) => \{ void read\(false\); \}, \[read\]\)\)/);
+    // Hız 2: odak okuması sessiz kapıdan geçiyor; "kirli" ya da açılıştan
+    // sonraki her odakta okuyor (`readGate.focusNeedsRead`).
+    const fileSrc = read('src/lib/fileSource.ts');
+    assert.match(fileSrc, /useFocusEffect\(quiet\.onFocus\);/);
+    assert.match(fileSrc, /useQuietReads\(useCallback\(\(\) => read\(false\), \[read\]\), lastRead\)/);
 });
 
 // ── Sahte katman ────────────────────────────────────────────────────────────

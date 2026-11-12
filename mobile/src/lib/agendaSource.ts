@@ -9,6 +9,7 @@ import { demoAgenda, demoAgendaFor, type DemoAppointment } from './staffDemo.ts'
 import { clockText } from './calendar.ts';
 import { POLL_MS } from './freshness.ts';
 import { useLiveSignal } from './liveSignal';
+import { useQuietReads } from './quietReads.ts';
 import { AGENDA_CACHE_KEY, cachePayload, parseCache } from './agendaCache.ts';
 import { ownerKey, sessionStopOf } from './staffIdentity.ts';
 // Bayatlık kararı saf bir yaprakta: burası React'e ve api katmanına bağlı
@@ -132,6 +133,8 @@ export function useAgenda(dateISO: string, todayISO: string): AgendaSnapshot {
     const [attempt, setAttempt] = useState(0);
     /** Geç dönen bir cevap, sonra seçilen günün listesini EZMESİN. */
     const wanted = useRef(dateISO);
+    /** Son okumanın BAŞLADIĞI an — açılış ile odak okuması çiftlenmesin. */
+    const lastRead = useRef<number | null>(null);
 
     /**
      * Tek okuma yolu, iki ses tonu.
@@ -148,6 +151,7 @@ export function useAgenda(dateISO: string, todayISO: string): AgendaSnapshot {
     const read = useCallback((visible: boolean) => {
         const target = dateISO;
         wanted.current = target;
+        lastRead.current = Date.now();
         // Zincir BİLEREK `async/await` değil. `await`li bir sürümde derleyici
         // ilk okumayı "efektin içinde senkron setState" sayıp reddediyor
         // (react-hooks/set-state-in-effect); `.then` içindeki aynı yazma
@@ -213,6 +217,15 @@ export function useAgenda(dateISO: string, todayISO: string): AgendaSnapshot {
     }, [read, attempt]);
 
     /**
+     * Sessiz okumaların kapısı (Hız 2). ODAKTA OLMAYAN ekran okumuyor:
+     * kumanda açıkken alttaki Bugün 25 saniyede bir aynı `agenda`'yı
+     * çekiyor ve her zile cevap veriyordu. Kaçırdığı şey "kirli" diye not
+     * ediliyor, odağa dönünce TEK okuma yapılıyor. Zil susana kadar
+     * bekleniyor ve süren okuma varken ikincisi açılmıyor (`readGate.ts`).
+     */
+    const quiet = useQuietReads(useCallback(() => read(false), [read]), lastRead);
+
+    /**
      * Yoklama. Uygulama ARKA PLANDAYSA istek gitmiyor: cebindeki telefonun
      * salonun takvimini saniye saniye çekmesi için bir sebep yok, öne
      * dönüldüğünde zaten bir kez okunuyor (aşağıdaki dinleyici).
@@ -220,25 +233,26 @@ export function useAgenda(dateISO: string, todayISO: string): AgendaSnapshot {
     useEffect(() => {
         const id = setInterval(() => {
             if (AppState.currentState !== 'active') return;
-            void read(false);
+            quiet.poll();
         }, POLL_MS);
         return () => clearInterval(id);
-    }, [read]);
+    }, [quiet]);
 
     /** Öne dönüş. Arka planda geçen süre yoklamadan uzun olabilir. */
     useEffect(() => {
         const sub = AppState.addEventListener('change', (next) => {
-            if (next === 'active') void read(false);
+            if (next === 'active') quiet.poll();
         });
         return () => sub.remove();
-    }, [read]);
+    }, [quiet]);
 
     /**
      * Sekmeye dönüş. Yoklama bunu 25 saniye içinde zaten yakalardı; ama
      * sekme değiştirip dönen personel listeye BAKTIĞI anda taze olmasını
-     * bekliyor, 25 saniye sonra değil.
+     * bekliyor, 25 saniye sonra değil. Açılışta okuma zaten yoldaysa ikinci
+     * kez gidilmiyor; ekran odakta değilken bir şey kaçtıysa her zaman.
      */
-    useFocusEffect(useCallback(() => { void read(false); }, [read]));
+    useFocusEffect(quiet.onFocus);
 
     /*
      * CANLI ZİL (100) — yoklamanın yerine değil, ÜSTÜNE.
@@ -247,7 +261,7 @@ export function useAgenda(dateISO: string, todayISO: string): AgendaSnapshot {
      * saniye beklemek yerine saniyesinde tazeleniyor. Sessiz tur: çalışan bir
      * ekranı "yükleniyor"a düşürmek zili gürültüye çevirirdi.
      */
-    useLiveSignal(useCallback(() => { void read(false); }, [read]), true, LIVE_TABLES);
+    useLiveSignal(quiet.ring, true, LIVE_TABLES);
 
     // Sıfırlama efektin İÇİNDE değil: orada senkron `setState` zincirleme
     // render tetikliyor (react-hooks/set-state-in-effect).

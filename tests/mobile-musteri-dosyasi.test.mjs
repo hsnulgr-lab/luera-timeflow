@@ -176,7 +176,9 @@ test('geçmiş TAVANA dayandıysa sayı "+" ile yazılıyor', () => {
 test('odağa dönüşte YENİDEN okunuyor', () => {
     // Formül sayfasından dönen personel, az önce kaydettiğini geçmiş
     // satırında görmeli; yoksa "Kaydet" yine hiçbir şey yapmamış gibi olur.
-    assert.match(source, /useFocusEffect\(useCallback\(\(\) => \{ void read\(false\); \}, \[read\]\)\)/);
+    // Hız 2: sessiz kapıdan (`quietReads.ts`) — kural aynı.
+    assert.match(source, /useFocusEffect\(quiet\.onFocus\);/);
+    assert.match(source, /useQuietReads\(useCallback\(\(\) => read\(false\), \[read\]\), lastRead\)/);
     assert.ok(!screen.includes('demoCustomerFile'), 'ekran sahte dosyayı çağırmamalı');
     assert.match(screen, /useCustomerFile\(/);
     // Sahte kaynak SİLİNMEDİ: canlıya geçiş tek değişkenle geri alınabiliyor.

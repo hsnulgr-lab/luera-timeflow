@@ -49,11 +49,16 @@ test('arka plan okuması damgayı İLERLETMİYOR', () => {
 
 test('yoklama ve odak BENİMSEMİYOR, açılış ve tazeleme benimsiyor', () => {
     assert.match(source, /useEffect\(\(\) => \{ void read\(true, true\); \}, \[read\]\);/);
-    assert.match(source, /useFocusEffect\(useCallback\(\(\) => \{ void read\(false, false\); \}, \[read\]\)\)/);
-    assert.match(source, /if \(next === 'active'\) void read\(false, false\);/);
+    // Hız 2: yoklama, öne dönüş, odak ve zil TEK sessiz kapıdan geçiyor ve
+    // o kapının okuması GÖZLEM (`read(false, false)`) — benimsemiyor.
+    assert.match(source, /useQuietReads\(useCallback\(\(\) => read\(false, false\), \[read\]\), lastRead\)/);
+    assert.match(source, /useFocusEffect\(quiet\.onFocus\);/);
+    assert.match(source, /if \(next === 'active'\) quiet\.poll\(\);/);
     assert.match(source, /return read\(true, true\);/);
     // Yoklama uygulama ÖNDEYKEN: cepteki telefon adisyonu çekmemeli.
-    assert.match(source, /if \(AppState\.currentState !== 'active'\) return;\s*\n\s*void read\(false, false\);/);
+    assert.match(source, /if \(AppState\.currentState !== 'active'\) return;\s*\n\s*quiet\.poll\(\);/);
+    // Kapıdan benimseyen okuma GEÇMİYOR.
+    assert.doesNotMatch(source, /useQuietReads\([\s\S]{0,40}read\(true/);
 });
 
 test('değişiklik iki damga da BİLİNİYORKEN söyleniyor', () => {

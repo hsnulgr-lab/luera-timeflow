@@ -125,7 +125,10 @@ test('üç yeni kaynak zile bağlandı — yoklama KALKMADI', () => {
     for (const path of ['src/lib/fileSource.ts', 'src/lib/catalogSource.ts']) {
         const src = code(mobile(path));
         assert.match(src, /useLiveSignal\([\s\S]{0,120}LIVE_TABLES\);/, path);
-        assert.match(src, /useFocusEffect\(useCallback\(\(\) => \{ void read\(false\); \}, \[read\]\)\);/, path);
+        // fileSource Hız 2'de sessiz kapıya geçti (`quietReads.ts`).
+        assert.match(src, path.includes('fileSource')
+            ? /useFocusEffect\(quiet\.onFocus\);/
+            : /useFocusEffect\(useCallback\(\(\) => \{ void read\(false\); \}, \[read\]\)\);/, path);
     }
 });
 

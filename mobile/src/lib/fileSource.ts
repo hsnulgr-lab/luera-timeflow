@@ -20,7 +20,7 @@
  * satırında görmeli. Yoksa "Kaydet" yine hiçbir şey yapmamış gibi olur.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
@@ -29,6 +29,7 @@ import { api } from '../api/staff';
 import { todayISO } from './calendar.ts';
 import { demoCustomerFile, type CustomerFile } from './customerFile.ts';
 import { useLiveSignal } from './liveSignal';
+import { useQuietReads } from './quietReads.ts';
 // Saf eşleme yaprakta: burası React'e bağlı olduğu için testten çağrılamıyor,
 // orası çağrılabiliyor (`freshness.ts` ile aynı gerekçe).
 import {
@@ -77,9 +78,12 @@ export function useCustomerFile(
     const [file, setFile] = useState<CustomerFile | null>(null);
     const [risks, setRisks] = useState<RiskLine[]>([]);
     const [usedItems, setUsedItems] = useState<Set<string>>(() => new Set());
+    /** Son okumanın BAŞLADIĞI an — açılış ile odak okuması çiftlenmesin. */
+    const lastRead = useRef<number | null>(null);
 
     const read = useCallback((visible: boolean) => {
         const today = todayISO();
+        lastRead.current = Date.now();
         /*
          * Sahte yol da SÖZ dönüyor, senkron değil. `await`siz bir dalda
          * `setState` çağırmak, derleyicinin "efektin içinde senkron setState"
@@ -130,27 +134,36 @@ export function useCustomerFile(
 
     useEffect(() => { void read(true); }, [read]);
 
+    /*
+     * Sessiz okumaların kapısı (Hız 2): odakta olmayan dosya okumuyor,
+     * "kirli" kalıyor ve odağa dönünce TEK okuma yapıyor. Kumanda açıkken
+     * üstte müşteri sayfası varsa iki kopya aynı dosyayı okumuyor.
+     */
+    const quiet = useQuietReads(useCallback(() => read(false), [read]), lastRead);
+
     useEffect(() => {
         const sub = AppState.addEventListener('change', (next) => {
-            if (next === 'active') void read(false);
+            if (next === 'active') quiet.poll();
         });
         return () => sub.remove();
-    }, [read]);
+    }, [quiet]);
 
     // Odağa dönüşte OKUNUYOR: formül sayfasından dönen personel kaydettiğini
-    // geçmiş satırında görmeli.
-    useFocusEffect(useCallback(() => { void read(false); }, [read]));
+    // geçmiş satırında görmeli. Açılış okuması zaten yoldaysa ikinci kez
+    // gidilmiyor.
+    useFocusEffect(quiet.onFocus);
 
     /*
      * CANLI ZİL (101). Burada yoklama YOK — zil, odağa dönüşün yanındaki
      * ikinci yol. Müdür masaüstünden müşteriye hamilelik bayrağı eklediğinde
      * personelin AÇIK duran dosyası bunu anında gösteriyor; eskiden ekranı
-     * kapatıp açmak gerekiyordu.
+     * kapatıp açmak gerekiyordu. Zil susana kadar bekleniyor (Hız 2): bir
+     * meslektaşın kalem kaydı saniyede bir zil çaldırabiliyor.
      *
      * `staff` süzgeçte YOK: dosyada yalnız personel ADI geçiyor ve ad
      * değişimi odağa dönüşte yakalanacak kadar seyrek.
      */
-    useLiveSignal(useCallback(() => { void read(false); }, [read]), Boolean(customerId), LIVE_TABLES);
+    useLiveSignal(quiet.ring, Boolean(customerId), LIVE_TABLES);
 
     const reload = useCallback(() => {
         setState('loading');

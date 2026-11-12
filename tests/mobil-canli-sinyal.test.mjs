@@ -243,7 +243,8 @@ test('müdür kanalı da JETON UYGULANMADAN katılmıyor', () => {
 test('personel ekranları da zili dinliyor', () => {
     for (const path of ['src/lib/agendaSource.ts', 'src/lib/visitSource.ts']) {
         const source = read(path);
-        assert.match(source, /useLiveSignal\(useCallback\(/, path);
+        // Hız 2: zil sessiz kapıdan geçiyor (susana kadar bekle, tek uçuş).
+        assert.match(source, /useLiveSignal\(quiet\.ring, true, LIVE_TABLES\);/, path);
         // Yoklama KALKMIYOR: zil bir garanti değil.
         assert.match(source, /\}, POLL_MS\);/, path);
     }

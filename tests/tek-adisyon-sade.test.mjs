@@ -182,7 +182,9 @@ test('üst yarı ESKİ hâlinde, adisyon sistem yazısıyla (kullanıcı kararı
     assert.ok(!/sade=\{solo\}/.test(screen), 'plakanın tek kişilik yüzü kalktı');
     assert.ok(!/SadePlanTrack|SadeWaitChip|useSadeInk|sadeFont/.test(screen));
     assert.match(screen, /\{phase === 'running' && !wait \? \(/);
-    assert.match(screen, /color: c\.or,\s*\}, numeric\]\}>\s*\{formatCounter\(elapsedSec\)\}/);
+    // Hız 2: sayaç kendi bileşeninde sayıyor (`LiveCounter`), stil aynı.
+    assert.match(screen, /<LiveCounter since=\{appointment\.arrived_at\} style=\{\[\{[\s\S]{0,320}color: c\.or,\s*\}, numeric\]\} \/>/);
+    assert.match(screen, /return <Text style=\{style\}>\{formatCounter\(seconds\)\}<\/Text>;/);
     // Yazı tipi telefonun kendisi: ağırlık var, aile yok.
     assert.ok(!/fontFamily/.test(ink));
     assert.ok(!/fontFamily/.test(parts));

@@ -35,7 +35,7 @@
  * damgasına bakıyor ve değiştiyse söylüyor. Gözlem hiçbir şeyi ezmiyor.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
@@ -44,6 +44,7 @@ import { api, type Appointment } from '../api/staff';
 import { clockText, todayISO } from './calendar.ts';
 import { POLL_MS } from './freshness.ts';
 import { useLiveSignal } from './liveSignal';
+import { useQuietReads } from './quietReads.ts';
 import { demoAgenda, type DemoAppointment } from './staffDemo.ts';
 import { isNewer, type StampObservation } from './visitStamp.ts';
 
@@ -153,6 +154,8 @@ export function useVisit(
      * reddediyor (react-hooks/purity). Durum başlatıcısı bir KEZ çalışıyor.
      */
     const [anchor] = useState(() => Date.now());
+    /** Son okumanın BAŞLADIĞI an — açılış ile odak okuması çiftlenmesin. */
+    const lastRead = useRef<number | null>(null);
 
     /**
      * `adopt` false ise bu bir GÖZLEM: ekranda hiçbir şey değişmiyor, yalnız
@@ -161,6 +164,7 @@ export function useVisit(
      */
     const read = useCallback((visible: boolean, adopt: boolean) => {
         const today = date || todayISO();
+        lastRead.current = Date.now();
         const load: Promise<{ row: DemoAppointment | null; stamp: string | null }> = LIVE_AUTH
             ? api.agenda(today).then((data) => {
                 const list = (data as { appointments?: Appointment[] }).appointments ?? [];
@@ -201,6 +205,14 @@ export function useVisit(
     useEffect(() => { void read(true, true); }, [read]);
 
     /*
+     * Sessiz GÖZLEMLERİN kapısı (Hız 2). Odakta olmayan kumanda (formül ya
+     * da müşteri sayfası üstte) okumuyor, "kirli" kalıyor ve odağa dönünce
+     * TEK gözlem yapıyor. Zil susana kadar bekleniyor; süren okuma varken
+     * ikincisi açılmıyor. Gözlem hâlâ BENİMSEMİYOR — kilit mantığı aynı.
+     */
+    const quiet = useQuietReads(useCallback(() => read(false, false), [read]), lastRead);
+
+    /*
      * YOKLAMA — yalnız damgaya bakıyor ve yalnız uygulama öndeyken.
      *
      * Kalemleri düzenlerken listeyi altından çekmek, düzeltmeye çalıştığımız
@@ -211,19 +223,19 @@ export function useVisit(
     useEffect(() => {
         const id2 = setInterval(() => {
             if (AppState.currentState !== 'active') return;
-            void read(false, false);
+            quiet.poll();
         }, POLL_MS);
         return () => clearInterval(id2);
-    }, [read]);
+    }, [quiet]);
 
     useEffect(() => {
         const sub = AppState.addEventListener('change', (next) => {
-            if (next === 'active') void read(false, false);
+            if (next === 'active') quiet.poll();
         });
         return () => sub.remove();
-    }, [read]);
+    }, [quiet]);
 
-    useFocusEffect(useCallback(() => { void read(false, false); }, [read]));
+    useFocusEffect(quiet.onFocus);
 
     /*
      * CANLI ZİL (100) — yoklamanın yerine değil, ÜSTÜNE.
@@ -232,7 +244,7 @@ export function useVisit(
      * saniye beklemek yerine saniyesinde tazeleniyor. Sessiz tur: çalışan bir
      * ekranı "yükleniyor"a düşürmek zili gürültüye çevirirdi.
      */
-    useLiveSignal(useCallback(() => { void read(false, false); }, [read]), true, LIVE_TABLES);
+    useLiveSignal(quiet.ring, true, LIVE_TABLES);
 
     const observe = useCallback((observation: StampObservation | null | undefined, own = false) => {
         if (!observation) return;
