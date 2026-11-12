@@ -112,7 +112,7 @@ function queryOf(query: string): Record<string, string> {
  * (dokunulmadan geçiyor). Hedef, bekleme bildiriminin hedefiyle BİREBİR aynı:
  * `pushTargetOf` + `waitAlarmData` — iki yol ayrı ayrı yazılınca biri kayardı.
  */
-export function waitActivityTarget(url: string | null | undefined): { href: string; actor: WaitActivityActor } | null {
+export function waitActivityTarget(url: string | null | undefined): { href: string; actor: WaitActivityActor; id: string } | null {
     if (typeof url !== 'string') return null;
     const match = LINK.exec(url);
     if (!match) return null;
@@ -121,8 +121,31 @@ export function waitActivityTarget(url: string | null | undefined): { href: stri
     if (!UUID.test(id)) return null;
     const actor: WaitActivityActor = query.kim === 'tek' ? 'solo' : 'staff';
     const href = pushTargetOf(waitAlarmData(id, ISO_DATE.test(query.date ?? '') ? query.date : ''), actor);
-    return href ? { href, actor } : null;
+    return href ? { href, actor, id } : null;
 }
+
+/**
+ * Sayaca dokunuldu, uygulama AÇIK — kumanda yığına nasıl girsin?
+ *
+ * Telefonda görülen (2026-11-12): bir kumanda açıkken sayaca dokununca ikinci
+ * kumanda onun ÜSTÜNE biniyordu; "Bugün" geri oku ana ekrana değil alttaki
+ * öteki müşteriye dönüyordu. Kural: üstte bir kumanda varken yenisi onun
+ * YERİNE geçer, aynı işse hiçbir şey olmaz; üstte başka ekran varsa eklenir.
+ */
+export type WaitTapMove = 'stay' | 'replace' | 'push';
+export function waitTapMove(kumandaOnTop: string | null, targetId: string): WaitTapMove {
+    if (!kumandaOnTop) return 'push';
+    return kumandaOnTop === targetId ? 'stay' : 'replace';
+}
+
+/** Şu an ÖNDE duran kumandanın iş kimliği (yoksa `null`). Kumanda odaklanınca yazar. */
+let kumandaOnTop: string | null = null;
+export function markKumandaOnTop(id: string | null | undefined): () => void {
+    const mine = id || null;
+    kumandaOnTop = mine;
+    return () => { if (kumandaOnTop === mine) kumandaOnTop = null; };
+}
+export function kumandaOnTopId(): string | null { return kumandaOnTop; }
 
 /**
  * Etkinlik açık tutulur mu: bitiş en az bir saniye ileride. Bekleme

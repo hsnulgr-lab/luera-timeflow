@@ -31,7 +31,7 @@
 
 import { HStack, Image, Overlay, ProgressView, Spacer, Text, VStack } from '@expo/ui/swift-ui';
 import {
-    fixedSize, font, foregroundStyle, hidden, labelsHidden, lineLimit, monospacedDigit, padding, tint,
+    activityBackgroundTint, fixedSize, font, foregroundStyle, hidden, labelsHidden, lineLimit, monospacedDigit, padding, tint,
 } from '@expo/ui/swift-ui/modifiers';
 import { createLiveActivity, type LiveActivityEnvironment } from 'expo-widgets';
 
@@ -41,10 +41,12 @@ function BeklemeSayaci(props: WaitActivityProps, environment: LiveActivityEnviro
     'widget';
     // Marka turuncusu; ışığı kısılmış ekranda (her zaman açık) sade beyaz.
     const dim = environment.isLuminanceReduced === true;
-    const dark = environment.colorScheme !== 'light';
     const accent = dim ? '#FFFFFF' : '#FF5A1F';
-    const primary = dark ? '#FFFFFF' : '#120E08';
-    const muted = dark ? '#A8A29A' : '#6B635A';
+    // Kart HER ZAMAN koyu (uygulamanın zemini) ve yazı açık. Telefonda görülen
+    // (2026-11-12): açık temada sistem zemini yine koyuydu, koyu yazı okunmuyordu.
+    const ground = '#120E08';
+    const primary = '#FFFFFF';
+    const muted = '#A8A29A';
     const range = { lower: new Date(props.startsAt), upper: new Date(props.endsAt) };
     const title = props.service ? `${props.name} · ${props.service}` : props.name;
     // En uzun değerin her basamağı 0: 60 dk "1:00:00" yazıyor.
@@ -52,7 +54,7 @@ function BeklemeSayaci(props: WaitActivityProps, environment: LiveActivityEnviro
 
     return {
         banner: (
-            <VStack alignment="leading" spacing={8} modifiers={[padding({ all: 16 })]}>
+            <VStack alignment="leading" spacing={8} modifiers={[padding({ all: 16 }), activityBackgroundTint(ground)]}>
                 <HStack spacing={6}>
                     <Image systemName="hourglass" size={14} color={accent} />
                     <Text modifiers={[font({ size: 13, weight: 'semibold' }), foregroundStyle(muted)]}>Bekleme</Text>

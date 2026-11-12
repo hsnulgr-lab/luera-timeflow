@@ -14,7 +14,7 @@ import { join } from 'node:path';
 
 import {
     WAIT_ACTIVITY_NAME, firstNameOf, waitActivitiesToEnd, waitActivityDue, waitActivityProps,
-    waitActivityStep, waitActivityTarget, waitActivityUrl,
+    waitActivityStep, waitActivityTarget, waitActivityUrl, waitTapMove, markKumandaOnTop, kumandaOnTopId,
 } from '../mobile/src/lib/waitActivity.ts';
 import { waitAlarmData, waitAlarmText } from '../mobile/src/lib/waitAlarm.ts';
 import { pushTargetOf } from '../mobile/src/lib/pushRoute.ts';
@@ -73,7 +73,7 @@ test('açılış adresi: dokununca O İŞİN kumandası — bekleme bildirimiyle
         const url = waitActivityUrl(ID, '2026-11-12', actor);
         assert.match(url, /^luera:\/\/bekleme\?/);
         const target = waitActivityTarget(url);
-        assert.deepEqual(target, { href: pushTargetOf(waitAlarmData(ID, '2026-11-12'), actor), actor });
+        assert.deepEqual(target, { href: pushTargetOf(waitAlarmData(ID, '2026-11-12'), actor), actor, id: ID });
     }
     assert.equal(waitActivityTarget(waitActivityUrl(ID, '2026-11-12', 'solo')).href, `/kumanda?id=${ID}&from=tek&date=2026-11-12`);
     assert.equal(waitActivityTarget(waitActivityUrl(ID, '2026-11-12', 'staff')).href, `/kumanda?id=${ID}&date=2026-11-12`);
@@ -239,4 +239,27 @@ test('+native-intent: yalnız bekleme bağlantısı; soğuk açılışta bildiri
     assert.match(intent, /const target = waitActivityTarget\(path\);\s*if \(!target\) return path;/);
     assert.match(intent, /if \(initial\) \{\s*rememberIntent\(\{ href: target\.href, actor: target\.actor, at: Date\.now\(\) \}\);\s*return '\/';/);
     assert.match(intent, /catch \{\s*return path;\s*\}/);
+});
+
+test('sayaca dokunuş: önde kumanda varken yenisi üstüne binmez (telefon bulgusu 2026-11-12)', () => {
+    assert.equal(waitTapMove(null, ID), 'push');
+    assert.equal(waitTapMove(ID, ID), 'stay');
+    assert.equal(waitTapMove('baska', ID), 'replace');
+    const off = markKumandaOnTop(ID);
+    assert.equal(kumandaOnTopId(), ID);
+    const offOther = markKumandaOnTop('baska');
+    off(); // eski ekranın temizliği yenisini silmez
+    assert.equal(kumandaOnTopId(), 'baska');
+    offOther();
+    assert.equal(kumandaOnTopId(), null);
+    const intent = code('app/+native-intent.tsx');
+    assert.match(intent, /waitTapMove\(kumandaOnTopId\(\), target\.id\)/);
+    assert.match(intent, /router\.replace\(target\.href/);
+    assert.match(code('app/(staff-flow)/kumanda.tsx'), /useFocusEffect\(useCallback\(\(\) => markKumandaOnTop\(params\.id\)/);
+});
+
+test('kilit ekranı kartı her zaman koyu zemin + açık yazı', () => {
+    const view = code('src/lib/waitActivityView.tsx');
+    assert.match(view, /activityBackgroundTint\(ground\)/);
+    assert.doesNotMatch(view, /colorScheme/);
 });

@@ -17,7 +17,7 @@ import {
     AppState, Animated, Easing, Keyboard, Linking, PanResponder, Pressable, ScrollView, Text,
     TextInput, View, useWindowDimensions, type StyleProp, type TextStyle,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     HoldToFinish, SlideToStart, WaitRing, WarmGlow,
@@ -66,6 +66,7 @@ import { ITEMS_SAVE_MS, chainedStamp, itemsKey, shouldFlushItems, shouldSaveItem
 import { activeWait, rememberWait, waitIntentOf } from '../../src/lib/waitIntent';
 import { armWaitAlarm, disarmWaitAlarm } from '../../src/lib/waitAlarmDevice';
 import { endWaitActivity, reconcileWaitActivities, startWaitActivity } from '../../src/lib/waitActivityDevice';
+import { markKumandaOnTop } from '../../src/lib/waitActivity';
 import { isForeignChange, lockStampOf } from '../../src/lib/visitStamp';
 import { useConnectivity } from '../../src/lib/connectivity';
 import { feedback } from '../../src/lib/feedback';
@@ -137,6 +138,8 @@ export default function Kumanda() {
 
     // Kumanda açılınca süresi geçmiş bekleme sayacı kilit ekranından kalksın (`waitActivityDevice`).
     useEffect(() => { void reconcileWaitActivities(null); }, []);
+    // Sayaca dokunuş bu kumandanın ÜSTÜNE ikincisini bindirmesin (`waitTapMove`).
+    useFocusEffect(useCallback(() => markKumandaOnTop(params.id), [params.id]));
 
     /**
      * Kökün saati — artık SANİYEDE BİR DEĞİL (Hız 2). Yalnız bir sonraki
