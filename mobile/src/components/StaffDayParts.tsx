@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
     Animated,
     Easing,
@@ -1137,7 +1137,12 @@ export function StaffNowLineView({ time }: { time: string }) {
 
 // ── Randevu Satırı ──────────────────────────────────────────────────────────
 
-export function StaffAppointmentRow({
+/*
+ * Satır MEMO (Hız 2): personel sayfası çalışan biri varken saniyede bir
+ * çiziliyor (`liveSeconds`); satırın hiçbir prop'u saniyeye bağlı değil.
+ * Eylemler `StaffDay`'de kararlı tutuluyor.
+ */
+export const StaffAppointmentRow = memo(function StaffAppointmentRow({
     appointment,
     nowMinutes,
     first = false,
@@ -1301,7 +1306,7 @@ export function StaffAppointmentRow({
             </View>
         </Pressable>
     );
-}
+});
 
 // ── Alt Eylem Çubuğu ────────────────────────────────────────────────────────
 

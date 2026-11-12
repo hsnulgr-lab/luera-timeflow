@@ -299,3 +299,73 @@ test('1 · kayıt/kilit mantığına DOKUNULMADI', () => {
         assert.ok(kumanda.includes(needle), needle);
     }
 });
+
+// ── 4 · Personel müşteri listesi ────────────────────────────────────────────
+
+const customers = code(read('app/personel/customers.tsx'));
+
+test('4 · liste FlatList: kararlı anahtar, memo satır, makul pencere', () => {
+    assert.match(customers, /<FlatList\s+data=\{shown\}\s+keyExtractor=\{keyOf\}\s+renderItem=\{renderRow\}/);
+    assert.match(customers, /const keyOf = \(customer: BookCustomer\) => customer\.id;/);
+    assert.match(customers, /const Row = memo\(function Row/);
+    assert.match(customers, /initialNumToRender=\{LIST\.initial\}/);
+    assert.match(customers, /windowSize=\{LIST\.window\}/);
+    assert.doesNotMatch(customers, /shown\.map\(/, 'eski sınırsız çizim kalktı');
+    // Satırın eylemi kararlı: her satıra yeni bir fonksiyon verilmiyor.
+    assert.match(customers, /const open = useCallback\(\(customer: BookCustomer\) => \{/);
+    assert.match(customers, /onPress=\{\(\) => onOpen\(customer\)\}/);
+});
+
+test('4 · süzgeç ertelenmiş ve listeye bağlı her şey AYNI sorguya bakıyor', () => {
+    assert.match(customers, /const listQuery = useDeferredValue\(query\);/);
+    assert.match(customers, /book\.filter\(\(customer\) => matches\(customer, listQuery\)\),\s*\[book, listQuery\]/);
+    assert.match(customers, /const searching = listQuery\.trim\(\)\.length > 0;/);
+    assert.match(customers, /query=\{searching \? listQuery\.trim\(\) : null\}/);
+    // Arama alanı anında: değer ertelenmemiş sorgu.
+    assert.match(customers, /<SearchField value=\{query\} onChange=\{setQuery\} \/>/);
+});
+
+test('4 · görünüm aynı: iç boşluk, alt boşluk, ayraç, klavye davranışı', () => {
+    const list = customers.slice(customers.indexOf('<FlatList'), customers.indexOf('/>', customers.indexOf('<FlatList')));
+    assert.match(list, /style=\{\{ flex: 1 \}\}/);
+    assert.match(list, /paddingHorizontal: pad,\s*paddingBottom: \(small \? M\.bottomSm : M\.bottom\) \+ insets\.bottom,/);
+    assert.match(list, /keyboardShouldPersistTaps="handled"/);
+    assert.match(list, /keyboardDismissMode="on-drag"/);
+    assert.match(list, /automaticallyAdjustKeyboardInsets/);
+    assert.match(list, /showsVerticalScrollIndicator=\{false\}/);
+    // Ayraç satırın kendi alt çizgisi; son satırda yok.
+    assert.match(customers, /last=\{index === lastIndex\}/);
+    assert.match(customers, /borderBottomWidth: last \? 0 : 1,/);
+});
+
+// ── 5 · Bugün listesi ───────────────────────────────────────────────────────
+
+const today = code(read('app/personel/index.tsx'));
+const staffDay = code(read('src/components/StaffDay.tsx'));
+const staffParts = code(read('src/components/StaffDayParts.tsx'));
+
+test('5 · Bugün kartı memo, eylemi kararlı; hâl İÇERİKLE karşılaştırılıyor', () => {
+    assert.match(today, /const StaffCard = memo\(function StaffCard/);
+    assert.match(today, /const openVisit = useCallback\(\(appointment: Appointment\) => router\.push\(\{/);
+    assert.match(today, /onOpen=\{openVisit\}/);
+    assert.doesNotMatch(today, /onPress=\{\(\) => router\.push\(\{\s*pathname: '\/\(staff-flow\)\/kumanda'/);
+    // `date` kumandaya gidiyor — başka günün kartı bulunamadı açmasın.
+    assert.match(today, /params: \{ id: appointment\.id, date: appointment\.date \}/);
+    for (const field of ['kind', 'word', 'tone', 'suffix', 'counter', 'duration', 'dim', 'strike', 'beatKey']) {
+        assert.ok(today.includes(`a.${field} === b.${field}`), field);
+    }
+});
+
+test('5 · giriş hareketi ve şimdi çizgisi aynı', () => {
+    assert.match(today, /entering=\{live\.entering\.has\(appointment\.id\)\}/);
+    assert.match(today, /prev\.entering === next\.entering/);
+    assert.match(today, /<NowLineSlot active=\{appointment\.id === lineAfterId\} time=\{clockOf\(now\)\} \/>/);
+    assert.match(today, /<LiveRow key=\{appointment\.id\} mode=\{live\.leaving\.has\(appointment\.id\) \? 'leave' : 'still'\}>/);
+});
+
+test('5 · müdürün personel günü: satır memo, açma eylemi kararlı', () => {
+    assert.match(staffParts, /export const StaffAppointmentRow = memo\(function StaffAppointmentRow/);
+    assert.match(staffDay, /const openAppointment = useCallback\(\(appointment: Appt\) => openLatest\.current\(appointment\), \[\]\);/);
+    assert.match(staffDay, /useEffect\(\(\) => \{ openLatest\.current = onOpenAppointment; \}, \[onOpenAppointment\]\);/);
+    assert.match(staffDay, /onOpenAppointment=\{openAppointment\}/);
+});

@@ -123,6 +123,15 @@ export function StaffDay({
         return found >= 0 ? found : 0;
     }, [initialStaffId, presence]);
 
+    /*
+     * Satır eylemi KARARLI (Hız 2): çağıran ekran her çizimde yeni bir
+     * fonksiyon veriyor; satırlar `memo` ve bu yüzden her saniye yeniden
+     * çiziliyordu. Ref efektte güncelleniyor, çağrı yalnız dokunuşta okuyor.
+     */
+    const openLatest = useRef(onOpenAppointment);
+    useEffect(() => { openLatest.current = onOpenAppointment; }, [onOpenAppointment]);
+    const openAppointment = useCallback((appointment: Appt) => openLatest.current(appointment), []);
+
     const [activeIndex, setActiveIndex] = useState(initialIndex);
     const scrollRef = useRef<RNScrollView>(null);
     const scrollX = useRef(new Animated.Value(initialIndex * Dimensions.get('window').width)).current;
@@ -251,7 +260,7 @@ export function StaffDay({
                                 nowMinutes={nowMinutes}
                                 isActive={isCurrentPage}
                                 isEntry={index === initialIndex}
-                                onOpenAppointment={onOpenAppointment}
+                                onOpenAppointment={openAppointment}
                                 onMoreAppointment={setMenuFor}
                                 onCreateAppointment={onCreateAppointment}
                                 onGoFreeStaff={() => {

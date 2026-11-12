@@ -14,8 +14,8 @@
  * Sıralama kontrolsüz — bkz. `sortBook`.
  */
 
-import { useMemo, useState } from 'react';
-import { Keyboard, Pressable, ScrollView, Text, View } from 'react-native';
+import { memo, useCallback, useDeferredValue, useMemo, useState } from 'react';
+import { FlatList, Keyboard, Pressable, ScrollView, Text, View, type ListRenderItem } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -43,6 +43,15 @@ const M = {
     bottom: 106, bottomSm: 88,
 } as const;
 
+/**
+ * Liste penceresi (Hız 2). Satır 68–76 pt; bir ekran ~10 satır. İlk çizim
+ * bir ekranı biraz aşıyor ki kaydırmanın ilk anında boşluk görünmesin.
+ */
+const LIST = { initial: 12, batch: 10, window: 7 } as const;
+
+/** Kararlı anahtar — modül düzeyinde, her çizimde yeni fonksiyon yok. */
+const keyOf = (customer: BookCustomer) => customer.id;
+
 export default function Customers() {
     const { c, small } = useTheme();
     const insets = useSafeAreaInsets();
@@ -57,14 +66,35 @@ export default function Customers() {
      */
     const { state: bookState, rows, reload } = useBook(today);
     const book = useMemo(() => sortBook(rows, today), [rows, today]);
+    /*
+     * Süzgeç ERTELENMİŞ sorguyla (Hız 2). Arama alanı her tuşu anında
+     * gösteriyor; uzun bir defterin süzülüp çizilmesi tuşu bekletmiyor.
+     * Listeye bağlı her şey (sayı, boş hâl, altyazı) aynı ertelenmiş
+     * sorguya bakıyor — iki ayrı sorgu aynı ekranda iki gerçek olurdu.
+     */
+    const listQuery = useDeferredValue(query);
     const shown = useMemo(
-        () => book.filter((customer) => matches(customer, query)),
-        [book, query],
+        () => book.filter((customer) => matches(customer, listQuery)),
+        [book, listQuery],
     );
 
     const pad = small ? M.padSm : M.pad;
-    const searching = query.trim().length > 0;
+    const searching = listQuery.trim().length > 0;
     const noneMine = bookState === 'ok' && mineCount(book) === 0;
+
+    /** Satırın eylemi KARARLI — `Row` memo ve her tuşta yeniden çizilmiyor. */
+    const open = useCallback((customer: BookCustomer) => {
+        feedback.selection();
+        Keyboard.dismiss();
+        router.push({
+            pathname: '/(staff-flow)/musteri',
+            params: { customerId: customer.id, name: customer.name },
+        });
+    }, [router]);
+    const lastIndex = shown.length - 1;
+    const renderRow = useCallback<ListRenderItem<BookCustomer>>(({ item, index }) => (
+        <Row customer={item} today={today} last={index === lastIndex} onOpen={open} />
+    ), [today, lastIndex, open]);
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
@@ -129,11 +159,21 @@ export default function Customers() {
                 <View style={{ flex: 1 }} />
             ) : shown.length === 0 ? (
                 <Empty
-                    query={searching ? query.trim() : null}
+                    query={searching ? listQuery.trim() : null}
                     empty={book.length === 0}
                 />
             ) : (
-                <ScrollView
+                /* FlatList (Hız 2): defter yüzlerce satır olabiliyor ve
+                   ScrollView hepsini birden çiziyordu. Görünüm aynı: aynı
+                   iç boşluk, aynı ayraç (satırın alt çizgisi), aynı klavye
+                   davranışı. */
+                <FlatList
+                    data={shown}
+                    keyExtractor={keyOf}
+                    renderItem={renderRow}
+                    initialNumToRender={LIST.initial}
+                    maxToRenderPerBatch={LIST.batch}
+                    windowSize={LIST.window}
                     style={{ flex: 1 }}
                     contentContainerStyle={{
                         paddingHorizontal: pad,
@@ -149,34 +189,17 @@ export default function Customers() {
                     // klavyenin yüksekliği kadar içeriden çiziliyor.
                     automaticallyAdjustKeyboardInsets
                     showsVerticalScrollIndicator={false}
-                >
-                    {shown.map((customer, index) => (
-                        <Row
-                            key={customer.id}
-                            customer={customer}
-                            today={today}
-                            last={index === shown.length - 1}
-                            onOpen={() => {
-                                feedback.selection();
-                                Keyboard.dismiss();
-                                router.push({
-                                    pathname: '/(staff-flow)/musteri',
-                                    params: { customerId: customer.id, name: customer.name },
-                                });
-                            }}
-                        />
-                    ))}
-                </ScrollView>
+                />
             )}
         </View>
     );
 }
 
-function Row({ customer, today, last, onOpen }: {
+const Row = memo(function Row({ customer, today, last, onOpen }: {
     customer: BookCustomer;
     today: string;
     last: boolean;
-    onOpen: () => void;
+    onOpen: (customer: BookCustomer) => void;
 }) {
     const { c, small } = useTheme();
     const name = splitName(customer.name);
@@ -194,7 +217,7 @@ function Row({ customer, today, last, onOpen }: {
             accessibilityRole="button"
             accessibilityLabel={`${customer.name}, ${customer.lastService ?? 'randevu yok'}, ${ago.text}${
                 customer.hasFormula ? ', formül kaydı var' : ''}`}
-            onPress={onOpen}
+            onPress={() => onOpen(customer)}
             style={({ pressed }) => ({
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -261,7 +284,7 @@ function Row({ customer, today, last, onOpen }: {
             </Text>
         </Pressable>
     );
-}
+});
 
 /**
  * OKUNAMADI — boş defterle aynı şey DEĞİL.

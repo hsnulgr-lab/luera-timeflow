@@ -12,7 +12,7 @@
  * dokunulur şey YOK. `LayoutAnimation` da bu ekrandan bu turda çıktı.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,7 +27,7 @@ import { DurumBand, DurumBlock, DurumUnread } from '../../src/components/Durum';
 import { PushPrompt } from '../../src/components/PushPrompt';
 import { useFailedWrites } from '../../src/lib/failedWrites';
 import { failureAdvice, failureLine, failureTitle } from '../../src/lib/writeFailure';
-import { isStale, useAgenda } from '../../src/lib/agendaSource';
+import { isStale, useAgenda, type AgendaRow as Appointment } from '../../src/lib/agendaSource';
 import { LIVE_AUTH } from '../../src/api/session';
 import { feedback } from '../../src/lib/feedback';
 import { font, glow, useTheme } from '../../src/theme';
@@ -118,6 +118,17 @@ export default function Today() {
         const id = setInterval(() => setNow(Date.now()), running ? 1000 : 30_000);
         return () => clearInterval(id);
     }, [running]);
+
+    /*
+     * Kartın eylemi KARARLI (Hız 2). Dört ekran (appointment · visit ·
+     * finish · sent) tek kumandaya indi; evreyi o sayfa kendi verisinden
+     * okuyor. `date` ŞART: kumanda tarih yoksa BUGÜNÜ okuyor ve başka günün
+     * kartı "Bu randevu bulunamadı" açıyordu.
+     */
+    const openVisit = useCallback((appointment: Appointment) => router.push({
+        pathname: '/(staff-flow)/kumanda',
+        params: { id: appointment.id, date: appointment.date },
+    }), [router]);
 
     // Şimdi çizgisi YALNIZ bugün çizilir: başka günde "şimdi" diye bir yer yok.
     const lineAfter = isToday ? nowLineAfter(agenda, now) : -2;
@@ -363,19 +374,11 @@ export default function Today() {
 
                 {live.shown.map(({ appointment, state }) => (
                     <LiveRow key={appointment.id} mode={live.leaving.has(appointment.id) ? 'leave' : 'still'}>
-                        <AppointmentCard
+                        <StaffCard
                             appointment={appointment}
                             state={state}
                             entering={live.entering.has(appointment.id)}
-                            // Dört ekran (appointment · visit · finish · sent)
-                            // tek kumandaya indi; evreyi o sayfa kendi
-                            // verisinden okuyor. `date` ŞART: kumanda tarih
-                            // yoksa BUGÜNÜ okuyor ve başka günün kartı "Bu
-                            // randevu bulunamadı" açıyordu.
-                            onPress={() => router.push({
-                                pathname: '/(staff-flow)/kumanda',
-                                params: { id: appointment.id, date: appointment.date },
-                            })}
+                            onOpen={openVisit}
                         />
                         <NowLineSlot active={appointment.id === lineAfterId} time={clockOf(now)} />
                     </LiveRow>
@@ -432,4 +435,30 @@ function FailedWrites() {
     );
 }
 
+/** Kartın hâli İÇERİK olarak aynı mı — `cardState` her turda yeni nesne kuruyor. */
+function sameState(a: StaffCardState, b: StaffCardState): boolean {
+    return a.kind === b.kind && a.word === b.word && a.tone === b.tone && a.suffix === b.suffix
+        && a.counter === b.counter && a.duration === b.duration && a.dim === b.dim
+        && a.strike === b.strike && a.beatKey === b.beatKey;
+}
 
+/**
+ * Bugün kartı — MEMO (Hız 2).
+ *
+ * Bir iş sürerken ekran saniyede bir çiziliyor (sayacın kendisi için) ve
+ * `cardState` HER kart için yeni bir nesne kuruyordu: listedeki bütün kartlar
+ * her saniye baştan çiziliyordu. Artık yalnız hâli gerçekten değişen kart
+ * (sayacı akan kart) çiziliyor. Giriş hareketi (`entering`) ve görünüm aynı.
+ */
+const StaffCard = memo(function StaffCard({ appointment, state, entering, onOpen }: {
+    appointment: Appointment;
+    state: StaffCardState;
+    entering: boolean;
+    onOpen: (appointment: Appointment) => void;
+}) {
+    const press = useCallback(() => onOpen(appointment), [onOpen, appointment]);
+    return <AppointmentCard appointment={appointment} state={state} entering={entering} onPress={press} />;
+}, (prev, next) => prev.appointment === next.appointment
+    && prev.entering === next.entering
+    && prev.onOpen === next.onOpen
+    && sameState(prev.state, next.state));
