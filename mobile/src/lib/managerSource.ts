@@ -249,10 +249,24 @@ export async function fetchLeave(from: string, to: string): Promise<Map<string, 
  */
 export async function fetchOrgSettings(cols: string): Promise<Record<string, unknown> | null> {
     const organizationId = await orgIdOrThrow();
-    const { data: org, error: orgError } = await supabase
+    const { data: org, error } = await supabase
         .from('organizations').select('owner_id').eq('id', organizationId).maybeSingle();
-    if (orgError) throw orgError;
-    const ownerId = (org as { owner_id?: string } | null)?.owner_id;
+    if (error) throw error;
+    return settingsRowOf(organizationId, (org as { owner_id?: string } | null)?.owner_id, cols);
+}
+
+/**
+ * Sahibin kimliği ELDEYKEN ayar satırı — `fetchOrgSettings`in ikinci yarısı.
+ *
+ * Ayrı, çünkü org satırını zaten başka bir alan için okuyan yer (randevu
+ * kurmanın `maps_url`i) sahibi de aynı sorguda alıp bir gidiş-dönüş
+ * kazanıyor. Kural aynı: önce sahibin satırı, yoksa en eskisi.
+ */
+async function settingsRowOf(
+    organizationId: string,
+    ownerId: string | null | undefined,
+    cols: string,
+): Promise<Record<string, unknown> | null> {
     if (ownerId) {
         const { data, error } = await supabase.from('settings').select(cols)
             .eq('organization_id', organizationId)
@@ -271,27 +285,17 @@ export async function fetchOrgSettings(cols: string): Promise<Record<string, unk
     return data;
 }
 
-/**
- * Salonun gecikme toleransı (dk) — yoksa `null`, varsayılanı türetme katmanı
- * veriyor.
+/*
+ * GECİKME TOLERANSI SUNUCUDAN OKUNMUYOR (Hız 1, 2026-11-12).
  *
- * ── KOLON GÜVENCESİ YOK ─────────────────────────────────────────────────────
- * `settings.arrival_tolerance_min` repodaki HİÇBİR migration'da yok.
- * Masaüstü onu `select('*')` içinden okuyor; kolon yoksa alan boş gelir ve
- * sessizce 120'ye düşer. Adıyla istemek ise kolon yoksa PostgREST'ten 42703
- * alır — ve bu okuma akışın okumasının parçası olduğu için BÜTÜN akış
- * "okunamadı"ya düşerdi. Yalnız bu hata yutuluyor; ağ hatası ve red atılıyor.
+ * `settings.arrival_tolerance_min` repodaki HİÇBİR göçte yok. Telefon onu
+ * adıyla istiyordu; PostgREST her turda 42703 döndürüyor, hata yutulup
+ * varsayılana düşülüyordu — yani her akış okumasında iki boşa istek, sonuç
+ * hep aynı. Kolon EKLENMEDİ (masaüstü de `select('*')` içinden okuyup
+ * boşsa 120'ye düşüyor); telefon doğrudan varsayılanı kullanıyor
+ * (`DEFAULT_ARRIVAL_TOLERANCE_MIN` · `NO_SHOW_AFTER_MIN`). Kolon bir gün
+ * göçle gelirse okuma, akışın tek ayar okumasına bir kolon olarak eklenir.
  */
-export async function fetchArrivalTolerance(): Promise<number | null> {
-    try {
-        const row = await fetchOrgSettings('arrival_tolerance_min');
-        const value = Number(row?.arrival_tolerance_min);
-        return Number.isFinite(value) && value > 0 ? value : null;
-    } catch (cause) {
-        if ((cause as { code?: string } | null)?.code === UNDEFINED_COLUMN) return null;
-        throw cause;
-    }
-}
 
 /** Postgres: "column does not exist". */
 const UNDEFINED_COLUMN = '42703';
@@ -698,12 +702,17 @@ export interface CreateSettings {
  */
 export async function fetchCreateSettings(): Promise<CreateSettings> {
     const organizationId = await orgIdOrThrow();
-    const [settings, org] = await Promise.all([
-        fetchOrgSettings('business_name, sector, working_hours, webhook_url, risk_rules, comms'),
-        supabase.from('organizations').select('maps_url').eq('id', organizationId).maybeSingle()
-            .returns<{ maps_url?: string | null } | null>(),
-    ]);
+    /*
+     * Org satırı TEK kez (Hız 1): sahibin kimliği ile konum bağlantısı aynı
+     * sorguda. Önceden `fetchOrgSettings` sahibi ayrıca soruyordu — aynı
+     * satıra iki istek.
+     */
+    const org = await supabase.from('organizations').select('owner_id, maps_url')
+        .eq('id', organizationId).maybeSingle()
+        .returns<{ owner_id?: string | null; maps_url?: string | null } | null>();
     if (org.error) throw org.error;
+    const settings = await settingsRowOf(organizationId, org.data?.owner_id,
+        'business_name, sector, working_hours, webhook_url, risk_rules, comms');
     const hook = String(settings?.webhook_url ?? '').trim();
     return {
         businessName: String(settings?.business_name ?? '').trim(),
@@ -1542,20 +1551,25 @@ export async function fetchCashPayments(
  */
 export async function fetchDayContext(
     customerIds: readonly string[],
+    /**
+     * `settings.risk_rules` — ÇAĞIRAN okudu (Hız 1). Akış aynı turda ayar
+     * satırını zaten okuyor; burada ikinci kez okumak iki istek daha ve
+     * akışın ardından gelen bir bekleme demekti.
+     */
+    riskRules: unknown,
 ): Promise<Map<string, ApptContext>> {
     const ids = [...new Set(customerIds)].filter(Boolean);
     const out = new Map<string, ApptContext>();
     if (ids.length === 0) return out;
     const organizationId = await orgIdOrThrow();
-    const [customers, packages, settings] = await Promise.all([
+    const [customers, packages] = await Promise.all([
         supabase.from('customers').select('id, custom_fields')
             .eq('organization_id', organizationId).in('id', ids)
             .returns<Record<string, unknown>[]>(),
         fetchPackageRows(organizationId, ids),
-        fetchOrgSettings('risk_rules'),
     ]);
     if (customers.error) throw customers.error;
-    const rules = (settings?.risk_rules as Parameters<typeof riskList>[0] | null) ?? [];
+    const rules = (riskRules as Parameters<typeof riskList>[0] | null) ?? [];
 
     for (const row of customers.data ?? []) {
         const risks = riskList(rules, row.custom_fields as Record<string, unknown> | null);
@@ -1594,9 +1608,9 @@ export async function fetchDayContext(
  * Saat okunamazsa `null` dönüyor ve doluluk HİÇ hesaplanmıyor: uydurma bir
  * payda, uydurma bir yüzde demektir.
  */
-export async function fetchOpenMinutes(dateISO: string): Promise<number | null> {
-    const settings = await fetchOrgSettings('working_hours');
-    const hours = settings?.working_hours;
+export function openMinutesOf(hours: unknown, dateISO: string): number | null {
+    // Saf (Hız 1): ayar satırı akışın TEK ayar okumasından geliyor; burada
+    // ikinci kez okunmuyor.
     if (!Array.isArray(hours)) return null;
     const weekday = new Date(`${dateISO}T00:00:00Z`).getUTCDay();
     const entry = (hours as Record<string, unknown>[])

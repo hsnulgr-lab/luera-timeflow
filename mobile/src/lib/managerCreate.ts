@@ -3,20 +3,25 @@
  *
  * İki ayrı okuma, iki ayrı tempo:
  *
- *   • BAĞLAM — hizmetler, kadro, müşteri defteri, ayarlar, tolerans, saat.
- *     Yoklanmıyor (`poll: false`): defter binlerce satır olabilir ve randevu
- *     kurarken değişmesi beklenmiyor. Sekmeye dönüşte tazeleniyor.
+ *   • BAĞLAM — hizmetler, kadro, ayarlar, paketler, saat. Yoklanmıyor
+ *     (`poll: false`); randevu zili ve sekmeye dönüş tazeliyor.
+ *   • DEFTER — müşteriler + 24 aylık ziyaretler (sayfalı, binlerce satır).
+ *     Ayrı okuma (Hız 1): önceden bağlamın içindeydi ve HER randevu/ödeme
+ *     zilinde baştan iniyordu. Şimdi yalnız `customers` zili ve Oluştur'a
+ *     dönüş tazeliyor. Defterdeki "son geliş" bir randevu sonrası ancak
+ *     ekrana dönünce güncelleniyor — randevu kurmanın kararı (uygunluk,
+ *     çakışma) defterden değil GÜN okumasından ve sunucudan (060).
  *   • GÜN — seçilen günün randevuları ve izinleri. Yoklanıyor: müdür saat
  *     seçerken masaüstünden biri o saati doldurabilir; ray bunu görmeli.
  *     Son söz yine sunucunun (060).
  */
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import type { Appt } from './calendar.ts';
 import type { CustomerOption, ServiceOption } from './createFlow.ts';
 import {
-    customerOptionsOf, serviceOptionsOf, type CrewRecord,
+    customerOptionsOf, serviceOptionsOf, type CrewRecord, type CustomerRecord,
 } from './createLive.ts';
 import { packagesEnabledFor } from './cashBuild.ts';
 import { openPlansOf, type OpenPlan } from './createPackage.ts';
@@ -24,8 +29,9 @@ import { DEFAULT_ARRIVAL_TOLERANCE_MIN } from './managerFlow.ts';
 import { BOOKING_TABLES } from './liveSignal';
 import { useManagerRead, type ManagerSnapshot } from './managerRead';
 import {
-    OrgError, apiSource, fetchArrivalTolerance, fetchCreateSettings, fetchCrew, fetchCustomerBook,
-    fetchLeave, fetchOpenPlans, fetchServerNow, fetchServices, fetchStaffSchedules, type CreateSettings,
+    OrgError, apiSource, fetchCreateSettings, fetchCrew, fetchCustomerBook,
+    fetchLeave, fetchOpenPlans, fetchServerNow, fetchServices, fetchStaffSchedules,
+    type BookVisitRow, type CreateSettings,
 } from './managerSource';
 import { localClock } from './createLive.ts';
 
@@ -49,17 +55,24 @@ export interface CreateContext {
     deviceAt: number;
 }
 
+type Light = Omit<CreateContext, 'customers'>;
+interface Book { todayISO: string; people: CustomerRecord[]; visits: BookVisitRow[] }
+
+/** Defterin tazelendiği tek tablo: müşteri eklenince/değişince. */
+const BOOK_TABLES = ['customers'] as const;
+
 export function useCreateContext(): ManagerSnapshot<CreateContext | null> {
-    const read = useCallback(async (): Promise<CreateContext> => {
-        const serverNow = await fetchServerNow();
-        const deviceAt = Date.now();
-        const todayISO = localClock(serverNow).dateISO;
-        const [catalog, crew, book, settings, tolerance, schedules, plans] = await Promise.all([
+    /*
+     * HAFİF BAĞLAM — sunucu saati de ötekilerle PARALEL (Hız 1): önceden
+     * defterin penceresi için önce saat bekleniyordu; defter ayrılınca bu
+     * okumada saati bekleyen kimse kalmadı.
+     */
+    const readLight = useCallback(async (): Promise<Light> => {
+        const [serverNow, catalog, crew, settings, schedules, plans] = await Promise.all([
+            fetchServerNow(),
             fetchServices(),
             fetchCrew(),
-            fetchCustomerBook(todayISO),
             fetchCreateSettings(),
-            fetchArrivalTolerance(),
             fetchStaffSchedules(),
             fetchOpenPlans().catch((cause: unknown) => {
                 // Salon reddi bütün okumanın işi; yalnız paket okuması düşerse null.
@@ -68,22 +81,63 @@ export function useCreateContext(): ManagerSnapshot<CreateContext | null> {
                 return null;
             }),
         ]);
+        const deviceAt = Date.now();
         return {
-            todayISO,
+            todayISO: localClock(serverNow).dateISO,
             services: serviceOptionsOf(catalog),
             crew: crew.map((person) => ({
                 id: person.id, name: person.name, color: person.color, active: person.active,
                 workingHours: schedules.get(person.id) ?? null,
             })),
-            customers: customerOptionsOf(book.people, book.visits, todayISO),
             packages: !packagesEnabledFor(settings.sector) ? [] : plans === null ? null : openPlansOf(plans),
             settings,
-            toleranceMin: tolerance ?? DEFAULT_ARRIVAL_TOLERANCE_MIN,
+            // `arrival_tolerance_min` hiçbir göçte yok; okunmuyor (Hız 1).
+            toleranceMin: DEFAULT_ARRIVAL_TOLERANCE_MIN,
             serverNow,
             deviceAt,
         };
     }, []);
-    return useManagerRead<CreateContext | null>(read, null, { poll: false, tables: BOOKING_TABLES });
+
+    /*
+     * DEFTER — pencere yine SUNUCU gününden (cihazın yanlış tarihi 24 aylık
+     * sınırı kaydırmasın). Yoklama yok; randevu zili de YOK.
+     */
+    const readBook = useCallback(async (): Promise<Book> => {
+        const todayISO = localClock(await fetchServerNow()).dateISO;
+        const book = await fetchCustomerBook(todayISO);
+        return { todayISO, ...book };
+    }, []);
+
+    const light = useManagerRead<Light | null>(readLight, null, { poll: false, tables: BOOKING_TABLES });
+    const book = useManagerRead<Book | null>(readBook, null, { poll: false, tables: BOOK_TABLES });
+
+    const data = useMemo<CreateContext | null>(() => {
+        if (!light.data || !book.data) return null;
+        return {
+            ...light.data,
+            customers: customerOptionsOf(book.data.people, book.data.visits, book.data.todayISO),
+        };
+    }, [light.data, book.data]);
+
+    const { reload: reloadLight } = light;
+    const { reload: reloadBook } = book;
+    const reload = useCallback(async () => {
+        await Promise.all([reloadLight(), reloadBook()]);
+    }, [reloadLight, reloadBook]);
+
+    /*
+     * İki okuma, TEK görünüş — ekran eskisi gibi tek bir hâl görüyor:
+     * biri okunamadıysa okunamadı, biri yükleniyorsa yükleniyor.
+     */
+    return {
+        state: light.state === 'error' || book.state === 'error' ? 'error'
+            : light.state === 'loading' || book.state === 'loading' ? 'loading' : 'ok',
+        data,
+        refusal: light.refusal ?? book.refusal,
+        at: light.at === null || book.at === null ? null : Math.min(light.at, book.at),
+        stale: light.stale || book.stale,
+        reload,
+    };
 }
 
 export interface CreateDay {

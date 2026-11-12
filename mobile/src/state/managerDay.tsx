@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useSegments } from 'expo-router';
 
 import {
     buildFlow, occupancyOf, revenueOf,
@@ -69,6 +70,22 @@ export interface ManagerDayValue {
 
 const ManagerDayContext = createContext<ManagerDayValue | null>(null);
 
+/**
+ * Bu veriyi HİÇ okumayan sekmeler (Hız 1). Sağlayıcı kabuğun düzeninde ve
+ * kabuk odakta kaldıkça — Takvim'de, Profil'de de — akışın ~15 istekli
+ * okumasını 25 sn'de bir ve her zilde yapıyordu; o sekmelerde kimse
+ * kullanmıyordu. Liste bilerek "kullanmayanlar": bilinmeyen bir adreste
+ * (yeni sekme, geçiş anı) okuma SÜRÜYOR — fazla okumak, bayat Kasa'dan ucuz.
+ * Kullananlar: Akış/Gün (`index`), Randevu (`create`), Kasa (`cash`).
+ */
+const IDLE_TABS: ReadonlySet<string> = new Set(['calendar', 'profile', 'isletme']);
+
+function useDayInUse(): boolean {
+    const segments = useSegments() as readonly string[];
+    const shell = segments[0] === 'mudur' || segments[0] === 'tek';
+    return !(shell && IDLE_TABS.has(segments[1] ?? ''));
+}
+
 /** Sunucu saatli çizim için dakika adımı — eşiklerin (5 · 10 dk) geçişi bunu bekler. */
 const CLOCK_TICK_MS = 30_000;
 
@@ -76,7 +93,7 @@ type Overlay = { event: FlowEvent; basedOn: FlowKind | null };
 type StampOverride = { from: string | undefined; to: string | null };
 
 export function ManagerDayProvider({ children }: { children: ReactNode }) {
-    const snapshot = useManagerFlowDay();
+    const snapshot = useManagerFlowDay(useDayInUse());
     const { data } = snapshot;
 
     const [clock, setClock] = useState(() => Date.now());

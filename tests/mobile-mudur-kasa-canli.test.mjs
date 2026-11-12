@@ -311,7 +311,7 @@ test('akışın okuması adisyonları kuruyor ve sağlayıcı onları akışa ve
     assert.match(day, /fetchOpenTicketRows\(dateISO\)/);
     // Katalog `services` TABLOSUNDAN — `settings`te öyle bir kolon yok.
     assert.match(day, /fetchServices\(\),/);
-    assert.match(day, /fetchOrgSettings\('sector, business_name'\)/);
+    assert.match(day, /fetchOrgSettings\('sector, business_name, working_hours, risk_rules'\)/);
     assert.doesNotMatch(strip(read('mobile/src/lib/managerCash.ts')) + day, /settings\?\.services|'services'\)|, services,? sector/);
     // `tags` (076) okunuyor; kolon yoksa etiketsiz okumaya düşülüyor, katalog kapanmıyor.
     assert.match(source, /from\('services'\)\s*\.select\(cols\)\s*\.eq\('organization_id', organizationId\)/);
@@ -363,12 +363,13 @@ test('arşivlenmiş müşterinin geçmiş tahsilatında adı kaybolmuyor', () =>
     assert.doesNotMatch(cash, /is_active/);
 });
 
-test('tolerans kolonu yoksa akış düşmüyor — yalnız 42703 yutuluyor', () => {
-    const fn = source.slice(source.indexOf('export async function fetchArrivalTolerance'), source.indexOf('const UNDEFINED_COLUMN'));
-    assert.match(fn, /=== UNDEFINED_COLUMN\) return null;\s*throw cause;/);
+test('tolerans kolonu hiçbir göçte yok — telefon onu HİÇ istemiyor (Hız 1)', () => {
+    // Önceden her akış turunda iki istek atılıp 42703 yutuluyordu; sonuç hep
+    // varsayılandı. Şimdi istek yok, `null` → türetme katmanının varsayılanı.
+    assert.doesNotMatch(source, /fetchArrivalTolerance|arrival_tolerance_min/);
+    assert.doesNotMatch(day, /fetchArrivalTolerance|arrival_tolerance_min/);
+    assert.match(day, /toleranceMin: null,/);
     assert.match(source, /const UNDEFINED_COLUMN = '42703';/);
-    assert.match(day, /fetchArrivalTolerance\(\),/);
-    assert.doesNotMatch(day, /arrival_tolerance_min/);
 });
 
 test('olmayan kolon istenmiyor — customers.deleted_at YOK', () => {

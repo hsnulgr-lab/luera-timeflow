@@ -103,7 +103,7 @@ test('takvim de Bugün ile AYNI yenileme desenini taşıyor', () => {
     assert.match(source, /if \(AppState\.currentState !== 'active'\) return;/);
     assert.match(source, /}, POLL_MS\);/);
     assert.match(source, /AppState\.addEventListener\('change'/);
-    assert.match(source, /useFocusEffect\(useCallback\(\(\) => \{ void read\(false\); \}, \[read\]\)\)/);
+    assert.match(source, /useFocusEffect\(useCallback\(\(\) => \{[\s\S]*?if \(dirty\.current \|\| !readSinceBlur\.current\) void read\(false\);/);
     assert.match(source, /if \(visible\) setState\('error'\);/);
 });
 

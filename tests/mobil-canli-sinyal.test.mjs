@@ -84,8 +84,10 @@ test('YOKLAMA KALKMIYOR — sinyal garanti değil', () => {
      * Sinyale güvenip yoklamayı kapatmak, sessizce bayatlayan bir ekran
      * üretirdi.
      */
-    assert.match(hook, /useLiveSignal\(useCallback\(\(\) => \{ void run\(false\); \}, \[run\]\), true, options\.tables\);/);
-    assert.match(hook, /const id = setInterval\(\(\) => \{[\s\S]{0,160}\}, POLL_MS\);/);
+    // Hız 1: zil ODAKTAKİ ekranı okutuyor, ötekini kirli işaretliyor.
+    assert.match(hook, /useLiveSignal\(nudge, true, options\.tables\);/);
+    assert.match(hook, /if \(focused\.current\) void run\(false\);\s*else dirty\.current = true;/);
+    assert.match(hook, /setInterval\(\(\) => \{[\s\S]{0,160}\}, POLL_MS\)/);
     // Sessiz tur: çalışan bir ekranı "yükleniyor"a düşürmek sinyali gürültüye
     // çevirirdi.
     assert.doesNotMatch(hook, /useLiveSignal\([\s\S]{0,80}run\(true\)/);

@@ -88,8 +88,10 @@ test('yoklama personelle AYNI aralıkta ve yalnız ekran açıkken', () => {
 });
 
 test('öne dönüş ve sekmeye dönüş SESSİZ tazeliyor', () => {
-    assert.match(hook, /if \(next === 'active'\) void run\(false\)/);
-    assert.match(hook, /useFocusEffect\(useCallback\(\(\) => \{ void run\(false\); \}, \[run\]\)\)/);
+    assert.match(hook, /if \(next === 'active'\) nudge\(\);/);
+    // Odağa dönüşte okuma — kuruluşla aynı anda açılmışsa ikincisi yok (Hız 1).
+    assert.match(hook, /useFocusEffect\(useCallback\(\(\) => \{[\s\S]*?if \(dirty\.current \|\| !readSinceBlur\.current\) void run\(false\);/);
+    assert.match(hook, /const run = useCallback\(\(visible: boolean\) => \{[\s\S]{0,120}readSinceBlur\.current = true;\s*dirty\.current = false;/);
 });
 
 test('sessiz okumanın hatası ELDEKİ veriyi bozmuyor', () => {

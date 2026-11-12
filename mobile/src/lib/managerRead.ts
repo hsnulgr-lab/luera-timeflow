@@ -12,6 +12,10 @@
  *   • üç hâl: yükleniyor · tamam · okunamadı
  *   • ekran AÇIKKEN 25 sn'de bir sessiz yoklama, arka planda hiç
  *   • öne dönüşte ve sekmeye dönüşte sessiz tazeleme
+ *   • yoklama, öne dönüş ve canlı zil YALNIZ ODAKTAKİ ekranı okutur (Hız 1).
+ *     Sekmeler kurulu kaldığı için her zil beş ekranı birden okutuyordu;
+ *     odakta olmayan ekran yalnız "kirli" işaretleniyor ve odağa dönünce
+ *     TEK okuma yapıyor.
  *   • sessiz okumanın hatası YUTULUR — çalışan bir ekranı bozmak, bayat
  *     göstermekten kötü
  *   • aşağı çekip yenileme görünür: söz döner, kaydırıcı okuma bitene kadar
@@ -20,7 +24,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useNavigation } from 'expo-router';
 
 import { isStale, POLL_MS } from './freshness.ts';
 import { useLiveSignal, type LiveTable } from './liveSignal';
@@ -72,9 +76,17 @@ export function useManagerRead<T>(
          * bilmiyor, o yüzden varsayılan bilerek "fazla tazele".
          */
         tables?: readonly LiveTable[];
+        /**
+         * `active: false` — ekran odakta olsa da okumayı ODAK DIŞI say
+         * (Hız 1). Kök sağlayıcı için: kabuk odakta ama açık sekme onun
+         * verisini kullanmıyor (Takvim, Profil). Yoklama ve zil durur, zil
+         * yalnız kirli işaretler; yeniden etkinleşince TEK okuma.
+         */
+        active?: boolean;
     } = {},
 ): ManagerSnapshot<T> {
     const poll = options.poll !== false;
+    const active = options.active !== false;
     const [state, setState] = useState<ManagerReadState>('loading');
     const [data, setData] = useState<T>(initial);
     const [refusal, setRefusal] = useState<OrgRefusal | null>(null);
@@ -90,10 +102,33 @@ export function useManagerRead<T>(
      * veriliyor: yalnız EN SON açılan okuma yazabiliyor.
      */
     const turn = useRef(0);
+    /*
+     * ODAK (Hız 1). Sekmeler kurulu kalıyor: odak kontrolü olmadan Akış
+     * açıkken Takvim, Kasa ve Oluştur da her zilde ve her 25 sn'de okuyordu.
+     *
+     *   • `focused` — ekran şu an odakta mı. Çizimi tetiklemesin diye ref.
+     *   • `dirty`   — odakta değilken zil/öne dönüş geldi; odağa dönüşte oku.
+     *   • `readSinceBlur` — odak kaybından sonra bir okuma ZATEN açıldı mı.
+     *     İlk açılışta kuruluş okuması ile odak okuması aynı anda geliyordu
+     *     (çift okuma); bu bayrak ikincisini düşürüyor.
+     */
+    const navigation = useNavigation();
+    /*
+     * Gezinme nesnesi BAĞIMLILIK DEĞİL: React Navigation yığın değişince onu
+     * yeniden üretiyor (bkz. `shellRoot.useShellIsRoot`) ve kuruluş okuması
+     * her yığın değişiminde tekrarlanırdı.
+     */
+    const navRef = useRef(navigation);
+    useEffect(() => { navRef.current = navigation; }, [navigation]);
+    const focused = useRef(false);
+    const dirty = useRef(false);
+    const readSinceBlur = useRef(false);
 
     const run = useCallback((visible: boolean) => {
         turn.current += 1;
         const mine = turn.current;
+        readSinceBlur.current = true;
+        dirty.current = false;
         return read()
             .then((next) => {
                 if (turn.current !== mine) return;
@@ -126,34 +161,63 @@ export function useManagerRead<T>(
             });
     }, [read]);
 
-    useEffect(() => { void run(true); }, [run]);
-
     useEffect(() => {
-        if (!poll) return undefined;
-        const id = setInterval(() => {
-            if (AppState.currentState !== 'active') return;
-            void run(false);
-        }, POLL_MS);
-        return () => clearInterval(id);
-    }, [run, poll]);
+        void run(true);
+        // Odakta DEĞİLKEN kurulduysa (önceden yüklenen sekme) bu okuma ilk
+        // odakta tekrarlansın: arada ne değiştiği bilinmiyor.
+        if (!navRef.current.isFocused()) dirty.current = true;
+    }, [run]);
+
+    /** Zil ve öne dönüş: odaktaysa oku, değilse yalnız kirli işaretle. */
+    const nudge = useCallback(() => {
+        if (focused.current) void run(false);
+        else dirty.current = true;
+    }, [run]);
 
     useEffect(() => {
         const sub = AppState.addEventListener('change', (next) => {
-            if (next === 'active') void run(false);
+            if (next === 'active') nudge();
         });
         return () => sub.remove();
-    }, [run]);
+    }, [nudge]);
 
-    useFocusEffect(useCallback(() => { void run(false); }, [run]));
+    /*
+     * SEKMEYE DÖNÜŞ + YOKLAMA — ikisi de odağın ömrüne bağlı.
+     *
+     * Odağa dönüşte HER ZAMAN bir okuma (alt ekranda yapılan değişiklik
+     * zil gelmese de yansısın); tek istisna aynı anda açılmış kuruluş
+     * okuması. Yoklama sayacı yalnız odakta kurulu: odak kaybında söküldüğü
+     * için arkadaki sekmeler 25 sn'de bir okumuyor.
+     */
+    useFocusEffect(useCallback(() => {
+        // Etkin değil: odak dışı gibi davran — dönüşte okunması için işaretle.
+        if (!active) {
+            readSinceBlur.current = false;
+            return undefined;
+        }
+        focused.current = true;
+        if (dirty.current || !readSinceBlur.current) void run(false);
+        const id = poll ? setInterval(() => {
+            if (AppState.currentState !== 'active') return;
+            void run(false);
+        }, POLL_MS) : null;
+        return () => {
+            focused.current = false;
+            readSinceBlur.current = false;
+            if (id !== null) clearInterval(id);
+        };
+    }, [run, poll, active]));
 
     /*
      * CANLI SİNYAL — yoklamanın yerine değil, ÜSTÜNE.
      *
      * Masaüstünden bir randevu oluşturulduğunda 25 saniye beklemek yerine
-     * saniyesinde tazeleniyor. Sessiz tur (`run(false)`): çalışan bir ekranı
-     * "yükleniyor"a düşürmek, sinyali gürültüye çevirirdi.
+     * saniyesinde tazeleniyor — ODAKTAKİ ekranda. Abonelik odak dışında da
+     * açık kalıyor (kanal kapanıp açılmasın, kirli işareti kaçmasın).
+     * Sessiz tur: çalışan bir ekranı "yükleniyor"a düşürmek, sinyali
+     * gürültüye çevirirdi.
      */
-    useLiveSignal(useCallback(() => { void run(false); }, [run]), true, options.tables);
+    useLiveSignal(nudge, true, options.tables);
 
     useEffect(() => {
         const id = setInterval(() => {

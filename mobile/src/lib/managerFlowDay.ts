@@ -26,8 +26,8 @@ import { presenceOf } from './presence.ts';
 import { BOOKING_TABLES } from './liveSignal';
 import { useManagerRead, type ManagerSnapshot } from './managerRead';
 import {
-    fetchArrivalTolerance, fetchCrew, fetchDayContext, fetchFlowRows, fetchLeave, fetchOpenMinutes,
-    fetchOpenTicketRows, fetchOrgSettings, fetchPayments, fetchServerNow, fetchServices,
+    fetchCrew, fetchDayContext, fetchFlowRows, fetchLeave, fetchOpenTicketRows, fetchOrgSettings,
+    fetchPayments, fetchServerNow, fetchServices, openMinutesOf,
 } from './managerSource';
 
 export interface ManagerFlowDay {
@@ -57,7 +57,12 @@ const EMPTY: ManagerFlowDay = {
 
 const LEAVE_WINDOW_DAYS = 14;
 
-export function useManagerFlowDay(): ManagerSnapshot<ManagerFlowDay> {
+/**
+ * `active` — açık sekme bu veriyi kullanıyor mu (bkz. `ManagerDayProvider`).
+ * Kullanmıyorsa okuma odak dışı sayılıyor: yoklama ve zil durur, dönüşte
+ * TEK okuma.
+ */
+export function useManagerFlowDay(active = true): ManagerSnapshot<ManagerFlowDay> {
     const read = useCallback(async (): Promise<ManagerFlowDay> => {
         /*
          * GÜN, okuma ANINDA belirleniyor. Kanca ilk çizimde sabitlenmiş bir
@@ -65,14 +70,33 @@ export function useManagerFlowDay(): ManagerSnapshot<ManagerFlowDay> {
          * devam ederdi.
          */
         const dateISO = todayISO();
-        const [flow, payments, crew, leave, tolerance, settings, openMinutes, serverNow, open, services] = await Promise.all([
-            fetchFlowRows(dateISO),
+        /*
+         * AYAR SATIRI TURDA BİR KEZ (Hız 1). Önceden dört ayrı okuma vardı
+         * (tolerans · sektör+ad · çalışma saati · risk kuralları), her biri
+         * iki ardışık istek: sekiz istek, biri her turda 42703 ile düşen.
+         * Şimdi tek okuma, gerekenler ondan türüyor. Paylaşım YALNIZ bu
+         * turun içinde — modül önbelleği yok, salon değişince taşınacak
+         * bir şey kalmıyor.
+         */
+        const settingsP = fetchOrgSettings('sector, business_name, working_hours, risk_rules');
+        const flowP = fetchFlowRows(dateISO);
+        /*
+         * Müşteri bağlamı randevulara bağlı — ama ötekilere DEĞİL. Bütün
+         * okumayı beklemek yerine randevular ve ayar gelir gelmez başlıyor.
+         */
+        const contextP = Promise.all([flowP, settingsP]).then(([flow, settings]) => fetchDayContext(
+            flow.rows.map((row) => row.customer_id).filter((id): id is string => Boolean(id)),
+            settings?.risk_rules,
+        ));
+        // Ötekilerden biri önce düşerse bu söz beklenmeden kalır; "yakalanmamış
+        // red" uyarısı vermesin. Hata yine `await contextP`te atılıyor.
+        contextP.catch(() => undefined);
+        const [flow, payments, crew, leave, settings, serverNow, open, services] = await Promise.all([
+            flowP,
             fetchPayments(dateISO),
             fetchCrew(),
             fetchLeave(dateISO, addDaysISO(dateISO, LEAVE_WINDOW_DAYS)),
-            fetchArrivalTolerance(),
-            fetchOrgSettings('sector, business_name'),
-            fetchOpenMinutes(dateISO),
+            settingsP,
             fetchServerNow(),
             fetchOpenTicketRows(dateISO),
             fetchServices(),
@@ -80,9 +104,8 @@ export function useManagerFlowDay(): ManagerSnapshot<ManagerFlowDay> {
         // Cihaz saati okuma BİTİNCE not ediliyor: sapma, sunucu cevabıyla
         // aynı ana ait olsun.
         const deviceAt = Date.now();
-        const context = await fetchDayContext(
-            flow.rows.map((row) => row.customer_id).filter((id): id is string => Boolean(id)),
-        );
+        const context = await contextP;
+        const openMinutes = openMinutesOf(settings?.working_hours, dateISO);
         // Akış satırı presence'ın okuduğu alanların üst kümesi; kopya yok.
         const { columns } = columnsFor(crew, flow.rows);
         const packagesEnabled = packagesEnabledFor(settings?.sector);
@@ -110,9 +133,9 @@ export function useManagerFlowDay(): ManagerSnapshot<ManagerFlowDay> {
             presence: presenceOf(columns, flow.rows, leave, dateISO, serverNow),
             context,
             stamps: flow.stamps,
-            // Ayar yoksa (kolon bile olmayabilir) `null`: varsayılanı türetme
-            // katmanı veriyor, burada uydurulmuyor.
-            toleranceMin: tolerance,
+            // Kolon hiçbir göçte yok (bkz. `managerSource` · tolerans notu):
+            // `null`, varsayılanı türetme katmanı veriyor.
+            toleranceMin: null,
             tickets: [...grouped, ...singles],
             openMinutes,
             businessName: String(settings?.business_name ?? '').trim(),
@@ -121,5 +144,5 @@ export function useManagerFlowDay(): ManagerSnapshot<ManagerFlowDay> {
         };
     }, []);
 
-    return useManagerRead(read, EMPTY, { tables: BOOKING_TABLES });
+    return useManagerRead(read, EMPTY, { tables: BOOKING_TABLES, active });
 }

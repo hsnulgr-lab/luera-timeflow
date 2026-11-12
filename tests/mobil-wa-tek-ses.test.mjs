@@ -70,7 +70,7 @@ test('iptal: telefon = sunucu', () => {
 
 test('telefon: sektör tonu ayardan, hazırlık notu katalogdan gelir; eski SECTOR_COMMS metni yok', () => {
     const src = read('mobile/src/lib/managerSource.ts');
-    assert.match(src, /fetchOrgSettings\('business_name, sector, working_hours, webhook_url, risk_rules, comms'\)/);
+    assert.match(src, /'business_name, sector, working_hours, webhook_url, risk_rules, comms'\)/);
     assert.match(src, /read\('id, name, duration, price, color, tags, prep_note'\)/);
     const flow = read('mobile/src/components/CreateFlow.tsx');
     assert.match(flow, /comms: context\.settings\.comms,\s*prepNote: draft\.service\?\.prepNote \?\? null,/);

@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Keyboard, Pressable, ScrollView, Text, View } from 'react-native';
+import { memo, useCallback, useDeferredValue, useMemo, useState } from 'react';
+import { FlatList, Keyboard, Pressable, Text, View, type ListRenderItem } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -83,11 +83,18 @@ export default function ManagerCustomers() {
         const sorted = sortManagerBook(snap.data, today);
         return solo ? bookWithoutStaff(sorted) : sorted;
     }, [snap.data, today, solo]);
+    /*
+     * Arama ERTELENİYOR (Hız 1): alan her tuşta anında yazıyor, süzgeç ve
+     * liste ise React boşalınca yetişiyor — binlerce satırlık defterde tuş
+     * vuruşu süzme bitene kadar beklemesin. Sayı, liste ve boş hâl aynı
+     * (ertelenmiş) sorgudan okuyor ki birbirini tutsunlar.
+     */
+    const deferredQuery = useDeferredValue(query);
     const shown = useMemo(
-        () => rows.filter((row) => bookMatches(row, query)),
-        [rows, query],
+        () => rows.filter((row) => bookMatches(row, deferredQuery)),
+        [rows, deferredQuery],
     );
-    const searching = query.trim().length > 0;
+    const searching = deferredQuery.trim().length > 0;
 
     const onRefusalAction = useCallback(async () => {
         if (snap.refusal === 'ambiguous') {
@@ -100,7 +107,7 @@ export default function ManagerCustomers() {
         router.replace('/(auth)/welcome');
     }, [snap.refusal, router]);
 
-    const open = (row: ManagerBookRow) => {
+    const open = useCallback((row: ManagerBookRow) => {
         feedback.selection();
         Keyboard.dismiss();
         // Zaten var olan Müdür 23 müşteri kartı. Kimlik VE ad birlikte gider:
@@ -110,7 +117,17 @@ export default function ManagerCustomers() {
             pathname: '/(staff-flow)/customer',
             params: { customerId: row.id, customerName: row.name },
         });
-    };
+    }, [router]);
+
+    /*
+     * SANAL LİSTE (Hız 1). Önceden bütün defter `ScrollView` içinde tek
+     * seferde çiziliyordu; şimdi yalnız görünen pencere. Satır bileşeni,
+     * boşluklar ve ayraç aynı: ayraç satırın kendi alt çizgisi (`last`).
+     */
+    const lastIndex = shown.length - 1;
+    const renderRow = useCallback<ListRenderItem<ManagerBookRow>>(({ item, index }) => (
+        <Row row={item} today={today} last={index === lastIndex} solo={solo} onOpen={open} />
+    ), [today, lastIndex, solo, open]);
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
@@ -153,9 +170,15 @@ export default function ManagerCustomers() {
                    geleni zıplatır. */
                 <View style={{ flex: 1 }} />
             ) : shown.length === 0 ? (
-                <Empty query={searching ? query.trim() : null} />
+                <Empty query={searching ? deferredQuery.trim() : null} />
             ) : (
-                <ScrollView
+                <FlatList
+                    data={shown}
+                    keyExtractor={keyOf}
+                    renderItem={renderRow}
+                    initialNumToRender={14}
+                    maxToRenderPerBatch={14}
+                    windowSize={7}
                     style={{ flex: 1 }}
                     contentContainerStyle={{
                         paddingHorizontal: M.padX,
@@ -165,30 +188,23 @@ export default function ManagerCustomers() {
                     keyboardDismissMode="on-drag"
                     automaticallyAdjustKeyboardInsets
                     showsVerticalScrollIndicator={false}
-                >
-                    {shown.map((row, index) => (
-                        <Row
-                            key={row.id}
-                            row={row}
-                            today={today}
-                            last={index === shown.length - 1}
-                            solo={solo}
-                            onOpen={() => open(row)}
-                        />
-                    ))}
-                </ScrollView>
+                />
             )}
         </View>
     );
 }
 
-function Row({ row, today, last, solo, onOpen }: {
+const keyOf = (row: ManagerBookRow) => row.id;
+
+/** `memo`: listede kaydırırken ve arama yazarken değişmeyen satır yeniden çizilmiyor. */
+const Row = memo(function Row({ row, today, last, solo, onOpen }: {
     row: ManagerBookRow;
     today: string;
     last: boolean;
     /** Tek kişilik: baş harf diski hiç çizilmiyor — her satırda boş bir halka olurdu. */
     solo: boolean;
-    onOpen: () => void;
+    /** Sabit işlev, satırı argümanla alıyor — satır başına yeni kapanış `memo`yu bozardı. */
+    onOpen: (row: ManagerBookRow) => void;
 }) {
     const { c, small } = useTheme();
     const name = splitName(row.name);
@@ -204,7 +220,7 @@ function Row({ row, today, last, solo, onOpen }: {
             accessibilityRole="button"
             accessibilityLabel={`${row.name}, ${line}, ${ago.text}${
                 row.noShows > 0 ? `, ${row.noShows} kez gelmedi` : ''}`}
-            onPress={onOpen}
+            onPress={() => onOpen(row)}
             style={({ pressed }) => ({
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -285,7 +301,7 @@ function Row({ row, today, last, solo, onOpen }: {
             </Text>
         </Pressable>
     );
-}
+});
 
 /**
  * İki boş hâl, iki ayrı sebep: defter hiç yok · arama eşleşmedi. Okunamadı

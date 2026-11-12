@@ -21,7 +21,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useNavigation } from 'expo-router';
 
 import { LIVE_AUTH } from '../api/session';
 import { api } from '../api/staff';
@@ -168,11 +168,25 @@ export function useSalonDay(dateISO: string): SalonDaySnapshot {
     const atRef = useRef<number | null>(null);
     /** Geç dönen bir cevap, sonra seçilen günün listesini EZMESİN. */
     const wanted = useRef(dateISO);
+    /*
+     * ODAK (Hız 1) — `useManagerRead` ile BİREBİR. Sekme kurulu kalıyor;
+     * odakta değilken zil ve öne dönüş yalnız "kirli" işaretliyor, yoklama
+     * hiç kurulmuyor. Odağa dönüşte TEK okuma.
+     */
+    const navigation = useNavigation();
+    /** Bağımlılık değil — yığın değişince yeniden üretiliyor (bkz. `useManagerRead`). */
+    const navRef = useRef(navigation);
+    useEffect(() => { navRef.current = navigation; }, [navigation]);
+    const focused = useRef(false);
+    const dirty = useRef(false);
+    const readSinceBlur = useRef(false);
 
     /** Tek okuma yolu, iki ses tonu — bkz. `agendaSource.useAgenda`. */
     const read = useCallback((visible: boolean) => {
         const target = dateISO;
         wanted.current = target;
+        readSinceBlur.current = true;
+        dirty.current = false;
         return fetchSalonDay(target)
             .then((next) => {
                 if (wanted.current !== target) return;
@@ -197,33 +211,52 @@ export function useSalonDay(dateISO: string): SalonDaySnapshot {
             });
     }, [dateISO]);
 
-    useEffect(() => { void read(true); }, [read]);
-
     useEffect(() => {
-        const id = setInterval(() => {
-            if (AppState.currentState !== 'active') return;
-            void read(false);
-        }, POLL_MS);
-        return () => clearInterval(id);
+        void read(true);
+        // Odakta DEĞİLKEN kurulduysa ilk odakta yeniden okunsun.
+        if (!navRef.current.isFocused()) dirty.current = true;
+    }, [read]);
+
+    /** Zil ve öne dönüş: odaktaysa oku, değilse yalnız kirli işaretle. */
+    const nudge = useCallback(() => {
+        if (focused.current) void read(false);
+        else dirty.current = true;
     }, [read]);
 
     useEffect(() => {
         const sub = AppState.addEventListener('change', (next) => {
-            if (next === 'active') void read(false);
+            if (next === 'active') nudge();
         });
         return () => sub.remove();
-    }, [read]);
+    }, [nudge]);
 
-    useFocusEffect(useCallback(() => { void read(false); }, [read]));
+    /*
+     * Sekmeye dönüş + yoklama, odağın ömrüne bağlı. Odağa dönüşte her zaman
+     * okuma (aynı anda açılmış kuruluş okuması hariç); sayaç yalnız odakta.
+     */
+    useFocusEffect(useCallback(() => {
+        focused.current = true;
+        if (dirty.current || !readSinceBlur.current) void read(false);
+        const id = setInterval(() => {
+            if (AppState.currentState !== 'active') return;
+            void read(false);
+        }, POLL_MS);
+        return () => {
+            focused.current = false;
+            readSinceBlur.current = false;
+            clearInterval(id);
+        };
+    }, [read]));
 
     /*
      * CANLI ZİL (101) — yoklamanın yerine değil, ÜSTÜNE.
      *
      * Meslektaşının randevusu masaüstünden değişince personel bunu 25
-     * saniye beklemeden görüyor. Sessiz tur: çalışan bir takvimi
-     * "yükleniyor"a düşürmek zili gürültüye çevirirdi.
+     * saniye beklemeden görüyor — takvim odaktaysa; değilse odağa dönüşte.
+     * Sessiz tur: çalışan bir takvimi "yükleniyor"a düşürmek zili gürültüye
+     * çevirirdi.
      */
-    useLiveSignal(useCallback(() => { void read(false); }, [read]), true, LIVE_TABLES);
+    useLiveSignal(nudge, true, LIVE_TABLES);
 
     /** Bayatlık saati. Bkz. `SalonDaySnapshot.stale`. */
     useEffect(() => {

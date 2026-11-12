@@ -269,12 +269,15 @@ test('defter: aktif müşteriler, 24 aylık geliş penceresi, sayfalı okuma', (
     assert.match(source, /export const VISIT_WINDOW_DAYS = 730;/);
     // Defter yarım dakikada bir çekilmiyor. (101'den sonra çağrıda tablo
     // süzgeci de var; korunan şey yoklamanın KAPALI olması.)
-    assert.match(hooks, /useManagerRead<CreateContext \| null>\(read, null,\s*\{ poll: false,/);
+    // Hız 1: defter AYRI okuma — yoklama yok, randevu zili de yok; yalnız
+    // `customers` zili ve Oluştur'a dönüş.
+    assert.match(hooks, /useManagerRead<Book \| null>\(readBook, null, \{ poll: false, tables: BOOK_TABLES \}\)/);
+    assert.match(hooks, /const BOOK_TABLES = \['customers'\] as const;/);
 });
 
 test('ayarlar ada göre isteniyor — PIN taşıyan satırın tamamı değil', () => {
     const fn = source.slice(source.indexOf('export async function fetchCreateSettings'), source.indexOf('export async function fetchCustomerById'));
-    assert.match(fn, /fetchOrgSettings\('business_name, sector, working_hours, webhook_url, risk_rules, comms'\)/);
+    assert.match(fn, /settingsRowOf\(organizationId, org\.data\?\.owner_id,\s*'business_name, sector, working_hours, webhook_url, risk_rules, comms'\)/);
     assert.doesNotMatch(source, /fetchOrgSettings\('\*'\)/);
     assert.match(fn, /\/\^https\?:\\\/\\\/\/i\.test\(hook\)/);
 });
