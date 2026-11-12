@@ -237,6 +237,20 @@ export function rescheduledByCustomer(c: Ctx, o: {
     return `Randevunuzu taşıdım. ${c.comms.emoji}\n\n${detailBlock(c, o)}\n\nGörüşmek üzere.`;
 }
 
+/**
+ * İşletme randevuyu aynı gün başka saate taşıdı (telefonun "taşındı"
+ * sayfasındaki "WhatsApp'tan haber ver", 2026-11-10; metin kullanıcı onaylı).
+ * İptaldeki gibi gerekçe yok; eski saat yeni saatin yanında, itiraz yolu tek
+ * cümle — cevabı asistan karşılar.
+ */
+export function rescheduledByBusiness(c: Ctx, o: {
+    service: string; dateLabel: string; time: string; oldTime: string;
+}): string {
+    return `${helloLine(c)}\n*${c.businessName}* olarak randevunuzun saatini değiştirdik.\n\n`
+        + `${detailBlock(c, { ...o, time: `${o.time} _(önceki: ${o.oldTime})_` })}\n\n`
+        + 'Uygun değilse bu mesaja yazmanız yeterli.';
+}
+
 export function conversationCancelled(c: Ctx): string {
     return `Tamamdır, iptal ettim. Yeni bir randevu için istediğiniz zaman yazabilirsiniz.`;
 }

@@ -78,32 +78,43 @@ export function useShellIsRoot(shell: ShellName): void {
     const root = useNavigation<RootNav>('/');
 
     useEffect(() => {
-        const state = root.getState();
-        if (!state || state.routes.length <= 1) return;
-        const current = state.routes[state.index];
-        if (!current) return;
-
         /*
-         * KABUK EN ÜSTTE DEĞİLSE DOKUNULMUYOR — bu satır bir düzeltme.
-         *
-         * Önceki hâli `routes[state.index]`i koşulsuz koruyordu, yani "en
-         * üstteki rota" ne ise onu. Ama kabuk, üstüne bir sayfa itildiğinde
-         * SÖKÜLMÜYOR: sekmeler takılı kalıyor ve React Navigation yığın
-         * durumu değişince gezinme nesnelerini yeniden ürettiği için kabuk
-         * yeniden çiziliyor. Efektin bağımlılık dizisi de yok (Fast Refresh
-         * için bilerek), dolayısıyla o çizimde tekrar koşuyordu.
-         *
-         * Sonuç: `[personel, kumanda]` yığını `[kumanda]`ya iniyordu —
-         * kabuk kumandanın ALTINDAN siliniyordu. Telefonda görülen buydu:
-         * kumandada "‹ Bugün"e basınca
-         * `The action 'GO_BACK' was not handled by any navigator`.
-         *
-         * Kancanın işi kabuğu kök yapmak; en üstteki rotayı kök yapmak
-         * değil. İkisi yalnız kabuk en üstteyken aynı şey.
+         * BİR KARE SONRA — SDK 58 (2026-11-10). Yönlendirici komutları artık
+         * React çizimi bitince işleniyor; açılışta ve Fast Refresh'te kök
+         * yığın bu efekt koşarken henüz kayıtlı olmayabiliyor ve sıfırlama
+         * "RESET … was not handled by any navigator" diye düşüyordu (telefonda
+         * kırmızı ekran). Yığın karede YENİDEN okunuyor; efekt her çizimde
+         * koştuğu için kaçan kare bir sonrakinde telafi ediliyor.
          */
-        if (current.name !== shell) return;
+        const frame = requestAnimationFrame(() => {
+            const state = root.getState();
+            if (!state || state.routes.length <= 1) return;
+            const current = state.routes[state.index];
+            if (!current) return;
 
-        // Kabuk korunuyor, altındaki her şey siliniyor.
-        root.reset({ index: 0, routes: [{ name: current.name, params: current.params }] });
+            /*
+             * KABUK EN ÜSTTE DEĞİLSE DOKUNULMUYOR — bu satır bir düzeltme.
+             *
+             * Önceki hâli `routes[state.index]`i koşulsuz koruyordu, yani "en
+             * üstteki rota" ne ise onu. Ama kabuk, üstüne bir sayfa itildiğinde
+             * SÖKÜLMÜYOR: sekmeler takılı kalıyor ve React Navigation yığın
+             * durumu değişince gezinme nesnelerini yeniden ürettiği için kabuk
+             * yeniden çiziliyor. Efektin bağımlılık dizisi de yok (Fast Refresh
+             * için bilerek), dolayısıyla o çizimde tekrar koşuyordu.
+             *
+             * Sonuç: `[personel, kumanda]` yığını `[kumanda]`ya iniyordu —
+             * kabuk kumandanın ALTINDAN siliniyordu. Telefonda görülen buydu:
+             * kumandada "‹ Bugün"e basınca
+             * `The action 'GO_BACK' was not handled by any navigator`.
+             *
+             * Kancanın işi kabuğu kök yapmak; en üstteki rotayı kök yapmak
+             * değil. İkisi yalnız kabuk en üstteyken aynı şey.
+             */
+            if (current.name !== shell) return;
+
+            // Kabuk korunuyor, altındaki her şey siliniyor.
+            root.reset({ index: 0, routes: [{ name: current.name, params: current.params }] });
+        });
+        return () => cancelAnimationFrame(frame);
     });
 }

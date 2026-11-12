@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { useRouter } from 'expo-router';
 
 import { Button, Num } from './ui';
 import { BottomSheet, SheetGrab } from './Sheet';
@@ -13,13 +14,16 @@ import { feedback } from '../lib/feedback';
 import { dayOptions, slotRows, type StaffOption } from '../lib/createFlow';
 import {
     UNDO_MS, conflictAt, conflictReason, durationOf, menuRows, menuSubtitle,
-    moveResultCopy, type MenuAction, type MoveResult, type MoveTarget,
+    moveNoticeCopy, moveNoticeOf, moveNoticeOffered, moveResultCopy, moveUndoLocked,
+    type MenuAction, type MoveNotice, type MoveResult, type MoveTarget,
 } from '../lib/moveAppointment';
+import { fetchWaLine } from '../lib/managerSource';
+import { sendRescheduleNotice } from '../lib/managerWrite';
 import {
     apptInCurve, apptCardMetrics, apptMotion, createMetrics, detailMetrics, flowMetrics,
     font, moveMetrics, radius, panelInk, useTheme,
 } from '../theme';
-import { toMinutes, type Appt } from '../lib/calendar';
+import { hhmm, toMinutes, type Appt } from '../lib/calendar';
 
 /**
  * Müdür 07c · 07d — menüden taşıma ve taşıma sonrası.
@@ -337,8 +341,8 @@ export function MoveSheet({ visible, mode, appointment, day, hours, staff, solo 
  *
  * Sheet üç şey söylüyor: ne oldu (hareket olarak), yanlışsa nasıl dönerim,
  * müşteriye nasıl ulaşırım. Eskiden tek düğmesi "Evet, yaz"dı ve hiçbir şey
- * yazmıyordu — uygulamanın müşteriye mesaj atacak kanalı yok, o yüzden
- * mesaj vaadi kalktı. Yerine o saniyenin iki gerçek ihtiyacı geldi.
+ * yazmıyordu. Bugün müşteriye iki yol var: işletmenin hattından WhatsApp
+ * mesajı (2026-11-10) ve arama.
  *
  * Sheet KENDİLİĞİNDEN KAPANMAZ: müdür telefonu indirip müşteriye bakabiliyor;
  * kendiliğinden kapanan sheet hem "ne oldu" bilgisini hem "Müşteriyi ara"yı
@@ -363,9 +367,22 @@ export function MoveResultSheet({ result, solo = false, nowMinutes, today, onUnd
 
     const enter = useMoveIntro(result !== null, reduceMotion);
     const undo = useUndoLife(result !== null, reduceMotion);
+    const notice = useMoveNotice(result, nowMinutes);
+    const router = useRouter();
 
     if (!result || !copy) return null;
     const warn = copy.tone === 'warn';
+    const noticeCopy = notice.offered ? moveNoticeCopy(notice.state) : null;
+    const pressNotice = () => {
+        if (notice.state === 'off') {
+            // Sayfa açıkken üstüne tam ekran açılmaz: önce kapanıyor.
+            onDone();
+            router.push('/(manager-flow)/whatsapp-bagla?from=move');
+            return;
+        }
+        feedback.selection();
+        notice.send();
+    };
 
     return (
         <BottomSheet visible onDismiss={onDone}>
@@ -520,7 +537,7 @@ export function MoveResultSheet({ result, solo = false, nowMinutes, today, onUnd
                     {/* Geri al en üstte ve dolu: sheet'in açıldığı saniyede en
                         olası ihtiyaç bu. Süre bitince sheet kapanmaz, yalnız
                         düğme düşer. */}
-                    {undo.alive && onUndo ? (
+                    {undo.alive && onUndo && !moveUndoLocked(notice.state) ? (
                         <Animated.View style={{ opacity: undo.fade }}>
                             <Pressable
                                 accessibilityRole="button"
@@ -571,7 +588,49 @@ export function MoveResultSheet({ result, solo = false, nowMinutes, today, onUnd
                         </Animated.View>
                     ) : null}
 
-                    {/* Uygulamanın gerçekten yapabildiği TEK bildirme yolu. */}
+                    {/* Müşteriye yeni saati işletmenin hattından söyler (2026-11-10).
+                        Gittiyse Geri al kalkar; hat kapalıysa bağlamaya götürür. */}
+                    {noticeCopy ? (
+                        <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={noticeCopy.label}
+                            accessibilityState={{ disabled: !noticeCopy.pressable, busy: notice.state === 'sending' }}
+                            disabled={!noticeCopy.pressable}
+                            onPress={pressNotice}
+                            style={({ pressed }) => ({
+                                height: apptCardMetrics.moveBtnHeight,
+                                borderRadius: apptCardMetrics.moveBtnRadius,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 10,
+                                borderWidth: 1.5,
+                                borderColor: notice.state === 'sent' ? 'transparent' : c.bd2,
+                                backgroundColor: notice.state === 'sent' ? moveMetrics.statOkBg : 'transparent',
+                                opacity: pressed ? 0.7 : 1,
+                            })}
+                        >
+                            {notice.state === 'sent' ? (
+                                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={c.gr} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                    <Path d="M5 12.5l4.5 4.5L19 7.5" />
+                                </Svg>
+                            ) : (
+                                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={noticeCopy.pressable ? c.tx : c.tx3} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                                    <Path d="M4 20l1.3-3.9A8 8 0 1112 20a8 8 0 01-3.9-1L4 20z" />
+                                </Svg>
+                            )}
+                            <Text style={{
+                                color: notice.state === 'sent' ? c.gr : noticeCopy.pressable ? c.tx : c.tx3,
+                                fontSize: apptCardMetrics.moveBtnText,
+                                fontFamily: font.extraBold,
+                                fontWeight: '800',
+                                letterSpacing: apptCardMetrics.moveBtnText * -0.02,
+                            }}>
+                                {noticeCopy.label}
+                            </Text>
+                        </Pressable>
+                    ) : null}
+
                     {phone && onCall ? (
                         <Pressable
                             accessibilityRole="button"
@@ -686,6 +745,44 @@ function useMoveIntro(active: boolean, reduceMotion: boolean) {
             outputRange: [-apptMotion.move.toShift, 0],
         }),
     };
+}
+
+/**
+ * "WhatsApp'tan haber ver" düğmesinin hâli (2026-11-10).
+ *
+ * Her yeni taşıma sıfırdan başlar (anahtar: randevu + yeni saat). Sayfa
+ * açılınca hat sorulur; bağlı değilse düğme baştan "Bağla" der. Soru düşerse
+ * düğme hazır kalır — gönderim `not_connected` dönerse yine "Bağla"ya geçer.
+ * Kullanıcı basmışsa hat cevabı onun hâlini ezmez.
+ */
+function useMoveNotice(result: MoveResult | null, nowMinutes?: number) {
+    const key = result ? `${result.appointment.id}:${result.toStartMinutes}` : '';
+    const offered = result ? moveNoticeOffered(result, nowMinutes) : false;
+    const [cell, setCell] = useState<{ key: string; state: MoveNotice }>({ key: '', state: 'ready' });
+    const state: MoveNotice = cell.key === key ? cell.state : 'ready';
+
+    useEffect(() => {
+        if (!key || !offered) return;
+        let alive = true;
+        fetchWaLine().then((line) => {
+            if (alive && !line.ready) setCell((cur) => (cur.key === key ? cur : { key, state: 'off' }));
+        }).catch(() => {});
+        return () => { alive = false; };
+    }, [key, offered]);
+
+    const send = () => {
+        if (!result || !key) return;
+        const moved = { ...result.appointment, start_time: `${hhmm(result.toStartMinutes)}:00` };
+        setCell({ key, state: 'sending' });
+        void sendRescheduleNotice(moved, hhmm(result.fromStartMinutes)).then((outcome) => {
+            const next = moveNoticeOf(outcome);
+            if (next === 'sent') feedback.success();
+            else if (next !== 'queued') feedback.warning();
+            setCell({ key, state: next });
+        });
+    };
+
+    return { offered, state, send };
 }
 
 /**

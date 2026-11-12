@@ -85,3 +85,26 @@ export function waCancellation(p: {
         time: hhmm(p.startTime),
     });
 }
+
+/**
+ * İşletme randevuyu aynı gün başka saate taşıdı (2026-11-10) — sunucunun
+ * `rescheduledByBusiness`ı. Telefonun "taşındı" sayfasındaki düğmeden gider.
+ */
+export function waReschedule(p: {
+    customerName: string;
+    dateISO: string;
+    startTime: string;
+    /** Taşımadan önceki saat — yeni saatin yanında "(önceki: 09:00)". */
+    oldStartTime: string;
+    service: string;
+    businessName: string;
+    todayISO: string;
+    comms?: unknown;
+}): string {
+    return M.rescheduledByBusiness(ctx(p.customerName, p.businessName, p.comms), {
+        service: p.service,
+        dateLabel: waDateLabel(p.dateISO, p.todayISO),
+        time: hhmm(p.startTime),
+        oldTime: hhmm(p.oldStartTime),
+    });
+}

@@ -37,9 +37,10 @@ type Action = 'connect' | 'state' | 'disconnect' | 'send' | 'health' | 'features
 // Panelin ve telefon uygulamasının gerçekten gönderdiği türler (139). Liste
 // dışı tür reddedilir: kota dışı bir türle sınırsız gönderim ya da sahte bir
 // "reminder_24h" ile müşterinin sonraki "Hayır"ının randevuyu iptal ettirmesi
-// eskiden mümkündü. Telefon: confirmation + manual (mobile/src/lib/managerWrite.ts).
+// eskiden mümkündü. Telefon: confirmation, manual, cancellation, reschedule
+// (mobile/src/lib/managerWrite.ts).
 const PANEL_KINDS: ReadonlySet<string> = new Set([
-    'confirmation', 'queue_join', 'queue_ready', 'rebook', 'ai_draft', 'manual', 'cancellation',
+    'confirmation', 'queue_join', 'queue_ready', 'rebook', 'ai_draft', 'manual', 'cancellation', 'reschedule',
 ]);
 const MAX_TEXT = 4000;
 // Elle mesaj kota dışı; işletme başına saatte bundan fazlası gitmez.

@@ -14,6 +14,7 @@
 
 import { destructiveOptions, isDeletable, isReschedulable } from './appointmentDetail.ts';
 import { hhmm, toMinutes, type Appt } from './calendar.ts';
+import type { WaResult } from './actionPill.ts';
 import { COLUMN_GAP, COLUMN_WIDTH, HOUR_HEIGHT, type ColumnStaff } from './managerCalendar.ts';
 
 /** Basılı tutma süresi. Kısa dokunuş detayı açar; ikisi karışmaz. */
@@ -325,9 +326,10 @@ export const UNDO_MS = 8000;
  * Taşıma ZATEN OLDU. Burada onay istenmiyor.
  *
  * Eski sheet'in tek düğmesi "Evet, yaz"dı ve ne yazacağı belli değildi:
- * uygulamanın müşteriye otomatik mesaj atacak bir kanalı YOK, dolayısıyla
- * bir mesaj vaadi yalan olurdu. Yerine o saniyenin iki gerçek ihtiyacı:
- * yanlışsa GERİ AL, haber verilecekse MÜŞTERİYİ ARA.
+ * o gün uygulamanın müşteriye mesaj atacak kanalı yoktu, mesaj vaadi yalan
+ * olurdu. Yerine o saniyenin gerçek ihtiyaçları: yanlışsa GERİ AL, haber
+ * verilecekse MÜŞTERİYİ ARA — ve 2026-11-10'dan beri, hat bağlıysa
+ * WHATSAPP'TAN HABER VER (aşağıda; metin sunucunun kalıbından).
  */
 export function moveResultCopy(
     result: MoveResult,
@@ -360,6 +362,61 @@ export function moveResultCopy(
         call: 'Müşteriyi ara',
         done: 'Tamam',
     };
+}
+
+// ── Taşındı · WhatsApp'tan haber ver (2026-11-10) ─────────────────────────
+//
+// Taşınan randevu için müşteriye hiçbir şey gitmiyordu; yeni saati ancak 24
+// saat önceki hatırlatmada öğreniyordu. Sayfaya üçüncü düğme: mesaj
+// işletmenin hattından gider (`sendRescheduleNotice`, tür `reschedule`).
+
+export type MoveNotice =
+    | 'ready' | 'sending' | 'sent' | 'queued'
+    | 'off' | 'opt_out' | 'invalid_phone' | 'failed';
+
+/**
+ * Düğme ne zaman VAR: numara kayıtlı, saat gerçekten değişti (yalnız uzman
+ * değiştiyse müşterinin saati aynı) ve yeni saat geçmemiş.
+ */
+export function moveNoticeOffered(result: MoveResult, nowMinutes?: number): boolean {
+    if (!result.appointment.customer_phone) return false;
+    if (result.toStartMinutes === result.fromStartMinutes) return false;
+    if (nowMinutes !== undefined && result.toStartMinutes < nowMinutes) return false;
+    return true;
+}
+
+/** Gönderim sonucu → düğmenin hâli. */
+export function moveNoticeOf(result: WaResult): MoveNotice {
+    switch (result) {
+        case 'ok': return 'sent';
+        case 'not_connected': return 'off';
+        case 'opt_out': return 'opt_out';
+        case 'invalid_phone': return 'invalid_phone';
+        case 'queued': return 'queued';
+        default: return 'failed';
+    }
+}
+
+/** Düğmenin yazısı ve basılabilir olup olmadığı. `off` basılınca bağlamaya gider. */
+export function moveNoticeCopy(notice: MoveNotice): { label: string; pressable: boolean } {
+    switch (notice) {
+        case 'ready': return { label: 'WhatsApp\'tan haber ver', pressable: true };
+        case 'sending': return { label: 'Gönderiliyor', pressable: false };
+        case 'sent': return { label: 'Haber verildi', pressable: false };
+        case 'queued': return { label: 'Hat dönünce gidecek', pressable: false };
+        case 'off': return { label: 'WhatsApp bağlı değil · Bağla', pressable: true };
+        case 'opt_out': return { label: 'Müşteri mesaj almak istemiyor', pressable: false };
+        case 'invalid_phone': return { label: 'Numara geçersiz', pressable: false };
+        case 'failed': return { label: 'Gönderilemedi · Tekrar dene', pressable: true };
+    }
+}
+
+/**
+ * Mesaj gittiyse ya da yoldaysa Geri al KALKAR: müşteriye "saatiniz değişti"
+ * dedikten sonra sessizce eski saate dönmek onu yanlış bilgilendirir.
+ */
+export function moveUndoLocked(notice: MoveNotice): boolean {
+    return notice === 'sending' || notice === 'sent' || notice === 'queued';
 }
 
 /** Taşımayı geri alır — randevu eski saatine ve eski personeline döner. */

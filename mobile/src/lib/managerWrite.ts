@@ -33,7 +33,7 @@ import {
 import type { DaySchedule, NotificationKey, SalonService } from './managerProfile.ts';
 import { prefsPatchOf } from './notificationPrefs.ts';
 import { fetchOrgSettings, fetchPackageTypes, fetchServices, type HoursRow, type PrefsRow } from './managerSource';
-import { waCancellation } from './waText.ts';
+import { waCancellation, waReschedule } from './waText.ts';
 import { todayISO } from './calendar.ts';
 import { typePatchOf, type PackageType } from './packageBook.ts';
 import {
@@ -431,6 +431,47 @@ export async function sendCancelNotice(appointment: Appt): Promise<WaResult> {
                 phone: appointment.customer_phone,
                 text,
                 kind: 'cancellation',
+                customerId: appointment.customer_id,
+                orgId: choice.ok ? choice.id : undefined,
+            },
+        });
+        if (error) return 'failed';
+        return waResultOf(data as { ok?: boolean; reason?: string; queued?: boolean } | null);
+    } catch {
+        return 'failed';
+    }
+}
+
+/**
+ * Taşımadan sonra müşteriye haber (2026-11-10) — "taşındı" sayfasındaki
+ * "WhatsApp'tan haber ver". Eskiden taşınan randevu için müşteriye hiçbir şey
+ * gitmiyordu; yeni saati ancak 24 saat önceki hatırlatmada öğreniyordu.
+ *
+ * `appointment` TAŞINMIŞ hâli (yeni saat); `oldStartTime` eski saat. Tür
+ * `reschedule`: işlemin karşılığı, kotaya girmez (sunucunun izin listesinde).
+ * Sonuç fırlatılmaz.
+ */
+export async function sendRescheduleNotice(appointment: Appt, oldStartTime: string): Promise<WaResult> {
+    if (!appointment.customer_phone) return 'invalid_phone';
+    try {
+        const settings = await fetchOrgSettings('business_name, comms');
+        const text = waReschedule({
+            customerName: appointment.customer_name,
+            dateISO: appointment.date,
+            startTime: appointment.start_time,
+            oldStartTime,
+            service: appointment.service,
+            businessName: String(settings?.business_name ?? '').trim(),
+            comms: settings?.comms ?? null,
+            todayISO: todayISO(),
+        });
+        const choice = await resolveOrg();
+        const { data, error } = await supabase.functions.invoke('whatsapp-proxy', {
+            body: {
+                action: 'send',
+                phone: appointment.customer_phone,
+                text,
+                kind: 'reschedule',
                 customerId: appointment.customer_id,
                 orgId: choice.ok ? choice.id : undefined,
             },

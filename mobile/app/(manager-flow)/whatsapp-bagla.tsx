@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
     Animated, AppState, Easing, Image, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text,
     TextInput, useWindowDimensions, View,
@@ -59,12 +59,22 @@ export default function WhatsAppLink() {
     const [enter] = useState(() => new Animated.Value(1));
     const go = useCallback((next: Step) => {
         setNav((cur) => ({ step: next, dir: ORDER.indexOf(next) >= ORDER.indexOf(cur.step) ? 1 : -1 }));
+    }, []);
+    // Geçiş, yeni adım ÇİZİLDİKTEN SONRA başlıyor (SDK 58 / RN 0.88). Aynı
+    // anda başlatınca yeni çizimin animasyon düğümleri yerel sürücüye
+    // bağlanmıyor, adım ekranın dışında (translateX = genişlik) kalıyordu:
+    // telefonda "Numarayla bağla" boş, yalnız klavye açık göründü.
+    const firstStep = useRef(true);
+    useEffect(() => {
+        if (firstStep.current) { firstStep.current = false; return; }
         if (reduceMotion) { enter.setValue(1); return; }
         enter.setValue(0);
-        Animated.timing(enter, {
+        const anim = Animated.timing(enter, {
             toValue: 1, duration: 300, easing: Easing.bezier(0.2, 0.8, 0.25, 1), useNativeDriver: true,
-        }).start();
-    }, [enter, reduceMotion]);
+        });
+        anim.start();
+        return () => anim.stop();
+    }, [step, enter, reduceMotion]);
 
     const close = useCallback(() => router.back(), [router]);
 
@@ -153,11 +163,12 @@ export default function WhatsAppLink() {
         }
     })();
 
-    const slide = {
+    // Düğümler her çizimde yeniden kurulmuyor; yön ya da genişlik değişince kuruluyor.
+    const slide = useMemo(() => ({
         flex: 1,
         opacity: enter.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }),
         transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [dir * width, 0] }) }],
-    };
+    }), [enter, dir, width]);
 
     return (
         <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>

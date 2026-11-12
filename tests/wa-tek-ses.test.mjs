@@ -124,7 +124,7 @@ test('panelden iptal: tek ses şablonu, kota dışı, Geri Al süresi dolunca gi
     const t = M.cancelledByBusiness(CTX, { service: 'ağda', dateLabel: 'Yarın, 8 Kasım Pazar', time: '17:00' });
     assert.equal(t, 'Merhaba Nisa Hanım ✨\n*Test Salon 2* olarak randevunuzu iptal ettik.\n\n'
         + '*Hizmet:* ağda\n*Tarih:* Yarın, 8 Kasım Pazar\n*Saat:* 17:00\n\nYeni bir randevu için bu mesaja yazmanız yeterli.');
-    assert.match(read('supabase/functions/_shared/wa.ts'), /'feedback', 'cancellation'\]\);/);
+    assert.match(read('supabase/functions/_shared/wa.ts'), /'feedback', 'cancellation', 'reschedule'\]\);/);
     const modal = read('src/components/reservations/AdisyonModal.tsx');
     assert.match(modal, /useState\(true\);\n    const canNotify/);
     assert.match(modal, /if \(undone\) return;/);

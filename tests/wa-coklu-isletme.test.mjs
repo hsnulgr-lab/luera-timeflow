@@ -143,11 +143,12 @@ test('proxy send: tür izin listesi panelin ve telefonun türleriyle aynı; uzun
     const allowed = [...src.match(/PANEL_KINDS[^=]*= new Set\(\[([^\]]+)\]\)/)[1].matchAll(/'([a-z_0-9]+)'/g)].map((m) => m[1]).sort();
     const client = read('src/services/whatsapp.ts');
     const clientKinds = [...client.match(/export type WaKind =([^;]+);/)[1].matchAll(/'([a-z_0-9]+)'/g)].map((m) => m[1]).sort();
-    assert.deepEqual(allowed, clientKinds, 'panelin gönderdiği her tür izinli, fazlası yok');
     const mobile = read('mobile/src/lib/managerWrite.ts');
-    for (const k of [...mobile.matchAll(/kind: '([a-z_]+)',\s*\n\s*customerId/g)].map((m) => m[1])) {
-        assert.ok(allowed.includes(k), `telefon türü izinli: ${k}`);
-    }
+    const mobileKinds = [...mobile.matchAll(/kind: '([a-z_]+)',\s*\n\s*customerId/g)].map((m) => m[1]);
+    // İzin listesi = panelin türleri ∪ telefonun türleri; fazlası yok.
+    // ('reschedule' yalnız telefonda: "taşındı" sayfasındaki haber, 2026-11-10.)
+    assert.deepEqual(allowed, [...new Set([...clientKinds, ...mobileKinds])].sort(), 'gönderilen her tür izinli, fazlası yok');
+    assert.ok(mobileKinds.includes('reschedule'));
     for (const k of ['reminder_24h', 'reminder_2h', 'winback', 'booking', 'inbound', 'optout']) assert.ok(!allowed.includes(k), k);
     assert.match(src, /if \(!PANEL_KINDS\.has\(kind\)\) return json\(\{ error: 'invalid_kind' \}, 400\);/);
     assert.match(src, /if \(text\.length > MAX_TEXT\) return json\(\{ error: 'text_too_long' \}, 400\);/);
