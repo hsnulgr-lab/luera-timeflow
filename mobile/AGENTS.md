@@ -60,6 +60,35 @@ doğruluyor. Yeni bir grup açıp içine `calendar.tsx` koyarsan orada patlar.
 Her iki role de açık ekranlar `app/(ortak)/` altında yaşar; personel
 ekranından `(manager-flow)` adresine gidilmez.
 
+## Bekleme sayacı (Live Activity · Dinamik Ada + kilit ekranı)
+
+`expo-widgets` + `@expo/ui` (2026-11-12, 1.0.2). Kumandada "Bekleme kur"
+denince iOS'ta Dinamik Ada'da ve kilit ekranında canlı geri sayım açılıyor;
+bekleme kalkınca, iş bitince, süre geçip uygulama öne gelince ve çıkışta
+(`onTenantReset`) kapanıyor. 1. aşama YEREL: sunucu/APNs itmesi yok.
+
+- **Expo Go'da GÖRÜNMEZ** (ve Android'de yok). Uygulama yine sorunsuz açılır:
+  `waitActivityDevice.ts` yerel modülü `requireOptionalNativeModule` ile
+  arar, yoksa her şey sessizce boş döner. Denemek için geliştirme derlemesi
+  ya da TestFlight gerekir.
+- **`expo-widgets`'i ve `@expo/ui`'yi hiçbir dosya `import` etmez** — ikisi
+  de modül yüklenirken yerel modülü zorunlu tutuyor, Expo Go'da açılışta
+  çöker. Tek giriş `waitActivityDevice.ts`teki korumalı eşzamanlı `require`.
+  Dinamik `import()` YASAK. `tests/bekleme-sayaci.test.mjs` bunu koruyor.
+- Görünüm `src/lib/waitActivityView.tsx`: `'widget'` yönergeli fonksiyon
+  dizeye çevrilip uzantıda çalışıyor — dışarıdaki sabitleri GÖRMEZ, yalnız
+  `@expo/ui/swift-ui` bileşenleri/değiştiricileri (adları değiştirmeden).
+- Dokununca o işin kumandası: `luera://bekleme?…` → `app/+native-intent.tsx`
+  → bildirimle aynı niyet yolu (`pushIntent`).
+- app.json'da Live Activity için `widgets[]` girdisi YOK (belge: geçersiz
+  hedef üretir). `NSSupportsLiveActivities`'i eklenti kendisi yazıyor.
+- **Yeni iOS uzantı hedefi** `ExpoWidgetsTarget`, paket kimliği
+  `ai.luera.timeflow.ExpoWidgetsTarget`; **app group**
+  `group.ai.luera.timeflow` (ana uygulama + uzantı). İlk EAS derlemesinde
+  EAS bu yeni kimlik için provizyon profili oluşturmayı ve App Group
+  yeteneğini açmayı sorar — "evet". Dağıtım tabanı 16.4 (ExpoModulesCore'un
+  tabanı; Live Activity 16.1+ ister).
+
 ## Sürüm yükseltmesi
 
 SDK yükseltmek ayrı bir iştir ve bu dosyayı değiştirmekle olmaz. Yükseltilirse

@@ -34,6 +34,9 @@ import { font, glow, useTheme } from '../../src/theme';
 import { LiveRow } from '../../src/components/LiveRow';
 import { useLiveList } from '../../src/lib/useLiveList';
 import type { StaffCardState } from '../../src/lib/staffCard';
+import { activeWait, waitIntentOf } from '../../src/lib/waitIntent';
+import type { DayWait } from '../../src/lib/waitActivity';
+import { reconcileWaitActivities } from '../../src/lib/waitActivityDevice';
 
 /** Canlı liste için kimlik ve biçim — modül düzeyinde: sabit referans. */
 type StaffRow = {
@@ -111,6 +114,22 @@ export default function Today() {
         [agenda, now],
     );
     const running = rows.some((row) => row.state.counter != null);
+
+    /*
+     * BEKLEME SAYACI MUTABAKATI (Dinamik Ada · kilit ekranı). Bugünün OKUNMUŞ
+     * listesiyle: başka cihazdan kaldırılan, biten ya da süresi geçen
+     * beklemenin sayacı telefonda asılı kalmasın. Yeni istek yok — bu
+     * ekranın kendi okuması (`waitActivityDevice`).
+     */
+    const dayWaitsKey = agendaState === 'ok' && isToday
+        ? JSON.stringify(agenda.map((row): DayWait => ({
+            reservationId: row.id,
+            endsAt: activeWait(row, waitIntentOf(row.id), now)?.endsAt ?? null,
+        })))
+        : null;
+    useEffect(() => {
+        if (dayWaitsKey) void reconcileWaitActivities(JSON.parse(dayWaitsKey) as DayWait[]);
+    }, [dayWaitsKey]);
 
     // Sayaç saniye saniye ilerliyor; sayaç yoksa saniyede bir yeniden çizmenin
     // tek kazancı şimdi çizgisinin dakikası olurdu — o 30 saniye bekleyebilir.

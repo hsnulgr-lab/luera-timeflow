@@ -65,6 +65,7 @@ import {
 import { ITEMS_SAVE_MS, chainedStamp, itemsKey, shouldFlushItems, shouldSaveItems, staleVerdict } from '../../src/lib/itemsAutosave';
 import { activeWait, rememberWait, waitIntentOf } from '../../src/lib/waitIntent';
 import { armWaitAlarm, disarmWaitAlarm } from '../../src/lib/waitAlarmDevice';
+import { endWaitActivity, reconcileWaitActivities, startWaitActivity } from '../../src/lib/waitActivityDevice';
 import { isForeignChange, lockStampOf } from '../../src/lib/visitStamp';
 import { useConnectivity } from '../../src/lib/connectivity';
 import { feedback } from '../../src/lib/feedback';
@@ -133,6 +134,9 @@ export default function Kumanda() {
         state: visitState, visit: base, updatedAt, changed, version, reload: reloadVisit,
         serverAt, seenItems, ownItems, observe,
     } = useVisit(params.id, params.date || undefined);
+
+    // Kumanda açılınca süresi geçmiş bekleme sayacı kilit ekranından kalksın (`waitActivityDevice`).
+    useEffect(() => { void reconcileWaitActivities(null); }, []);
 
     /**
      * Kökün saati — artık SANİYEDE BİR DEĞİL (Hız 2). Yalnız bir sonraki
@@ -1216,6 +1220,8 @@ export default function Kumanda() {
                                 // Bekleme kalktı: "bitti" bildirimi de kalkıyor.
                                 void disarmWaitAlarm(appointment.id);
                                 void writeVisitWait(appointment.id, null).then((out) => observe(out.observation));
+                                // Dinamik Ada + kilit ekranı sayacı da kalkıyor.
+                                void endWaitActivity(appointment.id);
                             }}
                         />
                     </View>
@@ -1362,6 +1368,7 @@ export default function Kumanda() {
                             // aynısını yapıyor. "Bekleme bitti" de artık söylenmez.
                             rememberWait(appointment.id, null);
                             void disarmWaitAlarm(appointment.id);
+                            void endWaitActivity(appointment.id);
                             setNow(Date.now());
                         }} />
                     ) : null}
@@ -1575,6 +1582,10 @@ export default function Kumanda() {
                                     minutes: m,
                                 };
                                 void armWaitAlarm({ ...alarm, endsAt });
+                                // Dinamik Ada + kilit ekranı sayacı (`waitActivity.ts`): aynı
+                                // randevuya yeni bekleme eskisini günceller.
+                                const activity = { ...alarm, actor: params.from === 'tek' ? 'solo' as const : 'staff' as const };
+                                void startWaitActivity({ ...activity, endsAt });
                                 void writeVisitWait(appointment.id, m).then((out) => {
                                     observe(out.observation);
                                     const serverEnds = out.endsAt ? Date.parse(out.endsAt) : Number.NaN;
@@ -1584,6 +1595,7 @@ export default function Kumanda() {
                                     rememberWait(appointment.id, { endsAt: serverEnds, minutes: m });
                                     setWait((current) => (current ? { ...current, endsAt: serverEnds } : current));
                                     void armWaitAlarm({ ...alarm, endsAt: serverEnds });
+                                    void startWaitActivity({ ...activity, endsAt: serverEnds });
                                 });
                             }}
                             onCancel={() => setSheet(null)}

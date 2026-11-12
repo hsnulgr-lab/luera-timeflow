@@ -84,6 +84,9 @@ function toRow(appointment: Appointment): AgendaRow {
         service_ended_at: appointment.service_ended_at,
         adisyon_items: appointment.adisyon_items,
         is_paid: appointment.is_paid,
+        // Bekleme sayacının mutabakatı için (`waitActivityDevice`); kart çizimi bunları okumuyor.
+        wait_ends_at: appointment.wait_ends_at ?? null,
+        wait_minutes: appointment.wait_minutes ?? null,
     };
 }
 

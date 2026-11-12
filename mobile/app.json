@@ -118,6 +118,15 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.477665756267-s0ffn786degg21i01uidr3pnoth7j5e7"
         }
+      ],
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "ai.luera.timeflow.ExpoWidgetsTarget",
+          "groupIdentifier": "group.ai.luera.timeflow",
+          "enablePushNotifications": false,
+          "frequentUpdates": false
+        }
       ]
     ],
     "locales": {

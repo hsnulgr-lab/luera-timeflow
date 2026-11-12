@@ -32,6 +32,8 @@ import {
 } from '../../src/lib/soloDay';
 import { buildStaffDayState } from '../../src/lib/staffDay';
 import { activeWait, waitIntentOf } from '../../src/lib/waitIntent';
+import type { DayWait } from '../../src/lib/waitActivity';
+import { reconcileWaitActivities } from '../../src/lib/waitActivityDevice';
 import { useManagerDay } from '../../src/state/managerDay';
 import { glow, soloDayMetrics, staffDayMetrics, useTheme } from '../../src/theme';
 
@@ -222,6 +224,22 @@ export default function SoloDay() {
         [dayKnown, isToday, runningJobs, ticket, mine, nowMinutes, serverNow],
     );
     const pickItems = useMemo(() => withSentNotes(pickBase, sent, deviceNow), [pickBase, sent, deviceNow]);
+
+    /*
+     * BEKLEME SAYACI MUTABAKATI (Dinamik Ada · kilit ekranı). Bugünün OKUNMUŞ
+     * listesiyle: başka cihazdan kaldırılan, biten ya da süresi geçen
+     * beklemenin sayacı telefonda asılı kalmasın. Yeni istek yok — bu
+     * ekranın kendi okuması (`waitActivityDevice`).
+     */
+    const dayWaitsKey = dayKnown && isToday
+        ? JSON.stringify(mine.map((row): DayWait => ({
+            reservationId: row.id,
+            endsAt: activeWait(row, waitIntentOf(row.id), serverNow)?.endsAt ?? null,
+        })))
+        : null;
+    useEffect(() => {
+        if (dayWaitsKey) void reconcileWaitActivities(JSON.parse(dayWaitsKey) as DayWait[]);
+    }, [dayWaitsKey]);
 
     /*
      * SEÇİM RANDEVUYA BAĞLI (G5 · Karar 2). Ekranda kalındıkça yeni randevu

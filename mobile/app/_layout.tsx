@@ -15,6 +15,13 @@ import '../src/lib/splashHandoff';
  * AÇIKKEN gelen ilk bildirim işleyici kurulmadan düşerse sessizce yutulur.
  */
 import '../src/lib/pushSetup';
+/*
+ * Bekleme sayacı (Live Activity): kiracı sınırı kancası ve öne dönüş
+ * temizliği açılışta kurulsun — çıkış hangi ekrandan yapılırsa yapılsın
+ * önceki salonun sayacı kilit ekranında kalmasın. Expo Go'da ve Android'de
+ * kendiliğinden boş (`waitActivityDevice.ts`).
+ */
+import '../src/lib/waitActivityDevice';
 
 import {
     HankenGrotesk_200ExtraLight,
