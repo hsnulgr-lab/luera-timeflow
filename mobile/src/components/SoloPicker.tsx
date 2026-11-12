@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder, View, type AccessibilityActionEvent, type LayoutChangeEvent } from 'react-native';
+import {
+    Animated, PanResponder, View, type AccessibilityActionEvent, type LayoutChangeEvent,
+    type ViewInstance,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { ActionPill } from './ActionPill';
@@ -83,7 +86,7 @@ export function SoloPicker({ items, index, onSettle, onOpen, onDrag, onCell }: {
         /** Dokunuşun sayfadaki yeri ve kabın o anki yeri — hangi karta dokunulduğu. */
         touchY: 0, top: null as number | null,
     });
-    const box = useRef<View>(null);
+    const box = useRef<ViewInstance>(null);
     // Jest geri çağrılarının okuduğu güncel değerler — render'da değil,
     // çizimden hemen sonra yazılıyor.
     const latest = useRef({ items, count, onSettle, onOpen, onDrag, reduceMotion, height });

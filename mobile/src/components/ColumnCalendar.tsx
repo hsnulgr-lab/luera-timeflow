@@ -3,6 +3,7 @@ import {
     Animated, Dimensions, PanResponder, Pressable, ScrollView, Text, View,
     type NativeScrollEvent, type NativeSyntheticEvent,
     type RefreshControlProps,
+    type ScrollViewInstance, type ViewInstance,
 } from 'react-native';
 
 import { Num } from './ui';
@@ -176,8 +177,8 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
      * KENARDA KAYDIRMA için ölçüler. Hepsi ref: sürükleme karede bir kez
      * okuyor ve hiçbiri çizimi değiştirmiyor.
      */
-    const rootRef = useRef<View>(null);
-    const vScrollRef = useRef<ScrollView>(null);
+    const rootRef = useRef<ViewInstance>(null);
+    const vScrollRef = useRef<ScrollViewInstance>(null);
 
     /*
      * Bildirimden gelen randevu bir kez gösteriliyor: gün okunup randevu
@@ -194,7 +195,7 @@ export function ColumnCalendar({ appointments, staff, mine, from, to, nowMinutes
         const id = setTimeout(() => vScrollRef.current?.scrollTo({ y, animated: true }), 250);
         return () => clearTimeout(id);
     }, [focusId, appointments, headerHeight, dayStart, hourHeight]);
-    const hScrollRef = useRef<ScrollView>(null);
+    const hScrollRef = useRef<ScrollViewInstance>(null);
     const metrics = useRef({ vOffset: 0, hOffset: 0, rootX: 0, rootY: 0 });
     /**
      * Parmağın son hâli ve kalkıştaki kaydırma. Blok içeriğin İÇİNDE çiziliyor:

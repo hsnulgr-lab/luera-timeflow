@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AccessibilityInfo, Animated, Linking, PanResponder, RefreshControl, ScrollView, StyleSheet,
     useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent,
+    type ScrollViewInstance,
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
@@ -716,7 +717,7 @@ export default function ManagerFlow() {
      * duran adisyon hep birkaç dakika önce başladı. Çizgiyi tepeye koysaydık
      * ekran boş bir geleceği gösterip olan biteni katlardı.
      */
-    const scroller = useRef<ScrollView>(null);
+    const scroller = useRef<ScrollViewInstance>(null);
     const viewport = useRef(0);
     const jumped = useRef(false);
 

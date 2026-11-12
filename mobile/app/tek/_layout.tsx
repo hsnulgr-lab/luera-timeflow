@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Redirect } from 'expo-router';
 import { View } from 'react-native';
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/native-tabs';
 
 import { AuthSessionErrorScreen } from '../../src/components/ui';
 import { ManagerDayProvider } from '../../src/state/managerDay';

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, Text, TextInput, View } from 'react-native';
+import { Keyboard, Text, TextInput, View, type TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -23,7 +23,7 @@ export default function SignupBusiness() {
     const { c, small } = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const nameRef = useRef<TextInput>(null);
+    const nameRef = useRef<TextInputInstance>(null);
     const [stage, setStage] = useState<SignupBusinessStage>('name');
     const [name, setName] = useState('');
     const [sectors, setSectors] = useState<SignupSector[]>([]);

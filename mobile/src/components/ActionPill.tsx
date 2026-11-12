@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View, type ViewInstance } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import {
@@ -349,7 +349,7 @@ export function ActionPill({
      * koordinatına kuruluyor. Böylece çapa hâlâ tetikleyiciden türüyor (ok ucu
      * yerinde kalıyor) ama perde gerçekten bütün ekranı dinliyor.
      */
-    const anchor = useRef<View>(null);
+    const anchor = useRef<ViewInstance>(null);
     const [box, setBox] = useState<{ x: number; y: number } | null>(null);
     const measure = useCallback(() => {
         anchor.current?.measureInWindow((x, y) => {

@@ -227,7 +227,9 @@ test('B5: işletmesiz Apple/Google hesabına sessizce işletme AÇILMIYOR', () =
     assert.match(bridge, /authApi\.social\.createBusiness\(\)/);
     assert.match(bridge, /router\.replace\('\/\(auth\)\/signup\/business'\)/);
     // "E-postayla giriş yap" ve kaydırarak geri dönmek aynı iş: oturum kapanır.
-    assert.match(bridge, /navigation\.addListener\('beforeRemove', \(\) => \{\s*if \(!forward\.current\) void authApi\.social\.leave\(\);/);
+    // SDK 58: `beforeRemove` kaldırıldı; `removed` olayı, abonelik mikro göreve ertelenerek.
+    assert.match(bridge, /navigation\.addListener\('removed', \(\) => \{\s*if \(!forward\.current\) void authApi\.social\.leave\(\);\s*\}\);\s*return \(\) => queueMicrotask\(off\);/);
+    assert.doesNotMatch(bridge, /beforeRemove'/);
     assert.match(live, /async function socialLeave\(\): Promise<void> \{\s*await supabase\.auth\.signOut\(\)/);
     // Sunucu fonksiyonu göç 121'de.
     assert.match(live, /supabase\.rpc\('create_own_business'\)/);

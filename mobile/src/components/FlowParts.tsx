@@ -1762,7 +1762,7 @@ type Motion =
     | number
     | Animated.Value
     | Animated.AnimatedInterpolation<number>
-    | Animated.AnimatedMultiplication<number>;
+    | Animated.AnimatedMultiplication;
 
 /**
  * Gömülü kartın ÇERÇEVESİ — bekleme, tahsilat ve gelmedi kartlarının ortağı.

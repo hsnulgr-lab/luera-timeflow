@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, TextInput, View } from 'react-native';
+import { Keyboard, TextInput, View, type TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { authApi, type SocialProvider } from '../../../src/api/session';
@@ -71,8 +71,8 @@ type Phase = 'form' | 'code';
 export default function SignupAccount() {
     const { c } = useTheme();
     const router = useRouter();
-    const passwordRef = useRef<TextInput>(null);
-    const codeRef = useRef<TextInput>(null);
+    const passwordRef = useRef<TextInputInstance>(null);
+    const codeRef = useRef<TextInputInstance>(null);
     const [phase, setPhase] = useState<Phase>('form');
     const [back, setBack] = useState(false);
     const [ready, setReady] = useState(false);

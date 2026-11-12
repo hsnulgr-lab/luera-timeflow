@@ -240,7 +240,7 @@ export default function SoloDay() {
     useEffect(() => {
         let previous = AppState.currentState;
         const sub = AppState.addEventListener('change', (next) => {
-            if (previous.match(/inactive|background/) && next === 'active') setPickedId(null);
+            if (previous?.match(/inactive|background/) && next === 'active') setPickedId(null);
             previous = next;
         });
         return () => sub.remove();

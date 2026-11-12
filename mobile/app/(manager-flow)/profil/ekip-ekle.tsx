@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ScrollView, Text, TextInput, View } from 'react-native';
+import { ScrollView, Text, TextInput, View, type TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -32,8 +32,8 @@ export default function TeamStart() {
     const { c } = useTheme();
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const nameRef = useRef<TextInput>(null);
-    const specialtyRef = useRef<TextInput>(null);
+    const nameRef = useRef<TextInputInstance>(null);
+    const specialtyRef = useRef<TextInputInstance>(null);
 
     const [ownerName, setOwnerName] = useState('');
     const [name, setName] = useState('');

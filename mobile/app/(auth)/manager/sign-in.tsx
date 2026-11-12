@@ -1,6 +1,9 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, Platform, ScrollView, TextInput, View, useWindowDimensions } from 'react-native';
+import {
+    Keyboard, Platform, ScrollView, TextInput, View, useWindowDimensions, type TextInputInstance,
+    type ScrollViewInstance,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authApi, type SocialProvider } from '../../../src/api/session';
 import { AuthField, AuthOfflineScreen, AuthPage } from '../../../src/components/ui';
@@ -55,8 +58,8 @@ export default function ManagerSignIn() {
     const insets = useSafeAreaInsets();
     const { height: windowHeight } = useWindowDimensions();
     const { c } = useTheme();
-    const scrollRef = useRef<ScrollView>(null);
-    const passwordRef = useRef<TextInput>(null);
+    const scrollRef = useRef<ScrollViewInstance>(null);
+    const passwordRef = useRef<TextInputInstance>(null);
     const [ready, setReady] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');

@@ -254,7 +254,7 @@ test('ekran okuyucu: ayarlanabilir öğe, yukarı/aşağı ve çift dokunuş (Ka
 test('seçim randevuya bağlı; Gün\'den çıkınca ve arka plandan dönünce ilk kart', () => {
     assert.match(gun, /const pickIndex = soloPickIndex\(pickItems, pickedId\);/);
     assert.match(gun, /useFocusEffect\(useCallback\(\(\) => \(\) => setPickedId\(null\), \[\]\)\);/);
-    assert.match(gun, /previous\.match\(\/inactive\|background\/\) && next === 'active'\) setPickedId\(null\);/);
+    assert.match(gun, /previous\?\.match\(\/inactive\|background\/\) && next === 'active'\) setPickedId\(null\);/);
 });
 
 test('Karar 4 · liste kartı randevu kartını açar; seçilinin saati turuncu', () => {

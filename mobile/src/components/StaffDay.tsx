@@ -8,6 +8,8 @@ import {
     ScrollView as RNScrollView,
     Text,
     View,
+    type ScaledSize,
+    type ScrollViewInstance,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -133,12 +135,12 @@ export function StaffDay({
     const openAppointment = useCallback((appointment: Appt) => openLatest.current(appointment), []);
 
     const [activeIndex, setActiveIndex] = useState(initialIndex);
-    const scrollRef = useRef<RNScrollView>(null);
+    const scrollRef = useRef<ScrollViewInstance>(null);
     const scrollX = useRef(new Animated.Value(initialIndex * Dimensions.get('window').width)).current;
 
     // Ekran genişliği değişirse (veya başlangıçta) doğru sayfaya kaydır
     useEffect(() => {
-        const sub = Dimensions.addEventListener('change', ({ window }) => {
+        const sub = Dimensions.addEventListener('change', ({ window }: { window: ScaledSize }) => {
             setScreenWidth(window.width);
         });
         return () => sub.remove();

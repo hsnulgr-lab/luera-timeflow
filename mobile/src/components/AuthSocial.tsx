@@ -44,6 +44,7 @@ import {
     View,
     type StyleProp,
     type ViewStyle,
+    type TextInputInstance,
 } from 'react-native';
 import Animated, {
     Easing,
@@ -860,7 +861,7 @@ export type OtpState = 'idle' | 'checking' | 'error' | 'off';
  * şeridini görmez, kodu kopyalayıp yapıştırır: "482 107" gibi boşluklu
  * yapıştırma da tek seferde kabul ediliyor (açık nokta 8).
  */
-export const AuthOtp = forwardRef<TextInput, {
+export const AuthOtp = forwardRef<TextInputInstance, {
     value: string;
     onChange: (next: string) => void;
     onComplete: (code: string) => void;

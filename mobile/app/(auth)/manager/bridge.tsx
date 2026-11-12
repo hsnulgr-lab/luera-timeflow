@@ -56,9 +56,16 @@ export default function SocialBridgeScreen() {
         return () => { alive = false; };
     }, [router]);
 
-    useEffect(() => navigation.addListener('beforeRemove', () => {
-        if (!forward.current) void authApi.social.leave();
-    }), [navigation]);
+    // Ekran yığından çıkınca (kaydırarak geri, ya da "E-postayla giriş yap")
+    // oturum kapanır. SDK 58: `beforeRemove` kaldırıldı; yerine `removed`
+    // geliyor. O olay efekt temizliğinden SONRA atıldığı için abonelik bir
+    // sonraki mikro göreve ertelenerek kaldırılıyor (kurulu tiplerin notu).
+    useEffect(() => {
+        const off = navigation.addListener('removed', () => {
+            if (!forward.current) void authApi.social.leave();
+        });
+        return () => queueMicrotask(off);
+    }, [navigation]);
 
     const create = async () => {
         if (busy) return;

@@ -1,5 +1,5 @@
 import { forwardRef, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View, type TextInputInstance } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { Num } from './ui';
@@ -187,7 +187,7 @@ export function Kicker({ label, right }: { label: string; right?: string }) {
 
 // ── Arama ───────────────────────────────────────────────────────────────────
 
-export const SearchField = forwardRef<TextInput, {
+export const SearchField = forwardRef<TextInputInstance, {
     value: string;
     onChangeText: (value: string) => void;
     placeholder: string;

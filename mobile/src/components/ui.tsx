@@ -14,6 +14,7 @@ import {
     type TextInputProps,
     type TextStyle,
     type ViewStyle,
+    type TextInputInstance, type ScrollViewInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -474,7 +475,7 @@ export function AuthPage({ children, contentStyle, scrollProps, keyboard, field 
     keyboard?: boolean;
     field?: boolean;
     /** Giriş v4 · B2: klavye açılınca ekran içeriği kendisi kaydırıyor. */
-    scrollRef?: Ref<ScrollView>;
+    scrollRef?: Ref<ScrollViewInstance>;
 }) {
     const insets = useSafeAreaInsets();
     const { c } = useTheme();
@@ -712,7 +713,7 @@ type AuthFieldProps = Omit<TextInputProps, 'style' | 'secureTextEntry'> & {
 };
 
 /** Otomatik doldurma ve yapıştırmayı engellemeyen gerçek native giriş alanı. */
-export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthField({
+export const AuthField = forwardRef<TextInputInstance, AuthFieldProps>(function AuthField({
     label,
     icon,
     password = false,

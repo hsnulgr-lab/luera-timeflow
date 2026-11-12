@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, Linking, TextInput, View } from 'react-native';
+import { Keyboard, Linking, TextInput, View, type TextInputInstance } from 'react-native';
 import { authApi } from '../../../src/api/session';
 import {
     AuthActionButton,
@@ -57,8 +57,8 @@ type RecoverPhase = 'form' | 'code' | 'password';
 export default function ManagerRecover() {
     const router = useRouter();
     const { c } = useTheme();
-    const emailRef = useRef<TextInput>(null);
-    const codeRef = useRef<TextInput>(null);
+    const emailRef = useRef<TextInputInstance>(null);
+    const codeRef = useRef<TextInputInstance>(null);
     const [ready, setReady] = useState(false);
     const [phase, setPhase] = useState<RecoverPhase>('form');
     const [back, setBack] = useState(false);

@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import {
+    Animated, Pressable, ScrollView, Text, TextInput, View, type TextInputInstance,
+    type ScrollViewInstance,
+} from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -231,8 +234,8 @@ function Linked({ health, inbound, canManage, bottom, onRelink, onCut }: {
 }) {
     const { c, dark } = useTheme();
     const t = tints(dark);
-    const scroll = useRef<ScrollView>(null);
-    const input = useRef<TextInput>(null);
+    const scroll = useRef<ScrollViewInstance>(null);
+    const input = useRef<TextInputInstance>(null);
     const [testY, setTestY] = useState(0);
     const now = new Date();
     const fail = health.lastFailure ? failureLine(health.lastFailure, now) : null;
@@ -322,7 +325,7 @@ function Linked({ health, inbound, canManage, bottom, onRelink, onCut }: {
 
 // ── Test mesajı ─────────────────────────────────────────────────────────────
 
-function TestCard({ inputRef }: { inputRef: React.RefObject<TextInput | null> }) {
+function TestCard({ inputRef }: { inputRef: React.RefObject<TextInputInstance | null> }) {
     const { c, reduceMotion } = useTheme();
     const [text, setText] = useState('');
     const [busy, setBusy] = useState(false);

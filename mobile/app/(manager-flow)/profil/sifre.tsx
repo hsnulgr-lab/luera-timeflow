@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { TextInput, View, type TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -44,7 +44,7 @@ export default function ManagerChangePassword() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const { small } = useTheme();
-    const nextRef = useRef<TextInput>(null);
+    const nextRef = useRef<TextInputInstance>(null);
     const [current, setCurrent] = useState('');
     const [next, setNext] = useState('');
     const [busy, setBusy] = useState(false);

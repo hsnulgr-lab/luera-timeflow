@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { TextInput, View, type TextInputProps } from 'react-native';
+import { TextInput, View, type TextInputProps, type TextInputInstance } from 'react-native';
 
 import { FieldLabel } from './ProfileParts';
 import { upperTR } from '../lib/text';
@@ -13,7 +13,7 @@ import { font, useTheme } from '../theme';
 export function TeamField({ label, inputRef, value, ...input }: TextInputProps & {
     label: string;
     value: string;
-    inputRef?: RefObject<TextInput | null>;
+    inputRef?: RefObject<TextInputInstance | null>;
 }) {
     const { c } = useTheme();
     const on = value.length > 0;
