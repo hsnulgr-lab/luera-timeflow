@@ -453,7 +453,10 @@ test('görünüm: widget yönergesi, yukarı sayan sistem sayacı, ilk ad, koyu 
     for (const region of ['banner', 'compactLeading', 'compactTrailing', 'minimal', 'expandedLeading', 'expandedTrailing', 'expandedBottom']) {
         assert.match(view, new RegExp(`\\b${region}:`), region);
     }
-    assert.equal((view.match(/timerInterval=\{range\} countsDown=\{false\}/g) || []).length, 3);
+    assert.equal((view.match(/timerInterval=\{range\} countsDown=\{false\}/g) || []).length, 2);
+    // Dar Dinamik Ada: 59:59'da duran dar sayaç (telefon bulgusu 2026-11-13).
+    assert.equal((view.match(/timerInterval=\{compactRange\} countsDown=\{false\}/g) || []).length, 1);
+    assert.match(view, /const compactWidest = '00:00';/);
     assert.match(view, /activityBackgroundTint\(ground\)/);
     assert.match(view, /const ground = '#120E08';/);
     assert.doesNotMatch(code('mobile/src/lib/arrivalActivityView.tsx'), /colorScheme/);

@@ -42,6 +42,12 @@ function MusteriBekliyor(props: ArrivalActivityProps, environment: LiveActivityE
     const detail = [props.service, props.time].filter((part) => part).join(' · ');
     // En geniş değer: 2 saatlik üst uç "2:00:00".
     const widest = '0:00:00';
+    // Dinamik Ada'nın DAR hâli: telefonda görülen (2026-11-13) — saatlik biçime
+    // yer ayırmak adayı iki yana gereksiz genişletiyordu. Dar hâlde sayaç
+    // 59:59'da duruyor ve yalnız "00:00" kadar yer tutuyor; kart ve geniş hâl
+    // iki saate kadar saymaya devam ediyor.
+    const compactRange = { lower: new Date(props.arrivedAt), upper: new Date(props.arrivedAt + 3599 * 1000) };
+    const compactWidest = '00:00';
 
     return {
         banner: (
@@ -83,9 +89,9 @@ function MusteriBekliyor(props: ArrivalActivityProps, environment: LiveActivityE
                     fixedSize({ horizontal: true, vertical: false }),
                 ]}
             >
-                <Text modifiers={[hidden()]}>{widest}</Text>
+                <Text modifiers={[hidden()]}>{compactWidest}</Text>
                 <Overlay.Content>
-                    <Text timerInterval={range} countsDown={false} modifiers={[foregroundStyle(accent)]} />
+                    <Text timerInterval={compactRange} countsDown={false} modifiers={[foregroundStyle(accent)]} />
                 </Overlay.Content>
             </Overlay>
         ),
