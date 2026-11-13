@@ -36,7 +36,10 @@ import { useLiveList } from '../../src/lib/useLiveList';
 import type { StaffCardState } from '../../src/lib/staffCard';
 import { activeWait, waitIntentOf } from '../../src/lib/waitIntent';
 import type { DayWait } from '../../src/lib/waitActivity';
+import type { ArrivalRow } from '../../src/lib/arrivalActivity';
 import { reconcileWaitActivities } from '../../src/lib/waitActivityDevice';
+import { reconcileArrivalActivities } from '../../src/lib/arrivalActivityDevice';
+import { useMyStaffId } from '../../src/lib/me';
 
 /** Canlı liste için kimlik ve biçim — modül düzeyinde: sabit referans. */
 type StaffRow = {
@@ -130,6 +133,25 @@ export default function Today() {
     useEffect(() => {
         if (dayWaitsKey) void reconcileWaitActivities(JSON.parse(dayWaitsKey) as DayWait[]);
     }, [dayWaitsKey]);
+
+    /*
+     * "MÜŞTERİ BEKLİYOR" MUTABAKATI (144). Aynı okunmuş liste: uzaktan açılan
+     * etkinlik bekleyen müşteriyle eşleniyor, işi başlayan / iptal olan /
+     * başkasına geçen müşterinin etkinliği kalkıyor. Anahtar yalnız bekleme
+     * alanlarından — her saniyelik yeniden çizimde iş yapılmıyor.
+     */
+    const myStaffId = useMyStaffId();
+    const arrivalsKey = agendaState === 'ok' && isToday && myStaffId
+        ? JSON.stringify(agenda.map((row) => ({
+            id: row.id, staff_id: row.staff_id ?? null, customer_name: row.customer_name, service: row.service,
+            start_time: row.start_time, date: row.date, status: row.status,
+            customer_arrived_at: row.customer_arrived_at ?? null, arrived_at: row.arrived_at ?? null,
+            service_ended_at: row.service_ended_at ?? null,
+        })))
+        : null;
+    useEffect(() => {
+        if (arrivalsKey && myStaffId) void reconcileArrivalActivities(JSON.parse(arrivalsKey) as ArrivalRow[], myStaffId);
+    }, [arrivalsKey, myStaffId]);
 
     // Sayaç saniye saniye ilerliyor; sayaç yoksa saniyede bir yeniden çizmenin
     // tek kazancı şimdi çizgisinin dakikası olurdu — o 30 saniye bekleyebilir.

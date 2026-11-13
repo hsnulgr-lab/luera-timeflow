@@ -9,6 +9,7 @@ import {
 import { forgetIntent } from '../lib/pushIntent.ts';
 import { forgetDeviceId } from '../lib/pushDevice.ts';
 import { syncManagerPush, unregisterManagerPush, unregisterPush } from '../lib/push.ts';
+import { unregisterArrivalTokens } from '../lib/arrivalActivityDevice';
 import { announceTenantReset, resetTenant } from '../lib/tenantReset';
 import type {
     AuthAccountBusinessSwitch, AuthAccountDeletionConfirmation, AuthAccountDeletionRequest,
@@ -784,6 +785,8 @@ async function signOut(): Promise<AuthResult<{ target: 'welcome' }>> {
      * ve cihaz token'ıyla tekrar deneniyor.
      */
     if (stored?.profile.actor === 'staff') await unregisterPush().catch(() => undefined);
+    // 144 · "Müşteri bekliyor" jetonları — aynı sıra, token silinmeden.
+    if (stored?.profile.actor === 'staff') await unregisterArrivalTokens();
     else if (stored?.profile.actor === 'manager') {
         // Seçili salonun kimliğiyle — sunucu üyeliği doğrulayıp O salondaki
         // satırı siliyor (iki salonlu müdürde `limit(1)` rastgele seçiyordu).
@@ -905,6 +908,7 @@ async function accountSignOut(): Promise<AuthResult<AuthAccountExit>> {
         // Eskiden bu yol koparmıyordu ve ortak telefonda çıkan personelin
         // bildirimleri sonraki kişinin elinde çalmaya devam ediyordu.
         await unregisterPush().catch(() => undefined);
+        await unregisterArrivalTokens(); // 144
         forgetIntent();
         await resetTenant();
         await clearProfile();
@@ -1512,6 +1516,7 @@ export const auth = {
             // Cihaz koparılıyor: bildirim aboneliği de gitmeli, yoksa bu telefon
             // artık salonun olmadığı hâlde bildirim almaya devam eder.
             await unregisterPush().catch(() => undefined);
+            await unregisterArrivalTokens(); // 144 — cihaz kimliği unutulmadan
             forgetIntent();
             await forgetDeviceId();
             await tokens.clearDevice();

@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { api, flushQueue, onStaffSessionStop, tokens } from '../api/staff';
 import { myActor, myStaffId } from './me.ts';
 import { syncManagerPush, syncPush } from './push.ts';
+import { syncArrivalStart } from './arrivalActivityDevice';
 import { onTenantReset } from './tenantReset';
 import type { SessionStop } from './staffIdentity.ts';
 
@@ -110,6 +111,9 @@ export async function syncNow(now = Date.now()): Promise<void> {
     const actor = await myActor().catch(() => null);
     if (actor === 'manager') await syncManagerPush().catch(() => undefined);
     else await syncPush(await myStaffId()).catch(() => undefined);
+    // "Müşteri bekliyor" başlatma jetonu (144) — yalnız personel oturumunda
+    // (`myStaffId` müdür / tek kişilik oturumda null). Kendi hatasını yutuyor.
+    if (actor !== 'manager') await syncArrivalStart(await myStaffId()).catch(() => undefined);
 }
 
 export function useBackgroundSync(): void {

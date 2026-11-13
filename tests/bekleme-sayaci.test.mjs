@@ -145,9 +145,10 @@ test('Expo Go / Android koruması: yerel modül zorunlu tutulan paketler yalnız
     const native = readFileSync(new URL('../mobile/node_modules/expo-widgets/build/ExpoWidgets.native.js', import.meta.url), 'utf8');
     assert.match(native, /requireNativeModule\('ExpoWidgets'\)/);
 
-    // Değer olarak içe aktaran TEK dosya görünüm; onu da kimse `import` etmiyor.
+    // Değer olarak içe aktaranlar yalnız görünümler (bekleme sayacı + 144'ün
+    // "Müşteri bekliyor"u); onları da kimse `import` etmiyor.
     for (const { file, text } of sources) {
-        if (file === 'src/lib/waitActivityView.tsx') continue;
+        if (file === 'src/lib/waitActivityView.tsx' || file === 'src/lib/arrivalActivityView.tsx') continue;
         assert.doesNotMatch(text, /import\s+(?!type\b)[^;]*from\s+'(expo-widgets|@expo\/ui[^']*)'/, file);
         assert.doesNotMatch(text, /from\s+'[^']*waitActivityView'/, file);
     }
@@ -186,12 +187,13 @@ test('görünüm: widget yönergesi, sistem sayacı, ilk ad, emoji yok', () => {
     assert.match(body, /const accent = /);
 });
 
-test('app.json: Live Activity için widgets[] YOK; itme ve sık güncelleme kapalı', () => {
+test('app.json: Live Activity için widgets[] YOK; sık güncelleme kapalı (itme 144 ile AÇIK)', () => {
     const app = JSON.parse(read('app.json'));
     const entry = app.expo.plugins.find((p) => (Array.isArray(p) ? p[0] : p) === 'expo-widgets');
     assert.ok(Array.isArray(entry), 'expo-widgets eklentisi');
     assert.equal(entry[1].widgets, undefined);
-    assert.equal(entry[1].enablePushNotifications, false);
+    // 144 · "Müşteri bekliyor" sunucudan başlatılıyor (push-to-start).
+    assert.equal(entry[1].enablePushNotifications, true);
     assert.equal(entry[1].frequentUpdates, false);
     assert.equal(entry[1].bundleIdentifier, 'ai.luera.timeflow.ExpoWidgetsTarget');
     assert.equal(entry[1].groupIdentifier, 'group.ai.luera.timeflow');
@@ -236,7 +238,7 @@ test('mutabakat günün OKUNMUŞ listesiyle — yeni istek yok, yalnız bugün v
 
 test('+native-intent: yalnız bekleme bağlantısı; soğuk açılışta bildirimle aynı niyet yolu', () => {
     const intent = code('app/+native-intent.tsx');
-    assert.match(intent, /const target = waitActivityTarget\(path\);\s*if \(!target\) return path;/);
+    assert.match(intent, /const target = waitActivityTarget\(path\)(?: \?\? arrivalActivityTarget\(path\))?;\s*if \(!target\) return path;/);
     assert.match(intent, /if \(initial\) \{\s*rememberIntent\(\{ href: target\.href, actor: target\.actor, at: Date\.now\(\) \}\);\s*return '\/';/);
     assert.match(intent, /catch \{\s*return path;\s*\}/);
 });

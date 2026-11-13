@@ -448,6 +448,27 @@ export const api = {
         if (!t) throw new ApiError('no_session', 401);
         return raw('push.unregister', { deviceId }, t);
     },
+    /**
+     * "Müşteri bekliyor" Apple jetonunu bağlar (144). `start` cihaz başına
+     * (push-to-start), `update` etkinlik başına (randevusuyla).
+     */
+    laRegister: (input: {
+        kind: 'start' | 'update';
+        token: string;
+        deviceId: string;
+        environment: 'sandbox' | 'production';
+        reservationId?: string;
+        activityId?: string;
+    }) => call('la.register', input),
+    /**
+     * Bu cihazın "Müşteri bekliyor" jetonlarını siler (`activityId` verilirse
+     * yalnız o etkinliğinki). `pushUnregister` gibi cihaz token'ıyla da geçer.
+     */
+    laUnregister: async (deviceId: string, activityId?: string) => {
+        const t = (await tokens.staff()) ?? (await tokens.device());
+        if (!t) throw new ApiError('no_session', 401);
+        return raw('la.unregister', { deviceId, ...(activityId ? { activityId } : {}) }, t);
+    },
     /** Kendi şifresini değiştirir; cevap YENİ kuşakla basılmış token taşır (099). */
     pinChange: (currentPin: string, pin: string) => call('pin.change', { currentPin, pin }),
     /**

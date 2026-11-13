@@ -66,6 +66,7 @@ import { ITEMS_SAVE_MS, chainedStamp, itemsKey, shouldFlushItems, shouldSaveItem
 import { activeWait, rememberWait, waitIntentOf } from '../../src/lib/waitIntent';
 import { armWaitAlarm, disarmWaitAlarm } from '../../src/lib/waitAlarmDevice';
 import { endWaitActivity, reconcileWaitActivities, startWaitActivity } from '../../src/lib/waitActivityDevice';
+import { endArrivalActivity } from '../../src/lib/arrivalActivityDevice';
 import { markKumandaOnTop } from '../../src/lib/waitActivity';
 import { isForeignChange, lockStampOf } from '../../src/lib/visitStamp';
 import { useConnectivity } from '../../src/lib/connectivity';
@@ -1359,6 +1360,9 @@ export default function Kumanda() {
                                     setStartCode(out.code);
                                     feedback.warning();
                                 });
+                                // "Müşteri bekliyor" kilit ekranından kalksın (144) —
+                                // damga gibi hemen; sunucu da ayrıca bitiriyor.
+                                void endArrivalActivity(appointment.id);
                             }} />
                         </View>
                     ) : null}

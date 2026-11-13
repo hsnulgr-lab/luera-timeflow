@@ -2,11 +2,13 @@ import { router } from 'expo-router';
 
 import { rememberIntent } from '../src/lib/pushIntent';
 import { kumandaOnTopId, waitActivityTarget, waitTapMove } from '../src/lib/waitActivity';
+import { arrivalActivityTarget } from '../src/lib/arrivalActivity';
 
 /**
- * Sistemin verdiği adresler — YALNIZ bekleme sayacının bağlantısı ele
- * alınıyor (`luera://bekleme?…`, Live Activity'ye dokunuş). Geri kalan her
- * adres OLDUĞU GİBİ geçiyor; bu dosya yokken de aynısı oluyordu.
+ * Sistemin verdiği adresler — YALNIZ iki Live Activity bağlantısı ele
+ * alınıyor: bekleme sayacı (`luera://bekleme?…`) ve "Müşteri bekliyor"
+ * (`luera://bekliyor?…`, 144). Geri kalan her adres OLDUĞU GİBİ geçiyor;
+ * bu dosya yokken de aynısı oluyordu.
  *
  * Sayaca dokunmak bekleme bildirimine dokunmakla AYNI yere gidiyor: o işin
  * kumandası (`waitActivity.waitActivityTarget` → `pushRoute.pushTargetOf`).
@@ -19,7 +21,7 @@ import { kumandaOnTopId, waitActivityTarget, waitTapMove } from '../src/lib/wait
  */
 export function redirectSystemPath({ path, initial }: { path: string; initial: boolean }): string | null {
     try {
-        const target = waitActivityTarget(path);
+        const target = waitActivityTarget(path) ?? arrivalActivityTarget(path);
         if (!target) return path;
         if (initial) {
             rememberIntent({ href: target.href, actor: target.actor, at: Date.now() });

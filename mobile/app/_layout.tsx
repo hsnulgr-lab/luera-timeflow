@@ -22,6 +22,12 @@ import '../src/lib/pushSetup';
  * kendiliğinden boş (`waitActivityDevice.ts`).
  */
 import '../src/lib/waitActivityDevice';
+/*
+ * "Müşteri bekliyor" (Live Activity, 144): başlatma jetonu dinleyicisi,
+ * kiracı sınırı kancası ve öne dönüş mutabakatı açılışta kurulsun. Expo
+ * Go'da ve Android'de kendiliğinden boş (`arrivalActivityDevice.ts`).
+ */
+import '../src/lib/arrivalActivityDevice';
 
 import {
     HankenGrotesk_200ExtraLight,

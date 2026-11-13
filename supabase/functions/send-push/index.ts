@@ -27,6 +27,7 @@ const corsHeaders = {
  *   target: { staffId: string } | { role: 'manager' },
  *   payload: { title, body, url?, tag? },
  *   pref?: 'booked' | 'cancelled' | 'cash'   // yalnız MÜDÜR olaylarında (106)
+ *   excludeDeviceIds?: string[]   // 144: bu telefonlara GİTMEZ (etkinlik açıldı)
  * }
  */
 
@@ -41,6 +42,7 @@ interface Sub {
     endpoint: string;
     p256dh: string | null;
     auth: string | null;
+    device_id?: string | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -58,7 +60,7 @@ Deno.serve(async (req: Request) => {
         const gotSecret = req.headers.get('x-push-secret') || '';
         if (!wantSecret || gotSecret !== wantSecret) return json({ error: 'unauthorized' }, 401);
 
-        const { organization_id, target, payload, pref } = await req.json();
+        const { organization_id, target, payload, pref, excludeDeviceIds } = await req.json();
         if (!organization_id || !target || !payload) return json({ error: 'invalid_body' }, 400);
 
         /*
@@ -105,7 +107,7 @@ Deno.serve(async (req: Request) => {
 
         // Hedef abonelikleri seç
         let q = admin.from('push_subscriptions')
-            .select('id, kind, endpoint, p256dh, auth')
+            .select('id, kind, endpoint, p256dh, auth, device_id')
             .eq('organization_id', organization_id);
         if (target.staffId) q = q.eq('staff_id', target.staffId);
         else if (target.role === 'manager') q = q.eq('role', 'manager');
@@ -127,7 +129,17 @@ Deno.serve(async (req: Request) => {
         }
         if (!subs || subs.length === 0) return json({ sent: 0, note: 'no_subscribers' }, 200);
 
-        const rows = subs as Sub[];
+        /*
+         * 144 · "MÜŞTERİ BEKLİYOR" — `send-live-activity` bu telefonlarda
+         * kilit ekranı etkinliğini açtı; Apple başlatmada uyarıyı zaten
+         * çaldırdı. Aynı olay için ikinci bildirim gitmiyor. Alan yoksa
+         * (bütün eski çağıranlar) hiçbir şey değişmiyor.
+         */
+        const skip = new Set(Array.isArray(excludeDeviceIds)
+            ? excludeDeviceIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
+            : []);
+        const rows = (subs as Sub[]).filter((s) => !(s.kind === 'expo' && s.device_id && skip.has(s.device_id)));
+        if (rows.length === 0) return json({ sent: 0, note: 'all_live_activity' }, 200);
         const web = rows.filter((s) => s.kind !== 'expo');
         const expo = rows.filter((s) => s.kind === 'expo');
         /** Ölü abonelikler — iki kanal da aynı listeye yazıyor, tek silme. */

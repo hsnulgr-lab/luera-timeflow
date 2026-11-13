@@ -9,6 +9,11 @@ verify_jwt = false
 [functions.send-push]
 verify_jwt = false
 
+# send-live-activity'yi yalnız DB tetikleyicisi (pg_net) çağırır (göç 144);
+# kimlik x-push-secret ile fonksiyon içinde — send-push ile aynı kapı.
+[functions.send-live-activity]
+verify_jwt = false
+
 # whatsapp-booking'i Evolution API çağırır — Supabase JWT taşımaz; kimlik
 # doğrulama URL'deki ?s=<org_whatsapp.webhook_secret> ile fonksiyon içinde.
 [functions.whatsapp-booking]

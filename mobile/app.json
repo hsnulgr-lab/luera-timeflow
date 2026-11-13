@@ -124,7 +124,7 @@
         {
           "bundleIdentifier": "ai.luera.timeflow.ExpoWidgetsTarget",
           "groupIdentifier": "group.ai.luera.timeflow",
-          "enablePushNotifications": false,
+          "enablePushNotifications": true,
           "frequentUpdates": false
         }
       ]

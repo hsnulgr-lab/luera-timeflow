@@ -42,6 +42,8 @@ export interface DemoAppointment extends StaffCardSource {
      */
     wait_ends_at?: string | null;
     wait_minutes?: number | null;
+    /** Randevunun personeli — SUNUCUDAN ("Müşteri bekliyor" mutabakatı, 144). Sahte ajandada yok. */
+    staff_id?: string | null;
 }
 
 const MIN = 60_000;

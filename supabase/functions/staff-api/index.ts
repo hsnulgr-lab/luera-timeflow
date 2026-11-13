@@ -9,6 +9,7 @@ import {
 import { pinProblem } from '../_shared/pinRules.ts';
 import { clientIp } from './clientIp.ts';
 import { cachedSecret, loadGate } from './gate.ts';
+import { parseLaRegister, registerLiveActivity, unregisterLiveActivity } from './liveActivity.ts';
 import {
     UUID_RE, freeMaterialName, hasPackageLink, kasaOnlyReason, packageCovered, packagesEnabledFor,
     planVisitItems, resolveVisitItems,
@@ -58,6 +59,9 @@ type Action =
     // ── Bildirim (103) ──────────────────────────────────────────────────────
     | 'push.register'    // personel: bu cihazın Expo jetonunu bağla
     | 'push.unregister'  // bu cihazın aboneliğini kopar (CİHAZ token'ı da geçer)
+    // ── "Müşteri bekliyor" Live Activity (144) ──────────────────────────────
+    | 'la.register'      // personel: Apple başlatma / etkinlik jetonunu bağla
+    | 'la.unregister'    // bu cihazın etkinlik jetonlarını sil (CİHAZ token'ı da geçer)
     // ── Personelin kendi şifresi (099) ──────────────────────────────────────
     | 'pin.setup'        // cihaz: şifresi olmayan personel İLK şifresini belirler
     | 'pin.change'       // personel: kendi şifresini değiştirir
@@ -720,6 +724,14 @@ Deno.serve(async (req: Request) => {
                 .eq('staff_id', staffId)
                 .eq('kind', 'expo');
             if (pushErr) console.error('staff-api staff.devices.cut push', pushErr);
+            // 144 · "Müşteri bekliyor" jetonları da: kayıp telefonun kilit
+            // ekranında müşteri adı açılmasın.
+            const { error: laErr } = await admin
+                .from('live_activity_tokens')
+                .delete()
+                .eq('organization_id', owner.orgId)
+                .eq('staff_id', staffId);
+            if (laErr) console.error('staff-api staff.devices.cut la', laErr);
 
             const devices = phones?.length ?? 0;
             await audit(owner.orgId, staffId, 'devices_cut', String(devices));
@@ -1251,6 +1263,17 @@ Deno.serve(async (req: Request) => {
             return json({ ok: true });
         }
 
+        /*
+         * "MÜŞTERİ BEKLİYOR" JETONLARINI SİL (144) — `push.unregister` ile
+         * aynı gerekçeyle personel kapısının ÖNÜNDE: çıkışta personel
+         * token'ı silinmiş olabilir; kalan jeton ayrılan personelin
+         * müşterilerini yeni personelin kilit ekranına taşırdı.
+         */
+        if (action === 'la.unregister') {
+            const out = await unregisterLiveActivity(admin, claims.org, body);
+            return 'ok' in out ? json({ ok: true }) : json({ error: out.error }, out.status);
+        }
+
         // ── Buradan sonrası PERSONEL token'ı ister ───────────────────────────
         if (isDevice) return json({ error: 'staff_token_required' }, 403);
 
@@ -1481,6 +1504,18 @@ Deno.serve(async (req: Request) => {
                 return json({ error: 'save_failed' }, 500);
             }
             return json({ ok: true });
+        }
+
+        /*
+         * "MÜŞTERİ BEKLİYOR" JETONUNU BAĞLA (144) — `push.register`ın deseni:
+         * kişi ve işletme `me`den, gövdeden değil. Etkinlik jetonunun
+         * randevusu bu kişinin randevusu olmak zorunda (`liveActivity.ts`).
+         */
+        if (action === 'la.register') {
+            const input = parseLaRegister(body);
+            if ('error' in input) return json({ error: input.error }, 400);
+            const out = await registerLiveActivity(admin, me, input);
+            return 'ok' in out ? json({ ok: true }) : json({ error: out.error }, out.status);
         }
 
         if (action === 'realtime.token') {

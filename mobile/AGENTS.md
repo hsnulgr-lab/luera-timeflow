@@ -89,6 +89,37 @@ bekleme kalkınca, iş bitince, süre geçip uygulama öne gelince ve çıkışt
   yeteneğini açmayı sorar — "evet". Dağıtım tabanı 16.4 (ExpoModulesCore'un
   tabanı; Live Activity 16.1+ ister).
 
+## "Müşteri bekliyor" (Live Activity · sunucudan · 1.0.3)
+
+Göç 144 (2026-11-13). Resepsiyon "Geldi" deyince SUNUCU Apple'a doğrudan
+itiyor (APNs push-to-start, iOS 17.2+) ve personelin telefonunda kilit
+ekranı + Dinamik Ada'da "Ayşe bekliyor · 4:12" açılıyor — uygulama kapalıyken
+de. Sayaç geliş anından yukarı sayar (üst uç 2 saat). Plan ve sapmalar:
+`docs/dinamik-ada-musteri-bekliyor-plan.md`.
+
+- Bekleme sayacının bütün kuralları geçerli: Expo Go / Android / eski iOS'ta
+  görünmez ve sessiz; `expo-widgets` ve `@expo/ui` yalnız görünüm dosyasında
+  (`src/lib/arrivalActivityView.tsx`), tek giriş `arrivalActivityDevice.ts`teki
+  korumalı eşzamanlı `require`; dinamik `import()` YASAK; kart her zaman koyu,
+  yalnız ilk ad, emoji yok. `tests/musteri-bekliyor.test.mjs` koruyor.
+- app.json'da `expo-widgets` → `enablePushNotifications: true` (yerel derleme
+  ister). Etkinlik adı `MusteriBekliyor` ÜÇ yerde aynı: görünüm,
+  `arrivalActivity.ts` ve sunucu `send-live-activity/apns.ts`. Değişirse
+  Apple 200 döner ama etkinlik boş kalır.
+- Jetonlar `staff-api` üzerinden: `la.register` (başlatma jetonu öne dönüşte,
+  `backgroundSync`; etkinlik jetonu eşlenince) ve `la.unregister` (çıkış,
+  telefonu işletmeden çıkarma — `unregisterPush` ile aynı sırada). Yalnız
+  PERSONEL oturumu; tek kişilik kabukta yok (resepsiyon ile personel aynı kişi).
+- iOS uzaktan açılan etkinliğin içeriğini uygulamaya vermiyor. Telefon onu
+  Bugün ekranının okunmuş listesiyle eşliyor (`planArrivalActivities`); iki
+  müşteri birden bekliyorsa bilinmeyenleri kapatıp yerel açıyor.
+- Kapanma: kumandada iş başlayınca hemen (yerel), iptal / gelmedi / geri
+  alma / başkasına geçme / silme sunucudan ("end"), ve öne dönüşte mutabakat.
+- Dokununca: `luera://bekliyor?id=…&date=…` → `+native-intent.tsx` → o işin
+  kumandası (bekleme sayacıyla aynı yol, kumandalar üst üste binmez).
+- APNs ortamı telefonun tahmini (`__DEV__` → sandbox); tutmazsa sunucu öteki
+  ortamı bir kez deneyip satırı düzeltiyor.
+
 ## Sürüm yükseltmesi
 
 SDK yükseltmek ayrı bir iştir ve bu dosyayı değiştirmekle olmaz. Yükseltilirse

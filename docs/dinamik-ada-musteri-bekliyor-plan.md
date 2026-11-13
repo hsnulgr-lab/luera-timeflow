@@ -117,3 +117,57 @@ Kaynaklar: Expo Widgets SDK 58 belgesi
 (https://docs.expo.dev/versions/v58.0.0/sdk/widgets/), Expo "Live Activities
 with Expo: end to end" yazısı
 (https://expo.dev/blog/live-activities-with-expo-end-to-end-client-and-backend).
+
+---
+
+## Yapıldı (2026-11-13) — B yolu, cihazda DENENMEDİ
+
+Dal `claude/musteri-bekliyor-live-activity-30b5c5`, push yok.
+
+- **Göç 144** `supabase/144_musteri_bekliyor_live_activity.sql`:
+  `live_activity_tokens` (RLS açık, politika yok, yalnız service_role),
+  pasif personelde silme tetikleyicisi, `notify_push_on_reservation` = 118 +
+  "Geldi"de etkinlik yolu + yeni 8) "bitir", silinen bekleyen randevu için
+  ayrı tetikleyici. Test: `supabase/tests/144_musteri_bekliyor_regression.sql`
+  + `tests/musteri-bekliyor-144.test.mjs` (PGlite, söküm testleriyle).
+- **staff-api**: `la.register` / `la.unregister` (`liveActivity.ts`);
+  `staff.devices.cut` jetonları da siliyor.
+- **send-live-activity** (yeni): ES256 sağlayıcı jetonu (50 dk bellekte),
+  başlat / bitir; anahtar `app_secrets`'ten (`APNS_KEY`, `APNS_KEY_ID`,
+  `APNS_TEAM_ID`). **send-push**: geriye uyumlu `excludeDeviceIds`.
+- **Mobil**: `arrivalActivity.ts` (saf), `arrivalActivityDevice.ts` (cihaz),
+  `arrivalActivityView.tsx` (görünüm), `+native-intent.tsx` (`luera://bekliyor`),
+  Bugün mutabakatı, kumandada iş başlayınca yerel bitirme, çıkışta jeton
+  silme, app.json `enablePushNotifications: true`.
+
+### Sapmalar
+
+1. **A yolu (yerel, tek kişilik) yapılmadı.** Görev kararı: tek kişilikte bu
+   etkinlik hiç açılmaz (resepsiyon ile personel aynı kişi). Tetikleyici
+   `NOT v_solo`, telefon yalnız personel oturumunda jeton yazıyor.
+2. **Tetikleyici yalnız başlatma jetonu VARSA `send-live-activity`yi
+   çağırıyor**; yoksa 118'in çağrısı birebir. Eski uygulamalar (1.0.1/1.0.2),
+   Android ve iOS 17.2 altı hiç etkilenmiyor. Bildirimin gövdesi değişmedi;
+   etkinlik yolunda o gövde `fallback` olarak taşınıyor ve gönderici onu
+   `send-push`e `excludeDeviceIds` ile iletiyor (etkinlik açılan cihaz atlanıyor).
+3. **Uzaktan açılan etkinliğin randevusu telefonda eşleniyor.** expo-widgets
+   etkinliğin içeriğini JS'e vermiyor; eşleme Bugün ekranının okumasıyla:
+   tek bilinmeyen + tek bekleyen → eşle (içerik yeniden yazılır), belirsizse
+   bilinmeyenler kapanıp yerel açılır. Eşlenmeden sunucu bitiremez — o arada
+   bayatlama (geliş + 45 dk) ve öne dönüş mutabakatı devrede.
+4. **APNs ortamı**: telefon `__DEV__` ile tahmin ediyor; sunucu
+   `BadDeviceToken`da öteki ortamı bir kez deneyip satırı düzeltiyor.
+5. **"Bitir" ayrıca `service_ended_at` dolunca** (başlamadan bitirilen iş) ve
+   randevu SİLİNİNCE (ayrı tetikleyici) gidiyor. `reservation_id`'de FK yok,
+   bilerek: silmede "bitir" o satırı okuyor.
+6. Telefon koparma (117) DB tetikleyicisi değil, `staff.devices.cut`'ta siliniyor.
+7. Başlatma uyarısı "Müşterin geldi" emojisiz (görünüm kuralı); bildirim
+   eskisi gibi "Müşterin geldi 👋".
+
+### Doğrulanamayanlar (gerçek cihaz + gerçek APNs anahtarı gerekiyor)
+
+- Edge runtime'ın `fetch`inin APNs'le HTTP/2 konuşması, imzanın Apple'da
+  kabulü, başlatma itmesinin etkinliği gerçekten açması.
+- iOS 18 `input-push-token`'ın uygulama kapalıyken etkinlik jetonunu JS'e
+  ulaştırması (ulaşmazsa uzaktan bitirme o telefonda uygulama açılana kadar yok).
+- Görünümün gerçek kilit ekranında / Dinamik Ada'da çizimi.

@@ -79,6 +79,9 @@ function toRow(appointment: Appointment): AgendaRow {
         start_time: clockText(appointment.start_time),
         end_time: clockText(appointment.end_time),
         status: appointment.status,
+        // "Müşteri bekliyor" mutabakatı için (`arrivalActivityDevice`): salonun
+        // tamamını gören rolde yalnız kişinin kendi bekleyenleri sayılsın.
+        staff_id: appointment.staff_id ?? null,
         customer_arrived_at: appointment.customer_arrived_at ?? null,
         arrived_at: appointment.arrived_at,
         service_ended_at: appointment.service_ended_at,
