@@ -486,33 +486,94 @@
 .gz-ops .gz-slot:hover,
 .gz-ops .gz-slot:focus-visible { background: var(--gz-or-t2); color: var(--dc-orange); outline: none; }
 
-/* Seans kartı: kenarsız, köşe 8; hizmet rengi 3 px sol şeritte, durum kart tonunda */
+/* Seans kartı — Gün planı tasarımı (2026-11-17, docs/gun-plani-tasarim/):
+   kenarsız krem kart, köşe 10, hizmet rengi 3 px sol şeritte; önce ad, altında
+   "saat · hizmet"; kısa seans tek satır. Durum kart TONUNDA değil: işlemde
+   siyah kart, biten soluk, gelmeyenin adı çizili; geri kalanı sağda tek işaret. */
 .gz-ops .gz-appt {
-    position: absolute; z-index: 2; overflow: hidden; border: 0; border-radius: 8px; text-align: left;
-    display: flex; flex-direction: column; gap: 1px; padding: 6px 8px 6px 12px;
-    background: var(--dc-card); box-shadow: inset 0 0 0 1px var(--dc-border2); color: var(--dc-ink);
+    position: absolute; z-index: 2; overflow: hidden; border: 0; border-radius: 10px; text-align: left;
+    display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 14px;
+    background: var(--dc-surface2); color: var(--dc-ink);
     transition: box-shadow .12s ease-out;
 }
-.gz-ops .gz-appt.compact { justify-content: center; padding: 3px 8px 3px 12px; }
-.gz-ops .gz-appt.waiting { background: var(--gz-am-t); box-shadow: none; }
-.gz-ops .gz-appt.active { background: var(--gz-or-t); box-shadow: none; }
-.gz-ops .gz-appt.checkout { background: var(--gz-gr-t); box-shadow: none; }
-.gz-ops .gz-appt.completed { background: var(--dc-surface2); box-shadow: none; }
-.gz-ops .gz-appt.completed strong { color: var(--dc-muted); }
-.gz-ops .gz-appt.noshow { background: var(--gz-rd-t); box-shadow: none; }
-.gz-ops .gz-appt.noshow strong { color: var(--dc-red); }
+.gz-ops .gz-appt .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.gz-ops .gz-appt.compact { padding-top: 0; padding-bottom: 0; }
+.gz-ops .gz-appt.compact .tx { flex-direction: row; align-items: baseline; gap: 8px; }
+.gz-ops .gz-appt.active { background: var(--dc-inkbox); }
+.gz-ops .gz-appt.active strong { color: var(--dc-inkbox-fg); }
+.gz-ops .gz-appt.active small { color: rgba(243, 237, 227, .68); }
+.gz-ops .gz-appt.completed { opacity: .45; }
+.gz-ops .gz-appt.noshow strong { color: var(--dc-muted); text-decoration: line-through; text-decoration-color: var(--dc-red); }
 .gz-ops .gz-appt.selected { box-shadow: inset 0 0 0 2px var(--dc-ink); z-index: 3; }
-.gz-ops .gz-appt > .rail { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--svc, var(--dc-purple)); }
-.gz-ops .gz-appt > .gz-dot { position: absolute; right: 8px; top: 9px; width: 7px; height: 7px; }
+.gz-ops .gz-appt.active.selected { box-shadow: inset 0 0 0 2px var(--dc-orange); }
+/* Koyu temada koyu kutu zeminle birleşir — ince turuncu çerçeve ayırır */
+.dash-theme.gz-ops.dark .gz-appt.active:not(.selected) { box-shadow: inset 0 0 0 1px rgba(255, 90, 31, .45); }
+.dash-theme.gz-ops.dark .gz-side-now { box-shadow: inset 0 0 0 1px var(--gz-box-b); }
+.gz-ops .gz-appt > .rail { position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px; border-radius: 0 3px 3px 0; background: var(--svc, var(--dc-purple)); }
+.gz-ops .gz-appt.compact > .rail { top: 5px; bottom: 5px; }
+.gz-ops .gz-appt.active > .rail { background: var(--dc-orange); }
 .gz-ops .gz-appt small {
-    padding-right: 12px; font-size: 12.5px; font-weight: 600; color: var(--dc-muted);
+    font-size: 12.5px; font-weight: 500; color: var(--dc-muted);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .gz-ops .gz-appt strong {
-    font-size: 14.5px; font-weight: 800; letter-spacing: -.01em; line-height: 1.25;
+    font-size: 14.5px; font-weight: 700; letter-spacing: -.005em; line-height: 1.25;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.gz-ops .gz-appt span { font-size: 13px; font-weight: 500; color: var(--dc-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gz-ops .gz-appt .st { flex: none; font-style: normal; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.gz-ops .st.red { color: var(--dc-red); }
+.gz-ops .st.amber { color: var(--dc-amber); }
+.gz-ops .st.live { color: #FF7A45; }
+.gz-ops .st.muted { color: var(--dc-muted); }
+.gz-ops .st-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; }
+.gz-ops .st-dot.red { background: var(--dc-red); }
+.gz-ops .st-dot.amber { background: var(--dc-amber); }
+.gz-ops .gz-appt .st-dot.muted { display: none; }
+
+/* Uzman sütun başı: baş harf (işlemdeyse koyu) + ad + kısa durum */
+.gz-ops .gz-lane-head.staff { flex-direction: row; align-items: center; gap: 10px; }
+.gz-ops .gz-lane-head.staff .col { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.gz-ops .gz-lane-head.staff small { padding-left: 0; }
+.gz-ops .gz-lav {
+    flex: none; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: var(--dc-surface2); font-size: 12px; font-weight: 700; color: var(--dc-ink);
+}
+.gz-ops .gz-lav.busy { background: var(--dc-inkbox); color: var(--dc-inkbox-fg); }
+
+/* Tek kişilik: ızgara + yan panel. Dar ekranda panel ızgaranın altına iner. */
+.gz-ops .gz-solo { display: flex; gap: 20px; align-items: flex-start; }
+.gz-ops .gz-solo > .gz-grid { flex: 1; min-width: 0; }
+.gz-ops .gz-side { width: 320px; flex: none; display: flex; flex-direction: column; gap: 12px; }
+@media (max-width: 1100px) {
+    .gz-ops .gz-solo { flex-direction: column; align-items: stretch; }
+    .gz-ops .gz-side { width: auto; }
+}
+.gz-ops .gz-side-now { background: var(--dc-inkbox); color: var(--dc-inkbox-fg); border-radius: 16px; padding: 18px 20px 14px; display: flex; flex-direction: column; gap: 12px; }
+.gz-ops .gz-side-now .k { display: flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 700; letter-spacing: .13em; color: #FF7A45; }
+.gz-ops .gz-side-now .k i { width: 7px; height: 7px; border-radius: 50%; background: var(--dc-orange); }
+.gz-ops .gz-side-now .k.idle { color: var(--gz-box-m); }
+.gz-ops .gz-side-now .k.idle i { background: var(--gz-box-m); }
+.gz-ops .gz-side-now .main { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.gz-ops .gz-side-now .who { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
+.gz-ops .gz-side-now .who b { font-size: 19px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gz-ops .gz-side-now .who small { font-size: 13.5px; color: var(--gz-box-m); }
+.gz-ops .gz-side-now .big { font-size: 34px; line-height: 1; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; }
+.gz-ops .gz-side-now .big small { font-size: 13.5px; font-weight: 500; color: var(--gz-box-m); letter-spacing: 0; }
+.gz-ops .gz-side-now .gz-btn { align-self: flex-start; background: var(--dc-orange); color: #fff; border: 0; }
+.gz-ops .gz-side-now .next { display: flex; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid var(--gz-box-b); font-size: 13.5px; color: var(--gz-box-m); }
+.gz-ops .gz-side-now .next button { padding: 0; border: 0; background: none; color: var(--dc-inkbox-fg); font-weight: 600; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gz-ops .gz-side-now .next .r { margin-left: auto; white-space: nowrap; }
+.gz-ops .gz-side-box { background: var(--dc-surface2); border-radius: 16px; padding: 16px 18px; }
+.gz-ops .gz-side-box .bt { font-size: 11.5px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; color: var(--dc-muted); }
+.gz-ops .gz-side-box ul { list-style: none; margin: 6px 0 0; padding: 0; }
+.gz-ops .gz-side-box li { display: flex; align-items: center; gap: 10px; padding: 10px 0; font-size: 14px; border-top: 1px solid var(--dc-border-soft); }
+.gz-ops .gz-side-box li:first-child { border-top: 0; }
+.gz-ops .gz-side-box li b { font-weight: 600; }
+.gz-ops .gz-side-box li > b { width: 96px; flex: none; }
+.gz-ops .gz-side-box li > span { color: var(--dc-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gz-ops .gz-side-box li .nm b { color: var(--dc-ink); }
+.gz-ops .gz-side-box li button { margin-left: auto; flex: none; padding: 4px 0; border: 0; background: none; color: var(--dc-orange-d); font-size: 13px; font-weight: 700; cursor: pointer; }
+.gz-ops .gz-side-box .share { display: block; width: 100%; margin-top: 8px; padding: 11px 0; border: 0; border-radius: 11px; background: var(--dc-card); color: var(--dc-orange-d); font-size: 13.5px; font-weight: 700; cursor: pointer; }
 
 /* Katlanmış boş bant — 34 px, ince çapraz tarama */
 .gz-ops .gz-fold {
@@ -528,8 +589,9 @@
 .gz-ops .gz-fold span:first-child { width: 64px; padding-right: 12px; text-align: right; }
 .gz-ops .gz-fold span + span { padding-left: 14px; }
 
-/* Şimdi çizgisi — 2 px turuncu, saat etiketi eksende */
-.gz-ops .gz-now { position: absolute; z-index: 4; left: 0; right: 0; height: 0; pointer-events: none; }
+/* Şimdi çizgisi — 2 px turuncu, saat etiketi eksende. Kartların ALTINDAN
+   geçer (z 1 < kart 2): süren seansın siyah kartını kesmesin. */
+.gz-ops .gz-now { position: absolute; z-index: 1; left: 0; right: 0; height: 0; pointer-events: none; }
 .gz-ops .gz-now::before { content: ''; position: absolute; left: 64px; right: 0; top: -1px; height: 2px; background: var(--dc-orange); }
 .gz-ops .gz-now b {
     position: absolute; left: 6px; top: -11px; height: 22px; padding: 0 6px; border-radius: 6px;

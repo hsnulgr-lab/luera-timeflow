@@ -14,6 +14,8 @@ import { useCashEnabled } from '@/hooks/useModules';
 import { OpportunityWheel, type Opportunity } from '@/components/dashboard/OpportunityWheel';
 import { useLabels } from '@/hooks/useLabels';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { cn } from '@/utils/cn';
 import { todayISO, toISODate, formatDateEU } from '@/utils/date';
 import { BeautySessionModal, type SessionPreset } from '@/components/beauty/BeautySessionModal';
@@ -31,9 +33,10 @@ import { adisyonExtras, reservationPrice } from '@/utils/reservationServices';
 const DAY_OPEN = 9;
 const DAY_CLOSE = 19;
 
-// Gün planı ızgarası — saat başına 64 px: kart üç satırı rahat taşır. Boş günde
-// 32 px; ızgara kaybolmaz ("+" ile seans buradan eklenir) ama yarım ekran tutmaz.
-const PPH = 64;
+// Gün planı ızgarası — saat başına 72 px (Gün planı tasarımı, 2026-11-17):
+// 45 dk'lık seans iki satırı (ad + saat · hizmet) taşır. Boş günde 32 px;
+// ızgara kaybolmaz ("+" ile seans buradan eklenir) ama yarım ekran tutmaz.
+const PPH = 72;
 const PPH_EMPTY = 32;
 
 // Faz → ızgara/nokta rengi sınıfı ve ekranda görünen etiket
@@ -53,6 +56,17 @@ const initialsOf = (name: string) => name.split(' ').map((w) => w[0]).filter(Boo
 const fmtTL = (n: number) => `₺${Math.round(n).toLocaleString('tr-TR')}`;
 /** Bugüne kadar geçen tam gün — "113 gündür yok" sayacı için. */
 const daysSince = (iso: string) => Math.max(0, Math.round((Date.now() - new Date(`${iso}T12:00:00`).getTime()) / 86_400_000));
+/** Ondalık saat → "HH:MM" (5 dakikaya yukarı yuvarlı). */
+const hToHM = (h: number) => {
+    const m = Math.ceil((h * 60) / 5) * 5;
+    return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+};
+/** Dakika → "45 dk" · "1 saat" · "1 sa 10 dk". */
+const durTR = (mins: number) => {
+    const h = Math.floor(mins / 60), m = Math.round(mins % 60);
+    if (h === 0) return `${m} dk`;
+    return m === 0 ? `${h} saat` : `${h} sa ${m} dk`;
+};
 
 type CabinStatus = 'busy' | 'prep' | 'free';
 
@@ -88,7 +102,9 @@ export function GuzellikDashboard() {
     const [walkInOpen, setWalkInOpen] = useState(false);
     // Operasyon kontrolü: sütunlar ünite mi uzman mı, ortak ekranda soyad maskesi,
     // ve akış/ızgara arasında paylaşılan seçili seans
-    const [laneMode, setLaneMode] = useState<'unit' | 'staff'>('unit');
+    // Ekipte varsayılan Uzmanlar: sahip güne "kim ne yapıyor" diye bakar
+    // (Gün planı tasarımı, 2026-11-17); Üniteler bir dokunuşta.
+    const [laneMode, setLaneMode] = useState<'unit' | 'staff'>('staff');
     const [privacy, setPrivacy] = useState(false);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
@@ -101,6 +117,19 @@ export function GuzellikDashboard() {
     const activeResources = useMemo(() => resources.filter((r) => r.isActive).sort((a, b) => a.sort - b.sort), [resources]);
     const activeStaff = useMemo(() => staff.filter((s) => s.isActive !== false), [staff]);
     const services: Service[] = useMemo(() => settings.services || [], [settings.services]);
+
+    // Tek kişilik kip (organizations.solo) + randevu adresi (slug). Kip
+    // okunamazsa ekipte tek aktif kişi varsa yine tek kişilik yüz gösterilir.
+    const { orgId } = useAuth();
+    const [org, setOrg] = useState<{ solo: boolean | null; slug: string | null }>({ solo: null, slug: null });
+    useEffect(() => {
+        if (!orgId) return;
+        let live = true;
+        void supabase.from('organizations').select('solo, slug').eq('id', orgId).maybeSingle()
+            .then(({ data }) => { if (live && data) setOrg({ solo: Boolean(data.solo), slug: data.slug ?? null }); });
+        return () => { live = false; };
+    }, [orgId]);
+    const solo = org.solo === true || activeStaff.length <= 1;
 
     // Seansın tutarı: hizmet fiyatı + adisyona eklenen kalemler
     const sessionAmount = useMemo(() => (r: Reservation): number => {
@@ -231,6 +260,8 @@ export function GuzellikDashboard() {
             const left = list.filter((r) => phaseOf(r) !== 'completed' && !(phaseOf(r) === 'wait' && r.endTime < nowTime)).length;
             return left > 0 ? `${left} ${resWord}` : done > 0 ? `${done} tamamlandı` : '';
         };
+        // Tek kişilik: tek sütun, başlıksız — ünite/uzman seçimi anlamsız
+        if (solo) return [{ id: '__all', name: '', tone: 'free' as CabinStatus, sub: '' }];
         if (laneMode === 'unit') {
             const base = cabins.map((c) => {
                 const sub = c.status === 'busy' ? `~${c.freeAt} boşalıyor`
@@ -238,20 +269,20 @@ export function GuzellikDashboard() {
                         : summarize('unit', c.id);
                 return { id: c.id, name: c.name, tone: c.status, sub };
             });
-            if (todayList.some((r) => !r.resourceId)) base.push({ id: '__none', name: 'Atanmamış', tone: 'free' as CabinStatus, sub: 'ünite seçilmedi' });
+            if (todayList.some((r) => !r.resourceId)) base.push({ id: '__none', name: 'Atanmamış', tone: 'prep' as CabinStatus, sub: summarize('unit', '__none') });
             return base;
         }
         const base = staffStrip.map((s) => {
             const sub = s.busyWith ? `${mask(s.busyWith)} ile` : summarize('staff', s.id);
             return { id: s.id, name: s.name, tone: (s.busyWith ? 'busy' : 'free') as CabinStatus, sub };
         });
-        if (todayList.some((r) => !r.staffId)) base.push({ id: '__none', name: 'Atanmamış', tone: 'free' as CabinStatus, sub: 'uzman seçilmedi' });
+        if (todayList.some((r) => !r.staffId)) base.push({ id: '__none', name: 'Atanmamış', tone: 'prep' as CabinStatus, sub: summarize('staff', '__none') });
         return base;
-    }, [laneMode, cabins, staffStrip, todayList, mask, nowTime, resWord]);
+    }, [solo, laneMode, cabins, staffStrip, todayList, mask, nowTime, resWord]);
 
     const laneKeyOf = useMemo(
-        () => (r: Reservation) => (laneMode === 'unit' ? r.resourceId : r.staffId) || '__none',
-        [laneMode],
+        () => (r: Reservation) => solo ? '__all' : (laneMode === 'unit' ? r.resourceId : r.staffId) || '__none',
+        [solo, laneMode],
     );
 
     // Gün planındaki boş saate tıklayınca seans modalı o saat/sütunla açılır —
@@ -264,7 +295,7 @@ export function GuzellikDashboard() {
         setModalPreset({
             date: today,
             ...(past ? {} : { slot: `${String(hour).padStart(2, '0')}:00` }),
-            ...(laneId === '__none' ? {} : laneMode === 'unit' ? { resourceId: laneId } : { staffId: laneId }),
+            ...(laneId === '__none' || laneId === '__all' ? {} : laneMode === 'unit' ? { resourceId: laneId } : { staffId: laneId }),
         });
         setModalCustomer(null);
     };
@@ -567,6 +598,51 @@ export function GuzellikDashboard() {
     // Mobil liste ve seçim çubuğu için faz → nokta rengi
     const DOT: Record<string, string> = { upcoming: 'hollow', waiting: 'amber', active: 'orange', checkout: 'green', completed: 'hollow', noshow: 'red' };
     const isNoShow = (r: Reservation) => phaseOf(r) === 'wait' && r.endTime < nowTime;
+
+    // Kartta en fazla TEK durum işareti (Gün planı tasarımı): gelmedi · kalan
+    // süre · bekliyor · ödenmedi · paket. Biten kart soluk, yazı gerekmez.
+    const minsLeft = (r: Reservation) => Math.max(0, Math.round((timeToH(r.endTime) - grid.nowH) * 60));
+    const cardStatus = (r: Reservation): { text: string; tone: 'red' | 'amber' | 'live' | 'muted' } | null => {
+        const ph = phaseOf(r);
+        if (isNoShow(r)) return { text: 'Gelmedi', tone: 'red' };
+        if (ph === 'active') { const left = minsLeft(r); return { text: left > 0 ? `${left} dk kaldı` : 'Süre doldu', tone: 'live' }; }
+        if (ph === 'arrived') return { text: `Bekliyor · ${r.customerArrivedAt ? minsSince(r.customerArrivedAt, now) : 0} dk`, tone: 'amber' };
+        if (ph === 'done') { const a = sessionAmount(r); return { text: a > 0 ? `${fmtTL(a)} ödenmedi` : 'Ödeme bekliyor', tone: 'amber' }; }
+        if (ph === 'wait') { const p = pkgByCustomer.get(r.customerId); if (p) return { text: `Paket ${p.sessionsDone}/${p.sessionCount}`, tone: 'muted' }; }
+        return null;
+    };
+
+    // Tek kişilik yan panel · mesainin kalanındaki boş aralıklar (≥ 30 dk)
+    const freeGaps = (() => {
+        const wh = settings.workingHours?.find((w) => w.day === now.getDay());
+        if (wh?.isOff) return [];
+        const open = wh?.start ? timeToH(wh.start) : DAY_OPEN;
+        const close = wh?.end ? timeToH(wh.end) : DAY_CLOSE;
+        let cur = Math.max(open, Math.ceil(grid.nowH * 12) / 12);
+        const out: { from: number; to: number }[] = [];
+        for (const r of todayList) {
+            const s = timeToH(r.startTime), e = timeToH(r.endTime);
+            if (e <= cur) continue;
+            if (s - cur >= 0.5) out.push({ from: cur, to: Math.min(s, close) });
+            cur = Math.max(cur, e);
+        }
+        if (close - cur >= 0.5) out.push({ from: cur, to: close });
+        return out.filter((g) => g.to - g.from >= 0.5);
+    })();
+    const freeTotal = freeGaps.reduce((n, g) => n + (g.to - g.from) * 60, 0);
+    const openAt = (h: number) => { setModalPreset({ date: today, slot: hToHM(h) }); setModalCustomer(null); };
+    const bookingUrl = org.slug ? `${window.location.origin}/book/${org.slug}` : '';
+    const shareBooking = () => {
+        if (!bookingUrl) { navigate('/settings'); return; }
+        void navigator.clipboard?.writeText(bookingUrl).then(
+            () => toast.success('Randevu bağlantısı kopyalandı'),
+            () => toast.error('Kopyalanamadı'),
+        );
+    };
+    // Şimdi kutusu: işlemde > bekleyen > kasada; ilgilenilecekler bu kişiyi tekrar etmez
+    const current = inService[0] ?? waiting[0] ?? atTill[0] ?? null;
+    const nextUp = upcoming[0] ?? null;
+    const attention = [...atTill.filter((r) => r.id !== current?.id), ...noShow];
 
     return (
         <div className={cn('dash-theme gz-ops flex-1 min-h-0 flex flex-col overflow-hidden bg-[var(--dc-page)]', dark && 'dark')}>
@@ -887,10 +963,12 @@ export function GuzellikDashboard() {
                                 <h2>Bugünün planı</h2>
                             </div>
                             <div className="gz-ops-ctl">
-                                <div className="gz-seg" role="radiogroup" aria-label="Plan sütunları">
-                                    <button type="button" role="radio" aria-checked={laneMode === 'unit'} onClick={() => setLaneMode('unit')}>Üniteler</button>
-                                    <button type="button" role="radio" aria-checked={laneMode === 'staff'} onClick={() => setLaneMode('staff')}>Uzmanlar</button>
-                                </div>
+                                {!solo && (
+                                    <div className="gz-seg" role="radiogroup" aria-label="Plan sütunları">
+                                        <button type="button" role="radio" aria-checked={laneMode === 'staff'} onClick={() => setLaneMode('staff')}>Uzmanlar</button>
+                                        <button type="button" role="radio" aria-checked={laneMode === 'unit'} onClick={() => setLaneMode('unit')}>Üniteler</button>
+                                    </div>
+                                )}
                                 <label className="gz-switch" title="Ortak ekranda müşteri soyadını gizler">
                                     <Lock />
                                     <span>Gizlilik</span>
@@ -902,7 +980,9 @@ export function GuzellikDashboard() {
 
                         {/* Salon içi akış: Bekliyor → İşlemde → Kasada. Boşken üç sıfırlı
                             sütun yerine tek satır — bilgi zaten salon panelinde söylendi. */}
-                        <div className="gz-flow">
+                        {/* Tek kişilikte salon içi akışı yan paneldeki Şimdi kutusu
+                            taşır — aynı kişi ekranda iki kez görünmesin. */}
+                        {!solo && <div className="gz-flow">
                             {inSalon.length === 0 ? (
                                 <div className="gz-flow-line">
                                     <span className="gz-dot hollow" />
@@ -973,7 +1053,7 @@ export function GuzellikDashboard() {
                                     </div>
                                 </>
                             )}
-                        </div>
+                        </div>}
 
                         {/* Seçili seans + bağlamsal tek eylem — yalnız seçim varken.
                             Izgarada bir karta ya da akışta bir satıra tıklayınca açılır,
@@ -1039,16 +1119,26 @@ export function GuzellikDashboard() {
                         {lanes.length === 0 ? (
                             <p className="gz-plan-empty">Önce Ayarlar'dan kabin/ünite ekleyin — gün planı burada sütunlara ayrılacak.</p>
                         ) : (
+                            <div className={cn(solo && 'gz-solo')}>
                             <div className="gz-grid" style={{ '--lanes': lanes.length } as React.CSSProperties}>
-                                <div className="gz-grid-head">
+                                {!solo && <div className="gz-grid-head">
                                     <span />
-                                    {lanes.map((l) => (
+                                    {lanes.map((l) => laneMode === 'staff' && l.id !== '__none' ? (
+                                        // Uzman sütunu: baş harf (işlemdeyse koyu) + ad + kısa durum
+                                        <span className="gz-lane-head staff" key={l.id}>
+                                            <span className={cn('gz-lav', l.tone === 'busy' && 'busy')}>{initialsOf(l.name)}</span>
+                                            <span className="col">
+                                                <b>{l.name}</b>
+                                                {l.sub && <small>{l.sub}</small>}
+                                            </span>
+                                        </span>
+                                    ) : (
                                         <span className="gz-lane-head" key={l.id}>
                                             <span className="row"><i className={cn('gz-udot', l.tone)} /><b>{l.name}</b></span>
                                             {l.sub && <small className={cn(l.tone === 'prep' && 'prep')}>{l.sub}</small>}
                                         </span>
                                     ))}
-                                </div>
+                                </div>}
                                 <div className="gz-grid-body" style={{ height: canvasH }}>
                                     {nowVisible && <span className="gz-past" style={{ height: nowTop }} />}
                                     {grid.ticks.filter((h) => h > grid.from && h < grid.to).map((h) => (
@@ -1056,7 +1146,8 @@ export function GuzellikDashboard() {
                                     ))}
                                     <div className="gz-axis" style={{ gridColumn: 1, gridRow: 1 }}>
                                         {/* Şimdi etiketiyle çakışan saat etiketi gizlenir */}
-                                        {grid.labels
+                                        {/* Her saat yazılı, kapanış saati dahil */}
+                                        {[...grid.labels, ...(grid.segs[grid.segs.length - 1]?.type === 'hours' ? [grid.to] : [])]
                                             .filter((h) => !nowVisible || Math.abs(grid.topPx(h) + 12 - nowTop) > 22)
                                             .map((h) => <span key={h} style={{ top: grid.topPx(h) }}>{pad2(h)}:00</span>)}
                                     </div>
@@ -1079,14 +1170,16 @@ export function GuzellikDashboard() {
                                                     const ph = phaseOf(r);
                                                     const noshow = isNoShow(r);
                                                     const isSel = selected?.id === r.id;
-                                                    // Çakışma sütunu ikiye böldüyse üst satır yalnız saat
+                                                    // Çakışma sütunu ikiye böldüyse yalnız ad; kısa seans tek satır
                                                     const split = cols > 1;
-                                                    const line1 = noshow ? `${r.startTime} · Gelmedi`
-                                                        : split ? r.startTime : `${r.startTime} · ${r.service}`;
-                                                    const line3 = laneMode === 'unit' ? r.staffName : cabinName(r.resourceId);
+                                                    const compact = height < 44 || split;
+                                                    const st = cardStatus(r);
+                                                    // Dar sütunda (3+ sütun) durum yazı yerine nokta; kalan süre yazı kalır
+                                                    const narrow = lanes.length > 2 || split;
                                                     return (
                                                         <button key={r.id} type="button" aria-pressed={isSel}
-                                                            className={cn('gz-appt', noshow ? 'noshow' : PHASE_UI[ph], isSel && 'selected', height < 44 && 'compact')}
+                                                            title={st ? `${r.customerName} · ${st.text}` : undefined}
+                                                            className={cn('gz-appt', noshow ? 'noshow' : PHASE_UI[ph], isSel && 'selected', compact && 'compact')}
                                                             style={{
                                                                 top, height,
                                                                 left: `calc(${(col / cols) * 100}% + 4px)`,
@@ -1096,11 +1189,13 @@ export function GuzellikDashboard() {
                                                             } as React.CSSProperties}
                                                             onClick={() => setSelectedId(isSel ? null : r.id)}>
                                                             <i className="rail" />
-                                                            {/* İşlemdeki kartın nabzı kalktı; köşede tek canlı nokta */}
-                                                            {ph === 'active' && <span className="gz-dot orange gz-live" />}
-                                                            {height >= 48 && <small>{line1}</small>}
-                                                            <strong>{mask(r.customerName)}</strong>
-                                                            {height >= 62 && !split && line3 && <span>{line3}</span>}
+                                                            <span className="tx">
+                                                                <strong>{mask(r.customerName)}</strong>
+                                                                {!split && !(compact && narrow) && <small>{narrow ? r.startTime : `${r.startTime}–${r.endTime}`} · {r.service}</small>}
+                                                            </span>
+                                                            {st && (narrow && st.tone !== 'live'
+                                                                ? <i className={cn('st-dot', st.tone)} aria-label={st.text} />
+                                                                : <em className={cn('st', st.tone)}>{narrow ? st.text.replace(' kaldı', '') : st.text}</em>)}
                                                         </button>
                                                     );
                                                 })}
@@ -1115,6 +1210,91 @@ export function GuzellikDashboard() {
                                     ))}
                                     {nowVisible && <div className="gz-now" style={{ top: nowTop }}><b>{nowTime}</b></div>}
                                 </div>
+                            </div>
+
+                            {/* Tek kişilik yan panel — ızgaranın yanındaki boş alan:
+                                Şimdi · Boş aralıklar · İlgilenilecek (Gün planı tasarımı) */}
+                            {solo && (
+                                <aside className="gz-side" aria-label="Günün özeti">
+                                    <div className="gz-side-now">
+                                        {current ? (() => {
+                                            const ph = phaseOf(current);
+                                            const amount = sessionAmount(current);
+                                            const big = ph === 'active' ? { n: String(minsLeft(current)), u: 'dk' }
+                                                : ph === 'arrived' ? { n: String(current.customerArrivedAt ? minsSince(current.customerArrivedAt, now) : 0), u: 'dk bekliyor' }
+                                                    : { n: amount > 0 ? fmtTL(amount) : '', u: '' };
+                                            return (
+                                                <>
+                                                    <span className="k"><i />{ph === 'active' ? 'ŞİMDİ' : ph === 'arrived' ? 'BEKLİYOR' : 'KASADA'}</span>
+                                                    <div className="main">
+                                                        <button type="button" className="who" onClick={() => setSelectedId(current.id)}>
+                                                            <b>{mask(current.customerName)}</b>
+                                                            <small>{current.service}{ph === 'active' ? ` · ${current.endTime}'de biter` : ''}</small>
+                                                        </button>
+                                                        {big.n && <span className="big">{big.n}{big.u && <small> {big.u}</small>}</span>}
+                                                    </div>
+                                                    {ph === 'active' && <button type="button" className="gz-btn sm" disabled={busyId === current.id} onClick={() => void advance(current, 'completed')}>Bitir</button>}
+                                                    {ph === 'arrived' && <button type="button" className="gz-btn sm" disabled={busyId === current.id} onClick={() => void advance(current, 'active')}>İşleme al</button>}
+                                                    {ph === 'done' && cashOn && <button type="button" className="gz-btn sm" onClick={() => openCashFor(current)}>Kasayı aç</button>}
+                                                </>
+                                            );
+                                        })() : (
+                                            <>
+                                                <span className="k idle"><i />ŞU AN</span>
+                                                <div className="main"><span className="who"><b>Boştasınız</b></span></div>
+                                            </>
+                                        )}
+                                        <div className="next">
+                                            {nextUp ? (
+                                                <>
+                                                    <span>Sıradaki</span>
+                                                    <button type="button" onClick={() => setSelectedId(nextUp.id)}>{nextUp.startTime} {mask(nextUp.customerName)}</button>
+                                                    <span className="r">{durTR(Math.max(0, (timeToH(nextUp.startTime) - grid.nowH) * 60))} sonra</span>
+                                                </>
+                                            ) : <span>Bugün başka {resWord} yok</span>}
+                                        </div>
+                                    </div>
+
+                                    {freeGaps.length > 0 && (
+                                        <div className="gz-side-box">
+                                            <span className="bt">Boş aralıklar · {durTR(freeTotal)}</span>
+                                            <ul>
+                                                {freeGaps.map((g) => (
+                                                    <li key={g.from}>
+                                                        <b>{hToHM(g.from)}–{hToHM(g.to)}</b>
+                                                        <span>{durTR((g.to - g.from) * 60)}</span>
+                                                        <button type="button" onClick={() => openAt(g.from)}>Ekle</button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                            <button type="button" className="share" onClick={shareBooking}>
+                                                {bookingUrl ? 'Randevu bağlantısını kopyala' : 'Randevu adresi oluştur'}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {attention.length > 0 && (
+                                        <div className="gz-side-box">
+                                            <span className="bt">İlgilenilecek</span>
+                                            <ul>
+                                                {attention.map((r) => {
+                                                    const pay = phaseOf(r) === 'done';
+                                                    const amount = sessionAmount(r);
+                                                    return (
+                                                        <li key={r.id}>
+                                                            <i className={cn('st-dot', pay ? 'amber' : 'red')} />
+                                                            <span className="nm"><b>{mask(r.customerName)}</b> · {pay ? (amount > 0 ? `${fmtTL(amount)} ödenmedi` : 'ödeme bekliyor') : `${r.startTime} gelmedi`}</span>
+                                                            {pay && cashOn
+                                                                ? <button type="button" onClick={() => openCashFor(r)}>Tahsil et</button>
+                                                                : <button type="button" onClick={() => openCustomer(r.customerId)}>Kart</button>}
+                                                        </li>
+                                                    );
+                                                })}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </aside>
+                            )}
                             </div>
                         )}
 
