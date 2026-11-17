@@ -938,6 +938,8 @@ export function GuzellikDashboard() {
                             services={services}
                             cabins={cabins}
                             staff={activeStaff}
+                            staffBusy={Object.fromEntries(staffStrip.filter((s) => s.busyWith).map((s) => [s.id, true]))}
+                            history={active}
                             sector={settings.sector}
                             onCreateCustomer={addCustomer}
                             onClose={() => setWalkInOpen(false)}
@@ -1334,11 +1336,15 @@ export function GuzellikDashboard() {
 }
 
 // ── Randevusuz müşteri: 4 tıkta işleme başlat ────────────────────────────────
-function WalkInForm({ customers, services, cabins, staff, sector, onCreateCustomer, onClose, onStart }: {
+function WalkInForm({ customers, services, cabins, staff, staffBusy, history, sector, onCreateCustomer, onClose, onStart }: {
     customers: Customer[];
     services: Service[];
-    cabins: { id: string; name: string; status: CabinStatus }[];
+    cabins: { id: string; name: string; status: CabinStatus; freeAt?: string }[];
     staff: { id: string; name: string }[];
+    /** İşlemdeki uzmanlar — seçilemez gösterilir */
+    staffBusy: Record<string, boolean>;
+    /** İptal dışı tüm randevular — müşterinin ziyaret sayısı ve son hizmeti için */
+    history: Reservation[];
     sector?: string | null;
     onCreateCustomer: (c: Omit<Customer, 'id' | 'createdAt' | 'totalReservations'>) => Promise<Customer | null>;
     onClose: () => void;
@@ -1365,6 +1371,45 @@ function WalkInForm({ customers, services, cabins, staff, sector, onCreateCustom
 
     const service = services.find((s) => s.id === serviceId);
     const canStart = Boolean(picked && service && !saving);
+
+    // Geçmiş kayıttaki hizmet metni ek taşıyabilir ("lazer · 4 seans",
+    // "kaş, bıyık") — eşleşme ilk hizmet adıyla yapılır.
+    const serviceIdOf = (text: string) => {
+        const head = text.split(' · ')[0].split(',')[0].trim().toLocaleLowerCase('tr');
+        return services.find((s) => s.name.trim().toLocaleLowerCase('tr') === head)?.id;
+    };
+    // Seçili müşterinin geçmişi: kaçıncı ziyaret, en son hangi hizmet
+    const past = useMemo(() => {
+        if (!picked) return null;
+        const today = todayISO();
+        const list = history
+            .filter((r) => r.customerId === picked.id && r.date < today)
+            .sort((a, b) => (b.date + b.startTime).localeCompare(a.date + a.startTime));
+        const last = list[0];
+        return {
+            visits: list.length,
+            last,
+            lastLabel: last ? `${new Date(`${last.date}T12:00:00`).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })} · ${last.service}` : '',
+            lastServiceId: last ? serviceIdOf(last.service) : undefined,
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- serviceIdOf yalnız services'e bağlı
+    }, [picked, history, services]);
+    // Müşteri seçilince son aldığı hizmet önden seçilir
+    const pick = (c: Customer) => {
+        const last = history
+            .filter((r) => r.customerId === c.id && r.date < todayISO())
+            .sort((a, b) => (b.date + b.startTime).localeCompare(a.date + a.startTime))[0];
+        const sid = last ? serviceIdOf(last.service) : undefined;
+        if (sid) setServiceId(sid);
+        setPicked(c);
+    };
+
+    // Özet kutusu: şimdi başlar → biter
+    const nowD = new Date();
+    const hm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const endsAt = hm(new Date(nowD.getTime() + (service?.duration || 60) * 60_000));
+    const freeCabins = cabins.filter((c) => c.status === 'free').length;
+    const freeStaff = staff.filter((s) => !staffBusy[s.id]).length;
 
     // Sektörün kontrendikasyon bayrakları — güzellikte "Hamilelik", kuaförde yok.
     const riskFlags = useMemo(() => profileForSector(sector).riskFlags ?? [], [sector]);
@@ -1408,113 +1453,171 @@ function WalkInForm({ customers, services, cabins, staff, sector, onCreateCustom
         setSaving(false);
     };
 
-    // Panel rötuşu kuralları burada da geçerli: mono yok, gövde 13 px'in altına
-    // inmez, köşe 18 (kart) · 12 (alan, düğme), düğme metni cümle düzeninde.
-    const field = 'w-full h-11 px-3.5 rounded-xl border border-[var(--dc-border2)] bg-[var(--dc-card)] text-[15px] text-[var(--dc-ink)] outline-none focus:outline-2 focus:outline-[var(--dc-orange)] focus:-outline-offset-1';
-    const row = 'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[var(--dc-card)] border text-left transition-colors';
-    const avatar = 'w-8 h-8 rounded-full bg-[var(--dc-surface2)] text-[var(--dc-ink)] text-[12px] font-extrabold grid place-items-center flex-shrink-0';
+    // Randevusuz müşteri tasarımı (2026-11-17): numaralı üç adım + sağda koyu
+    // özet kutusu (gün planındaki Şimdi kutusunun dili). Ünite/uzman açılır
+    // menü değil, durumunu söyleyen düğme; dolu olan soluk ve seçilemez.
+    const field = 'w-full h-12 px-4 rounded-xl border border-[var(--dc-border2)] bg-[var(--dc-card)] text-[15px] text-[color:var(--dc-ink)] outline-none focus:outline-2 focus:outline-[var(--dc-orange)] focus:-outline-offset-1';
+    const staffName = staff.find((s) => s.id === staffId)?.name;
+    const cabinLabel = cabins.find((c) => c.id === cabinId)?.name;
 
     return (
-        <div className="gz-card p-[18px] border-[var(--dc-orange)]">
-            <div className="flex items-center gap-2.5 mb-3.5 flex-wrap">
-                <Zap className="w-4 h-4 text-[var(--dc-orange)]" />
-                <span className="text-[15px] font-bold text-[var(--dc-ink)]">Randevusuz müşteri</span>
-                <span className="text-[14px] text-[var(--dc-muted)]">kapıdan giren müşteriyi hemen işleme al</span>
-                <button type="button" onClick={onClose} aria-label="Kapat" className="gz-x ml-auto"><X /></button>
-            </div>
+        <section className="gz-card gz-wi" aria-label="Randevusuz müşteri">
+            <header className="gz-wi-head">
+                <span className="ic"><Zap /></span>
+                <div className="tt">
+                    <b>Randevusuz müşteri</b>
+                    <span>Kapıdan gireni üç dokunuşta işleme alın</span>
+                </div>
+                <div className="live">
+                    {cabins.length > 0 && <span><i className={cn(freeCabins === 0 && 'off')} />{freeCabins > 0 ? `${freeCabins} ünite boş` : 'Boş ünite yok'}</span>}
+                    {staff.length > 1 && <span><i className={cn(freeStaff === 0 && 'off')} />{freeStaff > 0 ? `${freeStaff} uzman müsait` : 'Herkes işlemde'}</span>}
+                    <button type="button" onClick={onClose} aria-label="Kapat" className="x"><X /></button>
+                </div>
+            </header>
 
-            {!picked ? (
-                <>
-                    <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="İsim veya telefon yaz…" className={field} />
-                    <div className="mt-2 space-y-1.5">
-                        {results.map((c) => (
-                            <button key={c.id} type="button" onClick={() => setPicked(c)}
-                                className={cn(row, 'border-[var(--dc-border)] hover:border-[var(--dc-border2)] hover:bg-[var(--dc-surface)]')}>
-                                <span className={avatar}>{initialsOf(c.name)}</span>
-                                <span className="min-w-0 flex-1">
-                                    <span className="block text-[15px] font-bold text-[var(--dc-ink)] truncate">{c.name}</span>
-                                    <span className="block text-[13px] text-[var(--dc-muted)]">{c.phone}</span>
-                                </span>
-                                {(c.loyaltyStamps ?? 0) > 0 && <span className="text-[13px] font-semibold text-[var(--dc-muted)] flex items-center gap-1"><Gift className="w-3.5 h-3.5" />{c.loyaltyStamps}</span>}
-                            </button>
-                        ))}
-                        {query.trim() && results.length === 0 && !creating && (
-                            <button type="button" onClick={() => setCreating(true)}
-                                className={cn(row, 'border-dashed border-[var(--dc-orange)] hover:bg-[var(--dc-orange-soft)]')}>
-                                <span className="w-8 h-8 rounded-full bg-[var(--dc-orange)] text-white grid place-items-center flex-shrink-0"><Plus className="w-4 h-4" /></span>
-                                <span className="min-w-0 flex-1">
-                                    <span className="block text-[15px] font-bold text-[var(--dc-ink)] truncate">"{query.trim()}" adıyla yeni müşteri</span>
-                                    <span className="block text-[13px] text-[var(--dc-muted)]">Kaydı burada açıp işleme başlayın</span>
-                                </span>
-                            </button>
-                        )}
-                        {creating && (
-                            <div className="rounded-xl bg-[var(--dc-card)] border border-[var(--dc-border2)] p-3.5 space-y-3">
-                                <div className="text-[15px] font-bold text-[var(--dc-ink)]">{query.trim()}</div>
-                                <input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} inputMode="tel"
-                                    placeholder="Telefon (opsiyonel — hatırlatma için)" className={field} />
-                                {/* Sektörün risk bayrakları burada SORULUR. Hızlı ekleme
-                                    yolları bunu hiç sormuyordu; kaydı açıp aynı tıkla
-                                    lazer seansı başlatmak, 076 guard'ının koruduğu şeyi
-                                    boşa çıkarırdı — bayrağı hiç girilmemiş müşteride
-                                    guard zaten engel görmez. */}
-                                {riskFlags.map((f) => (
-                                    <label key={f.key} className="flex items-center gap-2 text-[14px] text-[var(--dc-ink)] cursor-pointer">
-                                        <input type="checkbox" checked={Boolean(risks[f.key])}
-                                            onChange={(e) => setRisks((r) => ({ ...r, [f.key]: e.target.checked }))} />
-                                        {f.label}
-                                        {f.note && <span className="text-[13px] text-[var(--dc-muted)]">· {f.note}</span>}
-                                    </label>
-                                ))}
-                                <div className="flex gap-2">
-                                    <button type="button" onClick={() => { setCreating(false); setNewPhone(''); setRisks({}); }}
-                                        className="gz-btn line">Vazgeç</button>
-                                    <button type="button" onClick={createAndPick} disabled={saving} className="gz-btn ink flex-1">
-                                        {saving ? 'Kaydediliyor…' : 'Kaydet ve devam et'}
-                                    </button>
+            <div className="gz-wi-body">
+                <div className="gz-wi-main">
+                    {/* 1 · Müşteri */}
+                    <div>
+                        <p className="gz-wi-lb">1 · Müşteri</p>
+                        {!picked ? (
+                            <>
+                                <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="İsim veya telefon yazın…" className={field} />
+                                <div className="gz-wi-results">
+                                    {results.map((c) => (
+                                        <button key={c.id} type="button" onClick={() => pick(c)} className="gz-wi-row">
+                                            <span className="av">{initialsOf(c.name)}</span>
+                                            <span className="tx"><b>{c.name}</b><small>{c.phone}</small></span>
+                                            {(c.loyaltyStamps ?? 0) > 0 && <span className="stamp"><Gift />{c.loyaltyStamps}</span>}
+                                        </button>
+                                    ))}
+                                    {query.trim() && results.length === 0 && !creating && (
+                                        <button type="button" onClick={() => setCreating(true)} className="gz-wi-row add">
+                                            <span className="av"><Plus /></span>
+                                            <span className="tx"><b>"{query.trim()}" adıyla yeni müşteri</b><small>Kaydı burada açıp işleme başlayın</small></span>
+                                        </button>
+                                    )}
+                                    {creating && (
+                                        <div className="gz-wi-new">
+                                            <b>{query.trim()}</b>
+                                            <input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} inputMode="tel"
+                                                placeholder="Telefon (opsiyonel — hatırlatma için)" className={field} />
+                                            {/* Sektörün risk bayrakları burada SORULUR. Hızlı ekleme
+                                                yolları bunu hiç sormuyordu; kaydı açıp aynı tıkla
+                                                lazer seansı başlatmak, 076 guard'ının koruduğu şeyi
+                                                boşa çıkarırdı — bayrağı hiç girilmemiş müşteride
+                                                guard zaten engel görmez. */}
+                                            {riskFlags.map((f) => (
+                                                <label key={f.key} className="risk">
+                                                    <input type="checkbox" checked={Boolean(risks[f.key])}
+                                                        onChange={(e) => setRisks((r) => ({ ...r, [f.key]: e.target.checked }))} />
+                                                    {f.label}
+                                                    {f.note && <small>· {f.note}</small>}
+                                                </label>
+                                            ))}
+                                            <div className="acts">
+                                                <button type="button" onClick={() => { setCreating(false); setNewPhone(''); setRisks({}); }}
+                                                    className="gz-btn line">Vazgeç</button>
+                                                <button type="button" onClick={createAndPick} disabled={saving} className="gz-btn ink flex-1">
+                                                    {saving ? 'Kaydediliyor…' : 'Kaydet ve devam et'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
+                            </>
+                        ) : (
+                            <div className="gz-wi-who">
+                                <span className="av">{initialsOf(picked.name)}</span>
+                                <span className="tx">
+                                    <b>{picked.name}</b>
+                                    <small>
+                                        {picked.phone && <span>{picked.phone}</span>}
+                                        <span>{past && past.visits > 0 ? `${past.visits + 1}. ziyaret` : 'İlk ziyaret'}</span>
+                                        {past?.lastLabel && <span>Son: {past.lastLabel}</span>}
+                                    </small>
+                                </span>
+                                <button type="button" onClick={() => { setPicked(null); setQuery(''); }} className="chg">Değiştir</button>
                             </div>
                         )}
                     </div>
-                </>
-            ) : (
-                <>
-                    <div className={cn(row, 'border-[var(--dc-border2)]')}>
-                        <span className={avatar}>{initialsOf(picked.name)}</span>
-                        <span className="flex-1 min-w-0">
-                            <span className="block text-[15px] font-bold text-[var(--dc-ink)] truncate">{picked.name}</span>
-                            <span className="block text-[13px] text-[var(--dc-muted)]">{picked.phone}</span>
-                        </span>
-                        <button type="button" onClick={() => { setPicked(null); setQuery(''); }} className="gz-btn sm line">Değiştir</button>
+
+                    {/* 2 · Hizmet */}
+                    <div>
+                        <p className="gz-wi-lb">2 · Hizmet</p>
+                        <div className="gz-wi-tiles">
+                            {services.map((s) => (
+                                <button key={s.id} type="button" aria-pressed={serviceId === s.id} onClick={() => setServiceId(s.id)}
+                                    className={cn('gz-wi-tile', serviceId === s.id && 'on')}>
+                                    {past?.lastServiceId === s.id && <span className="tag">Son seferki</span>}
+                                    <span className="nm"><i style={{ background: s.color }} />{s.name}</span>
+                                    <span className="mt">{s.duration} dk{s.price ? ` · ${fmtTL(s.price)}` : ''}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 mt-3">
-                        {services.map((s) => (
-                            <button key={s.id} type="button" onClick={() => setServiceId(s.id)}
-                                className={cn('inline-flex items-center gap-2 h-9 px-3.5 rounded-full text-[14px] font-semibold border transition-colors',
-                                    serviceId === s.id ? 'bg-[var(--dc-ink)] text-[var(--dc-card)] border-[var(--dc-ink)]' : 'bg-[var(--dc-card)] border-[var(--dc-border2)] text-[var(--dc-ink)] hover:bg-[var(--dc-surface2)]')}>
-                                <span className="w-2 h-2 rounded-full" style={{ background: s.color }} />{s.name}
-                                <span className="text-[13px] opacity-70">{s.duration} dk</span>
-                            </button>
-                        ))}
-                    </div>
+                    {/* 3 · Nerede / Kim — tek seçenekli olan gizlenir */}
+                    {(cabins.length > 0 || staff.length > 1) && (
+                        <div className="gz-wi-where">
+                            {cabins.length > 0 && (
+                                <div>
+                                    <p className="gz-wi-lb">3 · Nerede</p>
+                                    <div className="gz-wi-chips">
+                                        {cabins.map((c) => {
+                                            const busy = c.status === 'busy';
+                                            return (
+                                                <button key={c.id} type="button" disabled={busy} aria-pressed={cabinId === c.id}
+                                                    onClick={() => setCabinId(c.id)} className={cn('gz-wi-chip', cabinId === c.id && 'on', busy && 'off')}>
+                                                    {c.name} <small>{busy ? (c.freeAt ? `~${c.freeAt}` : 'dolu') : c.status === 'prep' ? 'hazırlanıyor' : 'boş'}</small>
+                                                </button>
+                                            );
+                                        })}
+                                        <button type="button" aria-pressed={cabinId === ''} onClick={() => setCabinId('')}
+                                            className={cn('gz-wi-chip', cabinId === '' && 'on')}>Fark etmez</button>
+                                    </div>
+                                </div>
+                            )}
+                            {staff.length > 1 && (
+                                <div>
+                                    <p className="gz-wi-lb">{cabins.length > 0 ? 'Kim' : '3 · Kim'}</p>
+                                    <div className="gz-wi-chips">
+                                        {staff.map((s) => {
+                                            const busy = Boolean(staffBusy[s.id]);
+                                            return (
+                                                <button key={s.id} type="button" disabled={busy} aria-pressed={staffId === s.id}
+                                                    onClick={() => setStaffId(s.id)} className={cn('gz-wi-chip person', staffId === s.id && 'on', busy && 'off')}>
+                                                    <span className="av">{initialsOf(s.name)}</span>{s.name.split(' ')[0]} <small>{busy ? 'işlemde' : 'müsait'}</small>
+                                                </button>
+                                            );
+                                        })}
+                                        <button type="button" aria-pressed={staffId === ''} onClick={() => setStaffId('')}
+                                            className={cn('gz-wi-chip', staffId === '' && 'on')}>Fark etmez</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
 
-                    <div className="grid grid-cols-2 gap-2.5 mt-3">
-                        <select value={cabinId} onChange={(e) => setCabinId(e.target.value)} aria-label="Kabin" className={cn(field, 'font-semibold')}>
-                            <option value="">Kabin fark etmez</option>
-                            {cabins.map((c) => <option key={c.id} value={c.id} disabled={c.status === 'busy'}>{c.name}{c.status === 'busy' ? ' (dolu)' : ''}</option>)}
-                        </select>
-                        <select value={staffId} onChange={(e) => setStaffId(e.target.value)} aria-label="Personel" className={cn(field, 'font-semibold')}>
-                            <option value="">Personel fark etmez</option>
-                            {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
-                    </div>
-
-                    <button type="button" disabled={!canStart} onClick={() => void start()} className="gz-btn ink w-full mt-3">
-                        {saving ? 'Başlatılıyor…' : 'Hemen başlat'}
+                {/* Özet — koyu kutu, tek eylem */}
+                <aside className="gz-wi-sum">
+                    <span className="k"><i />Şimdi başlar</span>
+                    <div className="when"><b>{hm(nowD)}</b><span>→ {endsAt} biter</span></div>
+                    <dl>
+                        <div><dt>Müşteri</dt><dd>{picked?.name ?? '—'}</dd></div>
+                        <div><dt>Hizmet</dt><dd>{service ? `${service.name} · ${service.duration} dk` : '—'}</dd></div>
+                        {cabins.length > 0 && <div><dt>Nerede</dt><dd>{cabinLabel ?? 'Fark etmez'}</dd></div>}
+                        {staff.length > 1 && <div><dt>Kim</dt><dd>{staffName ?? 'Fark etmez'}</dd></div>}
+                        {service?.price ? <div className="tot"><dt>Tutar</dt><dd>{fmtTL(service.price)}</dd></div> : null}
+                    </dl>
+                    <button type="button" disabled={!canStart} onClick={() => void start()} className="go">
+                        {saving ? 'Başlatılıyor…' : picked ? 'Hemen başlat' : 'Önce müşteriyi seçin'}
+                        {picked && !saving && <ArrowRight />}
                     </button>
-                </>
-            )}
-        </div>
+                    <small className="note">Ödeme, işlem bitince Kasa'da alınır</small>
+                </aside>
+            </div>
+        </section>
     );
 }
