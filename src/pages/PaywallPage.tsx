@@ -10,6 +10,7 @@ import {
     ALL_PLANS_FEATURES, PLANS, PLAN_COMPARE, TRIAL_DAYS, firstChargeDate, fitsTeam, formatTRY, planById,
     priceOf, teamSize, yearlyFreeMonths, yearlyPerMonth, type Cycle, type Plan, type PlanId,
 } from '@/lib/plans';
+import { indirimKodu } from '@/lib/indirimKodu';
 import { afterPaymentPath } from '@/lib/odemeSonrasi';
 import { SETUP_SCREENS, ownBusinessName, screenFor } from '@/lib/setupProgress';
 import { nameLocative } from '@/pages/settings/ayarlarModel';
@@ -84,6 +85,8 @@ export function PaywallPage() {
     const donus = fromEmail ? ('abonelik' as const) : undefined;
     const cardReturn = fromEmail && params.get('kart') === '1';
     const firstTime = !ent.loading && ent.state === 'none';
+    // Reklam kuponu: /satin-al?kod=ANKARA50 oturumu olanı buraya getirir.
+    const kod = indirimKodu(params.get('kod'));
 
     // Kayıt sırasında plan seçilmişse (/fiyatlar → /login?plan=pro) doğrudan
     // ödemeye geç: kullanıcı planı bir kez seçti, ikinci kez sormak sürtünme.
@@ -94,11 +97,11 @@ export function PaywallPage() {
             autoStarted.current = true;
             void (async () => {
                 setPending(plan);
-                const ok = await startCheckout(plan, params.get('cycle') === 'yearly' ? 'yearly' : 'monthly');
+                const ok = await startCheckout(plan, params.get('cycle') === 'yearly' ? 'yearly' : 'monthly', undefined, { kod });
                 if (!ok) setPending(null);
             })();
         }
-    }, [params, startCheckout]);
+    }, [params, startCheckout, kod]);
 
     // Ödeme dönüşü: webhook birkaç saniye gecikebilir, kısa süre poll'la.
     useEffect(() => {
@@ -192,7 +195,7 @@ export function PaywallPage() {
     const onSelect = async (plan: PlanId, c: Cycle, inline = true) => {
         setFailed(null);
         setPending(plan);
-        const ok = await startCheckout(plan, c, donus, { inlineError: inline });
+        const ok = await startCheckout(plan, c, donus, { inlineError: inline, kod });
         if (!ok) { setPending(null); if (inline) setFailed(plan); }
     };
     const onCard = async () => {

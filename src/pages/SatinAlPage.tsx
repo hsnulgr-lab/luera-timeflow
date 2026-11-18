@@ -4,12 +4,15 @@ import { cn } from '@/utils/cn';
 import { supabase } from '@/lib/supabase';
 import { planById, TRIAL_DAYS } from '@/lib/plans';
 import { functionBody, saveClaimToken } from '@/lib/odemeTalebi';
+import { indirimKodu } from '@/lib/indirimKodu';
 import { useTheme } from '@/contexts/ThemeContext';
 import { BillingSprite, Ico } from '@/components/billing/BillingIcons';
 import { LueraTimeflowMark } from '@/components/brand/LueraTimeflowMark';
 import './billing.css';
 
 // /satin-al?plan=pro&cycle=yearly — lueratech.com'daki "Planı seç".
+// /satin-al?plan=pro&cycle=monthly&kod=ANKARA50 — reklam/WhatsApp bağlantısı:
+// kupon Dodo ödeme sayfasına hazır gelir (geçersizse Dodo'da kodsuz açılır).
 //
 // Kullanıcı kararı 2026-10-23: kayıt ekranı yok, DOĞRUDAN Dodo. Hesap ödeme
 // bitince Dodo'ya yazılan e-postayla açılır (/hosgeldin · dodo-satin-al ·
@@ -26,6 +29,7 @@ export function SatinAlPage() {
     const [params] = useSearchParams();
     const plan = planById(params.get('plan'));
     const cycle = params.get('cycle') === 'yearly' ? 'yearly' : 'monthly';
+    const kod = indirimKodu(params.get('kod'));
     const [phase, setPhase] = useState<Phase>(plan ? 'opening' : 'invalid');
     const started = useRef(false);
 
@@ -34,11 +38,11 @@ export function SatinAlPage() {
         setPhase('opening');
         const { data: s } = await supabase.auth.getSession();
         if (s.session) {
-            navigate(`/abonelik?plan=${plan.id}&cycle=${cycle}`, { replace: true });
+            navigate(`/abonelik?plan=${plan.id}&cycle=${cycle}${kod ? `&kod=${kod}` : ''}`, { replace: true });
             return;
         }
         const { data, error } = await supabase.functions.invoke('dodo-satin-al', {
-            body: { action: 'start', plan: plan.id, cycle },
+            body: { action: 'start', plan: plan.id, cycle, ...(kod ? { discount_code: kod } : {}) },
         });
         const body = await functionBody(data, error);
         if (typeof body?.url === 'string' && typeof body?.token === 'string') {
@@ -106,6 +110,7 @@ export function SatinAlPage() {
             <h1>Ödeme sayfası açılıyor.</h1>
             <p className="lede">
                 {plan?.name} · {cycle === 'yearly' ? 'yıllık' : 'aylık'}. {TRIAL_DAYS} gün ücretsiz; bugün kartınızdan ücret alınmaz.
+                {kod ? <> İndirim kodu <b>{kod}</b> ödeme sayfasında uygulanır.</> : null}
             </p>
         </div>,
     );

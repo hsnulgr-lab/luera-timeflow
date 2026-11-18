@@ -3,6 +3,7 @@ import { DEFAULT_TRIAL_DAYS, safeTrialDays } from '../_shared/entitlement.ts';
 import { dodoApi, dodoFetch, lookupSubscription } from '../_shared/dodo.ts';
 import { attachClaim, issueLogin, readClaim } from '../_shared/odemeTalebi.ts';
 import { getSecret } from '../_shared/wa.ts';
+import { indirimKodu, kodlaAc } from '../_shared/indirimKodu.ts';
 import { maskEmail } from '../abonelik-eposta/eposta.ts';
 import {
     hashToken, newToken, START_LIMIT, START_WINDOW_MS, validCycle, validPlan, validToken,
@@ -22,7 +23,7 @@ import {
  *     SHA-256'sı). Giriş jetonu YALNIZ hesabı bu talep açtıysa ve tek kez.
  *
  * Action'lar:
- *   { action: 'start', plan, cycle }               → { url, token }
+ *   { action: 'start', plan, cycle, discount_code? } → { url, token }
  *   { action: 'claim', token, subscription_id? }   → { login } | { existing, email }
  *                                                    | { pending } | { done } | { error }
  */
@@ -99,7 +100,10 @@ async function start(admin: Db, req: Request, body: Db): Promise<Response> {
     const trialDays = safeTrialDays(Number(await getSecret(admin, 'DODO_TRIAL_DAYS')) || DEFAULT_TRIAL_DAYS);
     const appUrl = (await getSecret(admin, 'APP_URL')) || 'https://timeflow.lueratech.com';
 
-    const res = await dodoFetch(api, '/checkouts', {
+    // Reklam bağlantısındaki kupon (`/satin-al?kod=ANKARA50`). Yalnız biçim
+    // süzülür; geçerliliğe Dodo karar verir, reddederse kodsuz açılır.
+    const kod = indirimKodu(body.discount_code);
+    const { res } = await kodlaAc((k) => dodoFetch(api, '/checkouts', {
         method: 'POST',
         body: JSON.stringify({
             product_cart: [{ product_id: productId, quantity: 1 }],
@@ -107,12 +111,14 @@ async function start(admin: Db, req: Request, body: Db): Promise<Response> {
             // adreste DEĞİL: tarayıcının oturum deposunda (/satin-al yazar).
             return_url: `${appUrl}/hosgeldin`,
             ...(trialDays > 0 ? { subscription_data: { trial_period_days: trialDays } } : {}),
+            ...(k ? { discount_codes: [k] } : {}),
             // claim_id: webhook ve dönüş sayfası aboneliği bu talebe bununla bağlar.
-            metadata: { module: MODULE, plan, cycle, claim_id: row.id },
+            // indirim_kodu: hangi reklamdan/kuponla geldiği (ölçüm).
+            metadata: { module: MODULE, plan, cycle, claim_id: row.id, ...(k ? { indirim_kodu: k } : {}) },
             billing_currency: 'TRY',
             customization: { theme_config: CHECKOUT_THEME },
         }),
-    });
+    }), kod, 'dodo-satin-al');
     if (!res.ok) {
         console.error('dodo-satin-al: Dodo checkout', res.status, await res.text().catch(() => ''));
         return json({ error: 'checkout_failed' }, 502);

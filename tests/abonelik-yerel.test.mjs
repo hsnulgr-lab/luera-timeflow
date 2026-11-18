@@ -391,7 +391,7 @@ test('istemci işletmeyi her faturalama çağrısında gönderir', () => {
     const hook = read('src/hooks/useBilling.ts');
     assert.match(hook, /invoke\('billing-status', \{ body: \{ orgId \} \}\)/);
     // donus: e-postadan gelenin Dodo dönüşü paket ekranına (abonelik-eposta testi).
-    assert.match(hook, /body: \{ plan, cycle, orgId, \.\.\.\(donus \? \{ donus \} : \{\}\) \}/);
+    assert.match(hook, /body: \{ plan, cycle, orgId, \.\.\.\(donus \? \{ donus \} : \{\}\)(, \.\.\.\(opts\?\.kod \? \{ discount_code: opts\.kod \} : \{\}\))? \}/);
     assert.match(hook, /body: \{ action: 'cancel', orgId \}/);
     assert.match(hook, /body: \{ action: 'card', orgId, \.\.\.\(donus \? \{ donus \} : \{\}\) \}/);
 });

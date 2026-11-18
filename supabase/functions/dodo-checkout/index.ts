@@ -3,6 +3,7 @@ import { cardlessTrialDaysLeft, computeAccess, DEFAULT_TRIAL_DAYS, safeTrialDays
 import { dodoApi, dodoFetch } from '../_shared/dodo.ts';
 import { ownerSettings, resolveOrg } from '../_shared/org.ts';
 import { getSecret } from '../_shared/wa.ts';
+import { indirimKodu, kodlaAc } from '../_shared/indirimKodu.ts';
 import { isUpgrade, MAX_STAFF, teamSize } from './paket.ts';
 
 const corsHeaders = {
@@ -358,9 +359,9 @@ Deno.serve(async (req: Request) => {
         // Kupon: "ilk 3 ay %50" gibi kampanyalar. Dodo'da kuponlar fatura
         // dönemi limitiyle tanımlı, süresiz %100 indirim yok — ücretsiz pilot
         // için doğru araç kupon değil UZUN DENEME (trial_days).
-        const discount = typeof body.discount_code === 'string'
-            ? body.discount_code.trim().slice(0, 40)
-            : '';
+        // Reklam bağlantısı `/satin-al?kod=` → /abonelik?kod= buraya getirir.
+        // Biçim süzülür; Dodo reddederse kodsuz açılır (_shared/indirimKodu).
+        const discount = indirimKodu(body.discount_code);
 
         // Dodo'dan dönüş ödeme duvarına: abonelik webhook'la gelene kadar
         // "Ödemeniz işleniyor" der, gelince kurulum yapıldıysa ana sayfaya,
@@ -372,21 +373,24 @@ Deno.serve(async (req: Request) => {
             ? `${appUrl}/abonelik?checkout=success&kaynak=eposta`
             : `${appUrl}/abonelik?checkout=success`;
 
-        const res = await dodoFetch(api, '/checkouts', {
+        const { res } = await kodlaAc((k) => dodoFetch(api, '/checkouts', {
             method: 'POST',
             body: JSON.stringify({
                 product_cart: [{ product_id: productId, quantity: 1 }],
                 customer: { email: user.email, name: settingsRow?.business_name || user.email },
                 return_url: returnUrl,
                 ...(trialDays > 0 ? { subscription_data: { trial_period_days: trialDays } } : {}),
-                ...(discount ? { discount_codes: [discount] } : {}),
+                ...(k ? { discount_codes: [k] } : {}),
                 // organization_id: webhook işletmeyi bununla bulur.
                 // org_name: Core kopyasındaki organizations satırı için.
-                metadata: { organization_id: orgId, plan, cycle, module: MODULE, org_name: settingsRow?.business_name || '' },
+                metadata: {
+                    organization_id: orgId, plan, cycle, module: MODULE, org_name: settingsRow?.business_name || '',
+                    ...(k ? { indirim_kodu: k } : {}),
+                },
                 billing_currency: 'TRY',
                 customization: { theme_config: CHECKOUT_THEME },
             }),
-        });
+        }), discount, 'dodo-checkout');
         if (!res.ok) {
             const detail = await res.text().catch(() => '');
             console.error('Dodo checkout error:', res.status, detail);

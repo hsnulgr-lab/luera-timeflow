@@ -127,11 +127,12 @@ export function useBilling() {
     // `inlineError`: genel "açılamadı" bildirimini atla, sonucu döndür — ödeme
     // duvarı hatayı düğmenin altında, sakin bir satırla gösteriyor (Abonelik v2 · A1-f).
     const startCheckout = useCallback(async (
-        plan: string, cycle: 'monthly' | 'yearly', donus?: 'abonelik', opts?: { inlineError?: boolean },
+        plan: string, cycle: 'monthly' | 'yearly', donus?: 'abonelik', opts?: { inlineError?: boolean; kod?: string | null },
     ): Promise<boolean> => {
         setBusy(true);
+        // kod: reklam bağlantısındaki kupon (/satin-al?kod= → /abonelik?kod=).
         const { data, error } = await supabase.functions
-            .invoke('dodo-checkout', { body: { plan, cycle, orgId, ...(donus ? { donus } : {}) } })
+            .invoke('dodo-checkout', { body: { plan, cycle, orgId, ...(donus ? { donus } : {}), ...(opts?.kod ? { discount_code: opts.kod } : {}) } })
             .catch((cause: unknown) => ({ data: null, error: cause }));
         setBusy(false);
         if (data?.resumed) {

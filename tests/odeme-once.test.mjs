@@ -45,7 +45,7 @@ test('abonelik talebe ait mi, canlı mı, e-postası ne', () => {
 test('sunucu: herkese açık uç sunucuda karar verir, jeton adrese girmez', () => {
     const fn = oku('supabase/functions/dodo-satin-al/index.ts');
     assert.match(fn, /return_url: `\$\{appUrl\}\/hosgeldin`,/, 'jeton dönüş adresinde değil');
-    assert.match(fn, /metadata: \{ module: MODULE, plan, cycle, claim_id: row\.id \},/);
+    assert.match(fn, /metadata: \{ module: MODULE, plan, cycle, claim_id: row\.id(, \.\.\.\(k \? \{ indirim_kodu: k \} : \{\}\))? \},/);
     assert.match(fn, /\.insert\(\{ token_hash: await hashToken\(token\), plan, cycle, ip_hash: ipHash \}\)/, 'jetonun kendisi saklanmaz');
     assert.match(fn, /if \(\(count \?\? 0\) >= START_LIMIT\) return json\(\{ error: 'too_many' \}, 429\);/);
     assert.match(fn, /if \(!validPlan\(plan\) \|\| !validCycle\(cycle\)\) return json\(\{ error: 'invalid_plan' \}, 400\);/);
@@ -91,7 +91,7 @@ test('uygulama: /satin-al ve /hosgeldin oturumsuz açılır', () => {
     }
     const sa = oku('src/pages/SatinAlPage.tsx');
     assert.match(sa, /saveClaimToken\(body\.token\);\s*window\.location\.replace\(body\.url\);/);
-    assert.match(sa, /if \(s\.session\) \{\s*navigate\(`\/abonelik\?plan=\$\{plan\.id\}&cycle=\$\{cycle\}`, \{ replace: true \}\);/, 'oturumu olan kendi işletmesinden alır');
+    assert.match(sa, /if \(s\.session\) \{\s*navigate\(`\/abonelik\?plan=\$\{plan\.id\}&cycle=\$\{cycle\}(\$\{kod \? `&kod=\$\{kod\}` : ''\})?`, \{ replace: true \}\);/, 'oturumu olan kendi işletmesinden alır (kupon dahil)');
     const hg = oku('src/pages/HosgeldinPage.tsx');
     assert.match(hg, /verifyOtp\(\{ token_hash: body\.login, type: 'email' \}\)/);
     assert.match(hg, /const DONUS = '\/abonelik\?checkout=success';/, 'dönüş ödeme duvarından: kurulum ya da ana sayfa');
