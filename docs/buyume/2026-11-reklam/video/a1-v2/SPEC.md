@@ -18,9 +18,10 @@ SHOTS:
   1.45–3.30  ONAY    Telefon alttan bulanık girer; WhatsApp'ta onay balonu (pop 1.95). Başlık "Randevu alındı ✓" (1.62).
   3.00–8.80  GÜN     Telefon kameraya doğru büyüyüp geçer (whoosh) → gün sütunu dünyası. "ERTESİ GÜN · 10:30" (3.2);
                      "Müşteri gelmedi." 5.15'te kart kızarır + sarsılır (impact); 6.16 kart boşalır "BOŞ · 60 dk", başlık "Koltuk boş.";
-                     7.30 "−₺1.200" damgası (pop), başlık "1 saat boşa gitti."
-  8.50–13.20 HATIRLATMA  Turuncu sel (8.55) + "TimeFlow" (8.95); sel yukarı çekilir, kilit ekranlı telefon yükselir (9.65);
-                     bildirim düşer 10.25 (pop); "OTOMATİK · 2 SAAT ÖNCE" 11.0; başlık üç satır kelimeyle; 12.70 dokunuş (click) → iris.
+                     7.32 boş saatin içinde "−₺1.200" rozeti damga gibi basılır, çerçeve kızarır (pop), başlık "1 saat boşa gitti."
+  8.42–13.20 HATIRLATMA  Gün sahnesi bulanıklaşarak çekilir; uygulamanın logo animasyonu (LueraTimeflowMark, koyu): "luera" 8.6,
+                     nokta 8.88 (pop), hap açılır 9.08, "timeflow" 9.38; logo 10.08'de çıkar, kilit ekranlı telefon yükselir (10.18);
+                     bildirim düşer 10.6 (pop); "OTOMATİK · 2 SAAT ÖNCE" 11.0; başlık üç satır kelimeyle; 12.70 dokunuş (click) → iris.
   12.85–16.30 CEVAP  WhatsApp sohbeti; "Evet, geliyorum" yazılır (tick) ve gider (pop 13.8);
                      TimeFlow kartı girer 14.6, BEKLENİYOR → ONAYLADI ✓ 15.1 (confirm). Yatay kırbaçla çıkış (whoosh 16.0).
   16.10–22.80 TEKLİF  logo · "ANKARA'YA ÖZEL" 16.38 · riser → "7 gün ücretsiz" 17.64 · "İlk 2 ay %50 indirim" 18.93 ·

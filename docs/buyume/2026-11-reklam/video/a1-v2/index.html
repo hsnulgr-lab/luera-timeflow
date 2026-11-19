@@ -86,8 +86,10 @@
       #nowline::before { content: ""; position: absolute; left: -10px; top: -8px; width: 20px; height: 20px; border-radius: 50%; background: var(--or); }
       #slot { position: absolute; left: 150px; right: 34px; border-radius: 30px; border: 3px dashed rgba(243, 237, 227, 0.35);
         background: repeating-linear-gradient(135deg, rgba(243, 237, 227, 0.06) 0 14px, rgba(243, 237, 227, 0) 14px 28px); }
-      #slot div { position: absolute; left: 26px; top: 26px; font: 900 30px var(--hk); letter-spacing: 0.14em; color: rgba(243, 237, 227, 0.8); }
-      #loss { position: absolute; left: 0; width: 1080px; text-align: center; font: 900 150px var(--hk); letter-spacing: -0.04em; color: var(--red); }
+      #slot .lb { position: absolute; left: 28px; top: 30px; font: 900 30px var(--hk); letter-spacing: 0.14em; color: rgba(243, 237, 227, 0.85); }
+      #slot .lb2 { position: absolute; left: 28px; top: 78px; font: 500 26px var(--hk); color: var(--muted); }
+      #loss { position: absolute; right: 26px; top: 38px; height: 88px; padding: 0 26px; border-radius: 24px; background: #2b0f0b;
+        border: 3px solid var(--red); color: var(--red); font: 900 60px/82px var(--hk); letter-spacing: -0.03em; box-shadow: 0 16px 40px rgba(255, 77, 61, 0.25); }
 
       /* Kilit ekranı */
       .lock { position: absolute; inset: 0; background: radial-gradient(120% 70% at 50% 0%, #5a3216 0%, #24160c 50%, #0b0806 100%); }
@@ -171,7 +173,7 @@
             <div class="row" style="top:518px"><i>11:00</i></div>
             <div class="row" style="top:610px"><i>11:30</i></div>
             <div class="appt muted" style="top:160px;height:166px"><div class="st" style="color:var(--ok)">TAHSİL EDİLDİ</div><div class="nm">Pınar Aksoy</div><div class="sv">Manikür · 45 dk</div><div class="pr" style="color:var(--muted)">₺600</div></div>
-            <div id="slot" style="top:436px;height:166px"><div>BOŞ · 60 dk</div></div>
+            <div id="slot" style="top:436px;height:166px"><div class="lb">BOŞ · 60 dk</div><div class="lb2">Kimse gelmedi</div><div id="loss">−₺1.200</div></div>
             <div id="ap" class="appt" style="top:436px;height:166px">
               <div class="st" style="color:var(--or)"><span id="ap-w">BEKLENİYOR</span></div>
               <div id="ap-x" class="st abs" style="left:26px;top:20px;color:#b3261e;opacity:0">GELMEDİ</div>
@@ -180,7 +182,6 @@
             <div class="appt muted" style="top:620px;height:100px;padding-top:16px"><div class="nm" style="font-size:32px">Selin Karaca</div><div class="sv">Lazer epilasyon · 30 dk</div></div>
             <div id="nowline" style="top:360px"></div>
           </div>
-          <div id="loss" style="top:1330px">−₺1.200</div>
         </div>
       </div>
 
@@ -205,8 +206,14 @@
           </div>
         </div>
         <div id="pill" style="top:1164px"><span>OTOMATİK · 2 SAAT ÖNCE</span></div>
-        <div id="flood" class="abs" style="inset:0;background:var(--or)"></div>
-        <div id="tfw" class="title" style="top:800px;font-size:190px;color:var(--dark)">TimeFlow</div>
+        <div id="lockup" class="abs" style="left:0;top:820px;width:1080px;display:flex;justify-content:center">
+          <span id="lu" style="display:inline-flex;align-items:flex-end;font:900 210px var(--hk);letter-spacing:-0.045em;line-height:0.8;color:#f3ece0">
+            <span id="luw">luera</span>
+            <span id="lgpill" style="display:inline-flex;align-items:center;justify-content:center;width:236px;height:80px;margin-left:10px;margin-bottom:3px;background:#ff5a1f;border-radius:40px;transform-origin:0% 100%">
+              <span id="lgpillt" style="font:800 42px var(--hk);letter-spacing:-0.01em;color:#0e0e0e">timeflow</span>
+            </span>
+          </span>
+        </div>
       </div>
 
       <!-- 4 · CEVAP -->
@@ -263,8 +270,9 @@
       <audio id="fx-impact2" class="clip" src="assets/sfx/impact.ogg" data-start="5.12" data-duration="0.28" data-track-index="11" data-volume="0.6"></audio>
       <audio id="fx-pop2" class="clip" src="assets/sfx/pop.ogg" data-start="7.34" data-duration="0.1" data-track-index="11" data-volume="0.55"></audio>
       <audio id="fx-wh3" class="clip" src="assets/sfx/whoosh2.ogg" data-start="8.47" data-duration="0.31" data-track-index="12" data-volume="0.5"></audio>
-      <audio id="fx-wh4" class="clip" src="assets/sfx/whoosh.ogg" data-start="9.56" data-duration="0.43" data-track-index="12" data-volume="0.4"></audio>
-      <audio id="fx-notif" class="clip" src="assets/sfx/notif.ogg" data-start="10.29" data-duration="0.05" data-track-index="11" data-volume="0.6"></audio>
+      <audio id="fx-pop6" class="clip" src="assets/sfx/pop.ogg" data-start="8.89" data-duration="0.1" data-track-index="11" data-volume="0.5"></audio>
+      <audio id="fx-wh4" class="clip" src="assets/sfx/whoosh.ogg" data-start="10.06" data-duration="0.43" data-track-index="12" data-volume="0.4"></audio>
+      <audio id="fx-notif" class="clip" src="assets/sfx/notif.ogg" data-start="10.62" data-duration="0.05" data-track-index="11" data-volume="0.6"></audio>
       <audio id="fx-click1" class="clip" src="assets/sfx/click.ogg" data-start="12.73" data-duration="0.09" data-track-index="11" data-volume="0.55"></audio>
       <audio id="fx-pop3" class="clip" src="assets/sfx/pop.ogg" data-start="13.83" data-duration="0.1" data-track-index="11" data-volume="0.45"></audio>
       <audio id="fx-confirm" class="clip" src="assets/sfx/confirm.ogg" data-start="15.13" data-duration="0.29" data-track-index="11" data-volume="0.45"></audio>
@@ -316,18 +324,27 @@
       tl.to("#ap", { opacity: 0, scale: 0.96, filter: "blur(8px)", duration: 0.3, ease: "power2.in" }, 6.16);
       // 1 saat boşa: damga
       OUT("#t2b", 7.18, 0.12); IN("#t2c", 7.3, { d: 0.18 });
-      tl.to("#slot div", { opacity: 0, duration: 0.1 }, 7.3);
-      tl.to("#nowline", { opacity: 0, duration: 0.2 }, 6.16);
-      tl.fromTo("#loss", { opacity: 0, scale: 1.6, y: -40, filter: "blur(12px)" }, { opacity: 1, scale: 1, y: -366, filter: "blur(0px)", duration: 0.34, ease: "back.out(1.6)" }, 7.32);
-      tl.to("#s2w", { opacity: 0.55, duration: 0.1, ease: "none" }, 8.42);
+            tl.to("#nowline", { opacity: 0, duration: 0.2 }, 6.16);
+      tl.fromTo("#loss", { opacity: 0, scale: 1.9, rotation: -10, filter: "blur(10px)" }, { opacity: 1, scale: 1, rotation: -4, filter: "blur(0px)", duration: 0.32, ease: "back.out(1.8)" }, 7.32);
+      tl.to("#slot", { borderColor: "rgba(255,77,61,0.75)", duration: 0.2 }, 7.32);
+      shake("#cal", 7.36, 8);
 
       // 3 · TimeFlow seli → kilit ekranı → bildirim
-      tl.fromTo("#flood", { clipPath: "circle(0% at 50% 55%)" }, { clipPath: "circle(120% at 50% 55%)", duration: 0.42, ease: "power2.inOut" }, 8.52);
-      tl.fromTo("#tfw", { opacity: 0, scale: 1.25, filter: "blur(14px)" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.3, ease: "expo.out" }, 8.92);
-      tl.to(["#flood", "#tfw"], { y: -1920, duration: 0.5, ease: "power3.in" }, 9.6);
-      tl.fromTo("#ph3", { y: 700, filter: "blur(14px)" }, { y: 0, filter: "blur(0px)", duration: 0.6, ease: "expo.out" }, 9.7);
-      IN("#t3a", 9.95); IN("#t3b", 10.95); IN("#t3c", 12.08);
-      tl.fromTo("#nt", { y: -260, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "expo.out" }, 10.26);
+      // Logo: uygulamadaki giriş animasyonunun aynısı — "luera" kayarak gelir, nokta "pıt" diye büyür,
+      // hapa açılır, "timeflow" belirir (src/components/brand/LueraTimeflowMark.tsx · koyu sürüm).
+      tl.to("#s2w", { opacity: 0, scale: 0.94, filter: "blur(12px)", duration: 0.3, ease: "power3.in" }, 8.42);
+      tl.fromTo("#luw", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 8.6);
+      tl.set("#lgpill", { clipPath: "inset(0px 156px 0px 0px round 40px)", scale: 0.162, opacity: 0 }, 0);
+      tl.set("#lgpillt", { opacity: 0, x: -6 }, 0);
+      tl.to("#lgpill", { opacity: 1, scale: 0.54, duration: 0.32, ease: "back.out(2.6)" }, 8.88);
+      tl.set("#lu", { x: 118 }, 0);
+      tl.to("#lgpill", { scale: 1, clipPath: "inset(0px 0px 0px 0px round 40px)", duration: 0.42, ease: "power3.inOut" }, 9.08);
+      tl.to("#lu", { x: 0, duration: 0.42, ease: "power3.inOut" }, 9.08);
+      tl.to("#lgpillt", { opacity: 1, x: 0, duration: 0.24, ease: "power2.out" }, 9.38);
+      tl.to("#lockup", { y: -170, opacity: 0, filter: "blur(10px)", duration: 0.34, ease: "power3.in" }, 10.08);
+      tl.fromTo("#ph3", { y: 700, opacity: 0, filter: "blur(14px)" }, { y: 0, opacity: 1, filter: "blur(0px)", duration: 0.6, ease: "expo.out" }, 10.18);
+      IN("#t3a", 10.3); IN("#t3b", 10.95); IN("#t3c", 12.08);
+      tl.fromTo("#nt", { y: -260, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "expo.out" }, 10.6);
       tl.fromTo("#pill", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.3, ease: "expo.out" }, 11.0);
       tl.to("#nt", { scale: 0.96, duration: 0.08, ease: "power2.out" }, 12.7).to("#nt", { scale: 1, duration: 0.12, ease: "power2.out" }, 12.78);
 
