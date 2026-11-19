@@ -18,7 +18,23 @@ Her adım: **ne · neden · nasıl · ne görmelisin · bana ne söyle.**
 
 ---
 
-## 0 · WhatsApp numarası — karar senin
+## 0 · WhatsApp numarası — ✅ KARAR (2026-11-20): yeni, ayrı hat
+
+**Ne yap:** Yeni bir hat al ve **yalnız WhatsApp Business uygulamasına** kaydet.
+**Nasıl:**
+1. Operatör mağazasından ya da uygulamasından **ön ödemeli hat** ya da **eSIM** (iPhone'un çift
+   SIM desteği var; ikinci telefon gerekmez). Hat senin adına olacak (kimlikle).
+2. iPhone → Ayarlar → Hücresel → eSIM ekle (ya da fiziksel SIM'i tak). Bu hattan arama/SMS
+   alabildiğini dene: WhatsApp doğrulama kodu SMS ile gelecek.
+3. App Store → **WhatsApp Business** (yeşil kutulu "B" simgeli olan; normal WhatsApp değil) → kurarken **yeni
+   hattın numarasını** gir. Kişisel WhatsApp'ın aynı telefonda ayrı uygulama olarak kalır.
+4. Bu numarayı **hiçbir yere bağlama**: TimeFlow'un WhatsApp ayarlarına (QR/numarayla bağla)
+   ve Evolution'a **girmeyecek**. Yalnız Facebook sayfasına bağlanacak (6. adım).
+**Ne görmelisin:** telefonda iki WhatsApp: kişisel (yeşil) ve Business (B); Business'ta yeni numara.
+**Bana söyle:** "hat hazır" + numaranın son 2 hanesi (kreatiflerde numara **görünmeyecek**,
+yalnız ölçüm notu için).
+
+<details><summary>Kararın gerekçesi (eski metin)</summary>
 
 **Ne:** Reklama tıklayan salon sahibi hangi numaraya yazacak?
 **Neden önemli:** Bir numara aynı anda hem WhatsApp Business uygulamasında hem bizim WhatsApp
@@ -30,7 +46,7 @@ cevap verebilir** ya da konuşmalar karışır. Bir Facebook sayfası da tek bir
 - Kişisel numaran: hızlı ama reklam mesajları özel mesajlarına karışır, numaran herkese açılır.
 - Zaten Evolution'a bağlı bir hat (Test Salon 2'nin hattı vb.): **olmaz**, asistanla karışır.
 
-**Bana söyle:** hangi numara (son 2 hanesi yeter) ve o numara şu an herhangi bir yere bağlı mı.
+</details>
 
 ---
 
