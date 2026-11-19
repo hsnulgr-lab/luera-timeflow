@@ -15,6 +15,7 @@ Videolar (`*.mp4`) git'e girmez (büyük); üreticiyle aynı hâlleriyle yeniden
 | Kod | Açı | Biçim | Durum | Kredi |
 |---|---|---|---|---|
 | **A1** | Gelmeyen müşteri | Video 9:16 · 21 sn | ✅ hazır | 0 |
+| **A1 v2** | Gelmeyen müşteri · **profesyonel sürüm** | Video 9:16 · 22,8 sn | ✅ hazır (müzik yok) | 0 |
 | **B1** | Defter karmaşası | Video 9:16 · 17 sn | ✅ hazır | 0 |
 | **D1** | Teklif | Video 9:16 · 18 sn | ✅ hazır | 0 |
 | **G1** | Gelmeyen müşteri | Görsel 4:5 | ✅ hazır | 0 |
@@ -90,3 +91,18 @@ Her üretimden önce kesin kredi tutarını sorup onayını alacağım.
 ## Yayın sırası önerisi (Ankara testi, hafta 1)
 Aynı reklam setinde **A1, B1, D1, G1, G3, K1** (6 kreatif) → 72 saat sonra konuşma başı maliyete
 göre en kötü 2'si kapanır, yerine A2 / G2 girer. (Kurallar: `05-kampanya.md`, aşama 5.)
+
+## A1 v2 · HyperFrames ile profesyonel sürüm (2026-11-20)
+
+`video/a1-v2/` — HTML/CSS + GSAP ile kurulmuş, HyperFrames (HeyGen, Apache-2.0) ile kare kare işlenmiş.
+Sahne belgesi `video/a1-v2/SPEC.md`. Çıktı `kreatif/A1v2-gelmeyen-musteri.mp4`.
+
+- Uygulamanın arayüzü HTML'de yeniden kuruldu: iPhone, WhatsApp sohbeti, kilit ekranı bildirimi,
+  TimeFlow gün sütunu ve randevu kartı. Son karede uygulamanın gerçek ekran görüntüsü.
+- Her yazı seslendirmedeki kelimesine oturuyor; ses kaydının durakları ölçülerek zamanlandı.
+- **Instagram Reels güvenli alanı:** bütün yazı ve ürün 270–1248 px bandında (üstteki %14 ve alttaki
+  %35 Instagram'ın kendi yazı/düğmeleriyle örtülür).
+- Efekt sesleri: `motion-graphics/sound-effects` kütüphanesinden, hepsi **CC0** (Freesound, Kenney).
+  Seslendirme: 13 Kasım ElevenLabs kaydı. **Müzik henüz yok** (kullanıcı onayıyla Mixkit'ten eklenecek).
+- Yeniden üretmek: `cd video/a1-v2 && HYPERFRAMES_NO_TELEMETRY=1 npx hyperframes@0.9.70 render -q delivery -o ../../kreatif/A1v2-gelmeyen-musteri.mp4`
+  (FFmpeg gerekir; Homebrew ile kuruldu).

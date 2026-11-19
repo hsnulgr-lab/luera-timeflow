@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      @font-face { font-family: "Hanken Grotesk"; font-weight: 500; src: url("assets/fonts/HankenGrotesk_500Medium.ttf"); }
+      @font-face { font-family: "Hanken Grotesk"; font-weight: 700; src: url("assets/fonts/HankenGrotesk_700Bold.ttf"); }
+      @font-face { font-family: "Hanken Grotesk"; font-weight: 800; src: url("assets/fonts/HankenGrotesk_800ExtraBold.ttf"); }
+      @font-face { font-family: "Hanken Grotesk"; font-weight: 900; src: url("assets/fonts/HankenGrotesk_900Black.ttf"); }
+      :root {
+        --ground: #0e0a06;
+        --ink: #f3ede3;
+        --muted: rgba(243, 237, 227, 0.62);
+        --dim: rgba(243, 237, 227, 0.38);
+        --or: #ff5a1f;
+        --red: #ff4d3d;
+        --ok: #2fbf71;
+        --wa: #25d366;
+        --dark: #120e08;
+        --hk: "Hanken Grotesk", Inter, sans-serif;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--ground); }
+      #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: var(--ground); font-family: var(--hk); color: var(--ink); }
+      .scene { position: absolute; inset: 0; width: 1080px; height: 1920px; }
+      .abs { position: absolute; }
+      #light { position: absolute; inset: 0; background: radial-gradient(62% 40% at 50% 16%, rgba(255, 110, 40, 0.17), rgba(255, 110, 40, 0) 70%); }
+      #grain { position: absolute; inset: 0; opacity: 0.07; mix-blend-mode: overlay; pointer-events: none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='7' stitchTiles='stitch'/></filter><rect width='300' height='300' filter='url(%23n)'/></svg>"); }
+
+      /* Başlıklar */
+      .title { position: absolute; left: 60px; width: 960px; text-align: center; font-weight: 900; letter-spacing: -0.035em; line-height: 0.98; }
+      .w { display: inline-block; }
+      .kicker { position: absolute; left: 60px; width: 960px; text-align: center; font-weight: 800; font-size: 38px; letter-spacing: 0.22em; color: var(--muted); }
+
+      /* Telefon */
+      .phone { position: absolute; left: 220px; width: 640px; height: 1320px; border-radius: 96px; background: #1c1813; padding: 14px;
+        box-shadow: 0 40px 80px rgba(0, 0, 0, 0.55), inset 0 0 0 2px rgba(243, 237, 227, 0.14); }
+      .screen { position: relative; width: 100%; height: 100%; border-radius: 82px; overflow: hidden; background: #0a0a0a; }
+      .island { position: absolute; top: 26px; left: 50%; margin-left: -88px; width: 176px; height: 52px; border-radius: 26px; background: #000; z-index: 5; }
+      .sbar { position: absolute; top: 34px; left: 64px; font: 700 30px Inter, sans-serif; color: #ededed; z-index: 4; }
+      .batt { position: absolute; top: 40px; right: 56px; width: 56px; height: 26px; border: 2.5px solid rgba(237, 237, 237, 0.8); border-radius: 8px; z-index: 4; }
+      .batt::after { content: ""; position: absolute; left: 3px; top: 3px; width: 38px; height: 15px; border-radius: 4px; background: #ededed; }
+
+      /* WhatsApp */
+      .wa-head { position: absolute; top: 96px; left: 0; right: 0; height: 132px; background: #131313; z-index: 3; font-family: Inter, sans-serif; }
+      .wa-back { position: absolute; left: 30px; top: 22px; font-size: 76px; line-height: 1; color: #ededed; font-weight: 400; }
+      .wa-av { position: absolute; left: 84px; top: 28px; width: 76px; height: 76px; border-radius: 50%; background: #3b4a54; color: #ededed; font: 700 36px/76px Inter, sans-serif; text-align: center; }
+      .wa-name { position: absolute; left: 180px; top: 30px; font: 700 34px Inter, sans-serif; color: #ededed; }
+      .wa-sub { position: absolute; left: 180px; top: 76px; font: 400 24px Inter, sans-serif; color: #8e9190; }
+      .wa-body { position: absolute; top: 228px; left: 0; right: 0; bottom: 128px; background: #0a0a0a url("assets/img/wa-zemin.png") repeat; background-size: 520px auto; }
+      .msgs { position: absolute; left: 24px; right: 24px; top: 22px; display: flex; flex-direction: column; gap: 14px; font-family: Inter, sans-serif; }
+      .chip { align-self: center; background: #1c1c1c; color: #ededed; font: 700 24px Inter, sans-serif; padding: 10px 22px; border-radius: 22px; }
+      .lbl { font: 900 22px Inter, sans-serif; letter-spacing: 0.12em; color: var(--or); margin: 6px 0 -6px 6px; }
+      .b { position: relative; max-width: 470px; padding: 16px 22px 40px; border-radius: 26px; font: 400 27px/1.34 Inter, sans-serif; color: #ededed; }
+      .b b { font-weight: 700; }
+      .b.in { align-self: flex-start; background: #242625; }
+      .b.out { align-self: flex-end; background: #134d37; }
+      .tm { position: absolute; right: 18px; bottom: 9px; font-size: 19px; color: #8e9190; }
+      .b.out .tm { color: rgba(255, 255, 255, 0.6); }
+      .tick { color: #53bdeb; font-weight: 700; }
+      .wa-input { position: absolute; left: 0; right: 0; bottom: 0; height: 128px; background: #111; }
+      .wa-field { position: absolute; left: 96px; right: 120px; top: 26px; height: 66px; border-radius: 33px; background: #292929; font: 400 27px/66px Inter, sans-serif; color: #ededed; padding-left: 26px; overflow: hidden; white-space: nowrap; }
+      .wa-plus { position: absolute; left: 34px; top: 22px; font: 300 60px Inter, sans-serif; color: #ededed; }
+      .wa-send { position: absolute; right: 30px; top: 24px; width: 70px; height: 70px; border-radius: 50%; background: #21c063; }
+
+      /* Gün sütunu */
+      #cal { position: absolute; left: 70px; top: 512px; width: 940px; height: 736px; border-radius: 48px; background: #16110c; box-shadow: 0 40px 80px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(243, 237, 227, 0.1); overflow: hidden; }
+      .cal-head { position: absolute; left: 44px; top: 34px; font: 800 44px var(--hk); color: var(--ink); }
+      .cal-head span { color: var(--or); }
+      .cal-sub { position: absolute; left: 44px; top: 92px; font: 500 26px var(--hk); color: var(--muted); }
+      .row { position: absolute; left: 0; right: 0; height: 92px; border-top: 2px solid rgba(243, 237, 227, 0.08); }
+      .row i { position: absolute; left: 40px; top: 14px; font: 500 26px var(--hk); font-style: normal; color: var(--dim); }
+      .appt { position: absolute; left: 150px; right: 34px; border-radius: 30px; padding: 20px 26px; background: #f3ede3; color: var(--dark); overflow: hidden; }
+      .appt .nm { font: 800 38px var(--hk); letter-spacing: -0.01em; }
+      .appt .sv { font: 500 25px var(--hk); color: #5c5248; margin-top: 4px; }
+      .appt .st { font: 900 22px var(--hk); letter-spacing: 0.14em; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+      .appt .st::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: currentColor; }
+      .appt .pr { position: absolute; right: 28px; top: 22px; font: 800 34px var(--hk); }
+      .appt.muted { background: #2a221a; color: var(--ink); }
+      .appt.muted .sv { color: var(--muted); }
+      .appt, #slot { z-index: 2; }
+      #nowline { z-index: 1; position: absolute; left: 130px; right: 20px; height: 4px; background: var(--or); border-radius: 2px; }
+      #nowline::before { content: ""; position: absolute; left: -10px; top: -8px; width: 20px; height: 20px; border-radius: 50%; background: var(--or); }
+      #slot { position: absolute; left: 150px; right: 34px; border-radius: 30px; border: 3px dashed rgba(243, 237, 227, 0.35);
+        background: repeating-linear-gradient(135deg, rgba(243, 237, 227, 0.06) 0 14px, rgba(243, 237, 227, 0) 14px 28px); }
+      #slot div { position: absolute; left: 26px; top: 26px; font: 900 30px var(--hk); letter-spacing: 0.14em; color: rgba(243, 237, 227, 0.8); }
+      #loss { position: absolute; left: 0; width: 1080px; text-align: center; font: 900 150px var(--hk); letter-spacing: -0.04em; color: var(--red); }
+
+      /* Kilit ekranı */
+      .lock { position: absolute; inset: 0; background: radial-gradient(120% 70% at 50% 0%, #5a3216 0%, #24160c 50%, #0b0806 100%); }
+      .lk-date { position: absolute; top: 120px; width: 100%; text-align: center; font: 700 32px var(--hk); color: rgba(243, 237, 227, 0.85); }
+      .lk-time { position: absolute; top: 154px; width: 100%; text-align: center; font: 800 190px var(--hk); letter-spacing: -0.04em; color: rgba(243, 237, 227, 0.95); }
+      .notif { position: absolute; left: 26px; right: 26px; border-radius: 40px; padding: 24px 26px 26px 120px; background: rgba(44, 40, 36, 0.94); color: #f2f2f2; font-family: Inter, sans-serif; }
+      .notif .ic { position: absolute; left: 24px; top: 26px; width: 74px; height: 74px; border-radius: 18px; background: var(--wa); }
+      .notif .ic svg { position: absolute; left: 15px; top: 15px; }
+      .notif .who { font: 700 28px Inter, sans-serif; }
+      .notif .when { position: absolute; right: 26px; top: 26px; font: 400 22px Inter, sans-serif; color: rgba(242, 242, 242, 0.55); }
+      .notif .txt { font: 400 26px/1.32 Inter, sans-serif; color: rgba(242, 242, 242, 0.92); margin-top: 6px; }
+      #pill { position: absolute; left: 0; width: 1080px; text-align: center; }
+      #pill span { display: inline-block; background: rgba(255, 90, 31, 0.14); border: 2px solid rgba(255, 90, 31, 0.6); color: var(--or); font: 900 28px var(--hk); letter-spacing: 0.14em; padding: 14px 28px; border-radius: 40px; }
+
+      /* TimeFlow kartı */
+      #tfcard { position: absolute; left: 100px; top: 1000px; width: 880px; height: 236px; border-radius: 46px; background: #f3ede3; color: var(--dark); padding: 34px 40px; box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6); }
+      #tfcard .st { position: absolute; left: 40px; top: 34px; font: 900 26px var(--hk); letter-spacing: 0.14em; display: flex; align-items: center; gap: 12px; }
+      #tfcard .st::before { content: ""; width: 14px; height: 14px; border-radius: 50%; background: currentColor; }
+      #tfcard .nm { position: absolute; left: 40px; top: 84px; font: 800 52px var(--hk); letter-spacing: -0.02em; }
+      #tfcard .sv { position: absolute; left: 40px; top: 152px; font: 500 30px var(--hk); color: #5c5248; }
+      .mini { position: absolute; right: 36px; top: 30px; display: flex; align-items: center; gap: 8px; font: 900 30px var(--hk); letter-spacing: -0.04em; color: var(--dark); }
+      .mini b { font: 800 15px/28px var(--hk); letter-spacing: 0; color: #fff; background: var(--or); border-radius: 14px; padding: 0 10px; }
+
+      /* Logo */
+      .logo { position: absolute; left: 0; width: 1080px; text-align: center; font: 900 76px var(--hk); letter-spacing: -0.05em; color: var(--ink); }
+      .logo b { display: inline-block; vertical-align: 10px; margin-left: 12px; font: 800 24px/38px var(--hk); letter-spacing: -0.01em; color: #fff; background: var(--or); border-radius: 19px; padding: 0 16px; }
+
+      /* Teklif */
+      #cta { position: absolute; left: 150px; top: 952px; width: 780px; height: 144px; border-radius: 72px; background: var(--wa); color: #0b141a;
+        font: 800 58px/144px var(--hk); letter-spacing: -0.02em; text-align: center; box-shadow: 0 24px 60px rgba(37, 211, 102, 0.25); }
+      #cta svg { display: inline-block; vertical-align: -10px; margin-right: 18px; }
+      .fine { position: absolute; left: 0; width: 1080px; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="22.8" data-width="1080" data-height="1920" data-motion-blur="on">
+      <div id="light"></div>
+
+      <!-- 0 · KANCA -->
+      <div id="s0" class="scene clip" data-start="0" data-duration="1.62" data-track-index="0">
+        <div id="s0w" class="scene">
+          <div id="flash" class="abs" style="inset:0;background:radial-gradient(55% 32% at 50% 52%, rgba(255,77,61,.55), rgba(255,77,61,0) 70%);opacity:0"></div>
+          <div class="title" style="top:540px;font-size:150px"><span id="h1" class="w">Bugün kaç</span></div>
+          <div class="title" style="top:700px;font-size:150px"><span id="h2" class="w">randevunuz</span></div>
+          <div class="title" style="top:880px;font-size:236px;color:var(--red)"><span id="h3" class="w">gelmedi?</span></div>
+        </div>
+      </div>
+
+      <!-- 1 · RANDEVU ALINDI -->
+      <div id="s1" class="scene clip" data-start="1.3" data-duration="2.1" data-track-index="1">
+        <div class="title" style="top:286px;font-size:108px"><span id="t1a" class="w">Randevu</span> <span id="t1b" class="w">alındı</span> <span id="t1c" class="w" style="color:var(--ok)">✓</span></div>
+        <div id="ph1" class="phone" style="top:432px">
+          <div class="screen">
+            <div class="island"></div><div class="sbar">20:14</div><div class="batt"></div>
+            <div class="wa-head"><div class="wa-back">‹</div><div class="wa-av">S</div><div class="wa-name">Sizin Salonunuz</div><div class="wa-sub">işletme hattı · sizin numaranız</div></div>
+            <div class="wa-body"><div class="msgs">
+              <div class="chip">Bugün</div>
+              <div id="b1" class="b in">Merhaba Ayşe Hanım ✨<br /><b>Sizin Salonunuz</b> olarak randevunuzu oluşturduk.<br /><br /><b>Hizmet:</b> cilt bakımı<br /><b>Tarih:</b> Yarın, 10:30<br /><b>Uzman:</b> Elif Demir<span class="tm">20:14</span></div>
+            </div></div>
+            <div class="wa-input"><div class="wa-plus">+</div><div class="wa-field"></div><div class="wa-send"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2 · ERTESİ GÜN -->
+      <div id="s2" class="scene clip" data-start="3.0" data-duration="5.8" data-track-index="2">
+        <div id="s2w" class="scene">
+          <div id="t2k" class="kicker" style="top:286px">ERTESİ GÜN · 10:30</div>
+          <div class="title" style="top:340px;font-size:116px">
+            <span id="t2a" class="abs" style="left:0;width:960px"><span id="t2a1" class="w">Müşteri</span> <span id="t2a2" class="w" style="color:var(--red)">gelmedi.</span></span>
+            <span id="t2b" class="abs" style="left:0;width:960px"><span class="w">Koltuk</span> <span class="w">boş.</span></span>
+            <span id="t2c" class="abs" style="left:0;width:960px"><span class="w">1 saat</span> <span class="w" style="color:var(--red)">boşa gitti.</span></span>
+          </div>
+          <div id="cal">
+            <div class="cal-head">Cumartesi<span>.</span></div>
+            <div class="cal-sub">6 randevu · Elif Demir</div>
+            <div class="row" style="top:150px"><i>09:00</i></div>
+            <div class="row" style="top:242px"><i>09:30</i></div>
+            <div class="row" style="top:334px"><i>10:00</i></div>
+            <div class="row" style="top:426px"><i>10:30</i></div>
+            <div class="row" style="top:518px"><i>11:00</i></div>
+            <div class="row" style="top:610px"><i>11:30</i></div>
+            <div class="appt muted" style="top:160px;height:166px"><div class="st" style="color:var(--ok)">TAHSİL EDİLDİ</div><div class="nm">Pınar Aksoy</div><div class="sv">Manikür · 45 dk</div><div class="pr" style="color:var(--muted)">₺600</div></div>
+            <div id="slot" style="top:436px;height:166px"><div>BOŞ · 60 dk</div></div>
+            <div id="ap" class="appt" style="top:436px;height:166px">
+              <div class="st" style="color:var(--or)"><span id="ap-w">BEKLENİYOR</span></div>
+              <div id="ap-x" class="st abs" style="left:26px;top:20px;color:#b3261e;opacity:0">GELMEDİ</div>
+              <div class="nm">Ayşe Kaya</div><div class="sv">Cilt bakımı · 60 dk · Elif Demir ile</div><div class="pr">₺1.200</div>
+            </div>
+            <div class="appt muted" style="top:620px;height:100px;padding-top:16px"><div class="nm" style="font-size:32px">Selin Karaca</div><div class="sv">Lazer epilasyon · 30 dk</div></div>
+            <div id="nowline" style="top:360px"></div>
+          </div>
+          <div id="loss" style="top:1330px">−₺1.200</div>
+        </div>
+      </div>
+
+      <!-- 3 · TIMEFLOW HATIRLATIR -->
+      <div id="s3" class="scene clip" data-start="8.5" data-duration="4.65" data-track-index="3">
+        <div class="title" style="top:280px;font-size:74px;line-height:1.06">
+          <span id="t3a" class="w">Randevudan önce,</span> <span id="t3b" class="w">sizin <span style="color:var(--or)">WhatsApp'ınızdan</span></span>
+          <span id="t3c" class="w">hatırlatır.</span>
+        </div>
+        <div id="ph3" class="phone" style="top:548px">
+          <div class="screen">
+            <div class="lock"></div>
+            <div class="island"></div><div class="sbar">08:30</div><div class="batt"></div>
+            <div class="lk-date">Cumartesi 15 Kasım</div>
+            <div class="lk-time">08:30</div>
+            <div id="ghost" class="notif" style="top:452px;height:150px;transform:scale(0.93);opacity:0.45"></div>
+            <div id="nt" class="notif" style="top:404px">
+              <div class="ic"><svg width="44" height="44" viewBox="0 0 24 24"><path fill="#fff" d="M12 3C6.9 3 3 6.6 3 11c0 1.9.7 3.6 1.9 5L4 20.5l4.7-1.6c1 .4 2.1.6 3.3.6 5.1 0 9-3.6 9-8S17.1 3 12 3z"/></svg></div>
+              <div class="who">Sizin Salonunuz</div><div class="when">şimdi</div>
+              <div class="txt">Merhaba Ayşe Hanım ✨ Randevunuza 2 saat kaldı.<br />Hizmet: cilt bakımı · Saat: 10:30</div>
+            </div>
+          </div>
+        </div>
+        <div id="pill" style="top:1164px"><span>OTOMATİK · 2 SAAT ÖNCE</span></div>
+        <div id="flood" class="abs" style="inset:0;background:var(--or)"></div>
+        <div id="tfw" class="title" style="top:800px;font-size:190px;color:var(--dark)">TimeFlow</div>
+      </div>
+
+      <!-- 4 · CEVAP -->
+      <div id="s4" class="scene clip" data-start="12.85" data-duration="3.45" data-track-index="4">
+        <div id="s4w" class="scene">
+          <div class="title" style="top:280px;font-size:84px;line-height:1.04">
+            <span id="t4a" class="w">Müşteri cevap verir,</span><br />
+            <span id="t4b" class="w" style="color:var(--or)">siz önceden bilirsiniz.</span>
+          </div>
+          <div id="ph4" class="phone" style="top:480px">
+            <div class="screen">
+              <div class="island"></div><div class="sbar">08:31</div><div class="batt"></div>
+              <div class="wa-head"><div class="wa-back">‹</div><div class="wa-av">S</div><div class="wa-name">Sizin Salonunuz</div><div class="wa-sub">işletme hattı · sizin numaranız</div></div>
+              <div class="wa-body"><div class="msgs">
+                <div class="chip">Bugün</div>
+                <div class="lbl">OTOMATİK · 2 SAAT ÖNCE</div>
+                <div class="b in">Merhaba Ayşe Hanım ✨<br />Randevunuza 2 saat kaldı.<br /><br /><b>Hizmet:</b> cilt bakımı<br /><b>Saat:</b> 10:30<span class="tm">08:30</span></div>
+                <div id="b4" class="b out">Evet, geliyorum<span class="tm">08:31 <span class="tick">✓✓</span></span></div>
+              </div></div>
+              <div class="wa-input"><div class="wa-plus">+</div><div class="wa-field"><span id="typed" style="display:inline-block">Evet, geliyorum</span></div><div class="wa-send"></div></div>
+            </div>
+          </div>
+          <div id="tfcard">
+            <div id="st-w" class="st" style="color:var(--or)">BEKLENİYOR</div>
+            <div id="st-ok" class="st" style="color:var(--ok);opacity:0">ONAYLADI ✓</div>
+            <div class="mini">timeflow</div>
+            <div class="nm">Ayşe Kaya · 10:30</div>
+            <div class="sv">Cilt bakımı · Elif Demir ile</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5 · TEKLİF -->
+      <div id="s5" class="scene clip" data-start="16.1" data-duration="6.7" data-track-index="5">
+        <div id="ph5" class="phone" style="top:1290px;transform-origin:50% 0"><div class="screen"><img src="assets/img/akis.png" alt="" style="width:100%;display:block" /><div class="island"></div></div></div>
+        <div id="ph5fade" class="abs" style="left:0;top:1260px;width:1080px;height:260px;background:linear-gradient(#0e0a06,rgba(14,10,6,0))"></div>
+        <div id="lg" class="logo" style="top:282px">luera<b>timeflow</b></div>
+        <div id="t5k" class="kicker" style="top:404px;color:var(--or)">ANKARA'YA ÖZEL</div>
+        <div class="title" style="top:452px;font-size:170px;line-height:0.92"><span id="t5a" class="w">7 gün</span><br /><span id="t5b" class="w">ücretsiz</span></div>
+        <div class="title" style="top:784px;font-size:76px;font-weight:800"><span id="t5c" class="w">İlk 2 ay <span style="color:var(--or);font-weight:900">%50 indirim</span></span></div>
+        <div id="t5d" class="fine" style="top:884px;font:600 34px var(--hk);color:var(--muted)">Güzellik salonu · Nail bar · Epilasyon · Kuaför</div>
+        <div id="cta"><svg width="58" height="58" viewBox="0 0 24 24"><path fill="#0b141a" d="M12 3C6.9 3 3 6.6 3 11c0 1.9.7 3.6 1.9 5L4 20.5l4.7-1.6c1 .4 2.1.6 3.3.6 5.1 0 9-3.6 9-8S17.1 3 12 3z"/></svg>WhatsApp'tan yazın</div>
+        <div id="t5e" class="fine" style="top:1120px;font:600 30px/1.4 var(--hk);color:var(--muted)">Aylık paketlerde · 31 Aralık 2026'ya kadar<br />Kurulumu birlikte yapıyoruz</div>
+      </div>
+
+      <div id="grain"></div>
+
+      <!-- Ses -->
+      <audio id="vo" class="clip" src="assets/audio/vo-a.mp3" data-start="1.35" data-track-index="10" data-volume="1"></audio>
+      <audio id="fx-impact1" class="clip" src="assets/sfx/impact.ogg" data-start="0.36" data-duration="0.28" data-track-index="11" data-volume="0.7"></audio>
+      <audio id="fx-wh1" class="clip" src="assets/sfx/whoosh.ogg" data-start="1.26" data-duration="0.43" data-track-index="12" data-volume="0.5"></audio>
+      <audio id="fx-pop1" class="clip" src="assets/sfx/pop.ogg" data-start="1.96" data-duration="0.1" data-track-index="11" data-volume="0.45"></audio>
+      <audio id="fx-wh2" class="clip" src="assets/sfx/whoosh3.ogg" data-start="3.06" data-duration="0.56" data-track-index="12" data-volume="0.5"></audio>
+      <audio id="fx-impact2" class="clip" src="assets/sfx/impact.ogg" data-start="5.12" data-duration="0.28" data-track-index="11" data-volume="0.6"></audio>
+      <audio id="fx-pop2" class="clip" src="assets/sfx/pop.ogg" data-start="7.34" data-duration="0.1" data-track-index="11" data-volume="0.55"></audio>
+      <audio id="fx-wh3" class="clip" src="assets/sfx/whoosh2.ogg" data-start="8.47" data-duration="0.31" data-track-index="12" data-volume="0.5"></audio>
+      <audio id="fx-wh4" class="clip" src="assets/sfx/whoosh.ogg" data-start="9.56" data-duration="0.43" data-track-index="12" data-volume="0.4"></audio>
+      <audio id="fx-notif" class="clip" src="assets/sfx/notif.ogg" data-start="10.29" data-duration="0.05" data-track-index="11" data-volume="0.6"></audio>
+      <audio id="fx-click1" class="clip" src="assets/sfx/click.ogg" data-start="12.73" data-duration="0.09" data-track-index="11" data-volume="0.55"></audio>
+      <audio id="fx-pop3" class="clip" src="assets/sfx/pop.ogg" data-start="13.83" data-duration="0.1" data-track-index="11" data-volume="0.45"></audio>
+      <audio id="fx-confirm" class="clip" src="assets/sfx/confirm.ogg" data-start="15.13" data-duration="0.29" data-track-index="11" data-volume="0.45"></audio>
+      <audio id="fx-riser" class="clip" src="assets/sfx/riser.ogg" data-start="15.69" data-duration="2.02" data-track-index="13" data-volume="0.45"></audio>
+      <audio id="fx-wh5" class="clip" src="assets/sfx/whoosh3.ogg" data-start="16.0" data-duration="0.56" data-track-index="12" data-volume="0.45"></audio>
+      <audio id="fx-impact3" class="clip" src="assets/sfx/impact.ogg" data-start="17.6" data-duration="0.28" data-track-index="11" data-volume="0.6"></audio>
+      <audio id="fx-pop4" class="clip" src="assets/sfx/pop.ogg" data-start="18.96" data-duration="0.1" data-track-index="11" data-volume="0.45"></audio>
+      <audio id="fx-pop5" class="clip" src="assets/sfx/pop.ogg" data-start="20.48" data-duration="0.1" data-track-index="11" data-volume="0.45"></audio>
+      <audio id="fx-click2" class="clip" src="assets/sfx/click.ogg" data-start="21.23" data-duration="0.09" data-track-index="11" data-volume="0.6"></audio>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      const IN = (sel, at, o = {}) => tl.fromTo(sel, { opacity: 0, filter: "blur(10px)", ...(o.from || {}) },
+        { opacity: 1, filter: "blur(0px)", duration: o.d || 0.16, ease: o.ease || "power2.out", ...(o.to || {}) }, at);
+      const OUT = (sel, at, d = 0.16) => tl.to(sel, { opacity: 0, filter: "blur(8px)", duration: d, ease: "power2.in" }, at);
+      const shake = (sel, at, a = 18) => {
+        [a, -a * 0.8, a * 0.55, -a * 0.35, a * 0.15, 0].forEach((x, i) => tl.to(sel, { x, duration: 0.045, ease: "none" }, at + i * 0.045));
+      };
+
+      // 0 · Kanca — kare 0'da iki satır okunur; "gelmedi?" çarpar.
+      tl.set(["#h1", "#h2"], { opacity: 1 }, 0);
+      tl.fromTo("#h3", { opacity: 0, scale: 1.45, filter: "blur(16px)" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.26, ease: "expo.out" }, 0.38);
+      tl.to("#flash", { opacity: 1, duration: 0.08, ease: "none" }, 0.38).to("#flash", { opacity: 0.35, duration: 0.5, ease: "power2.out" }, 0.46);
+      shake("#s0w", 0.42, 20);
+      tl.to("#s0w", { y: -420, opacity: 0, filter: "blur(14px)", duration: 0.3, ease: "power3.in" }, 1.3);
+
+      // 1 · Randevu alındı
+      tl.fromTo("#ph1", { y: 620, opacity: 0, filter: "blur(16px)" }, { y: 0, opacity: 1, filter: "blur(0px)", duration: 0.55, ease: "expo.out" }, 1.36);
+      IN("#t1a", 1.62); IN("#t1b", 1.74); tl.fromTo("#t1c", { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, 2.0);
+      tl.fromTo("#b1", { opacity: 0, y: 40, scale: 0.94 }, { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: "expo.out" }, 1.95);
+      OUT("#t1a, #t1b, #t1c", 2.95, 0.14);
+      tl.to("#ph1", { scale: 3.2, y: 260, opacity: 0, duration: 0.42, ease: "power3.in" }, 2.98);
+
+      // 2 · Ertesi gün: kart kızarır, boşalır, para gider
+      tl.fromTo("#cal", { scale: 0.86, opacity: 0, filter: "blur(14px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.55, ease: "expo.out" }, 3.18);
+      IN("#t2k", 3.22, { d: 0.2 });
+      tl.fromTo("#nowline", { y: 0 }, { y: 120, duration: 1.9, ease: "power1.inOut" }, 3.4);
+      tl.set(["#t2b", "#t2c", "#slot"], { opacity: 0 }, 0);
+      IN("#t2a1", 4.7); IN("#t2a2", 5.12, { from: { scale: 1.3 }, to: { scale: 1 }, d: 0.22, ease: "expo.out" });
+      tl.to("#ap", { backgroundColor: "#ffd9d3", duration: 0.12, ease: "none" }, 5.15);
+      tl.to("#ap-w", { opacity: 0, duration: 0.08 }, 5.15);
+      tl.to("#ap-x", { opacity: 1, duration: 0.08 }, 5.15);
+      shake("#ap", 5.17, 16);
+      // Koltuk boş: kart boşalır
+      OUT("#t2a", 6.08, 0.14); IN("#t2b", 6.2, { d: 0.18 });
+      tl.fromTo("#slot", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "power2.out" }, 6.2);
+      tl.to("#ap", { opacity: 0, scale: 0.96, filter: "blur(8px)", duration: 0.3, ease: "power2.in" }, 6.16);
+      // 1 saat boşa: damga
+      OUT("#t2b", 7.18, 0.12); IN("#t2c", 7.3, { d: 0.18 });
+      tl.to("#slot div", { opacity: 0, duration: 0.1 }, 7.3);
+      tl.to("#nowline", { opacity: 0, duration: 0.2 }, 6.16);
+      tl.fromTo("#loss", { opacity: 0, scale: 1.6, y: -40, filter: "blur(12px)" }, { opacity: 1, scale: 1, y: -366, filter: "blur(0px)", duration: 0.34, ease: "back.out(1.6)" }, 7.32);
+      tl.to("#s2w", { opacity: 0.55, duration: 0.1, ease: "none" }, 8.42);
+
+      // 3 · TimeFlow seli → kilit ekranı → bildirim
+      tl.fromTo("#flood", { clipPath: "circle(0% at 50% 55%)" }, { clipPath: "circle(120% at 50% 55%)", duration: 0.42, ease: "power2.inOut" }, 8.52);
+      tl.fromTo("#tfw", { opacity: 0, scale: 1.25, filter: "blur(14px)" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.3, ease: "expo.out" }, 8.92);
+      tl.to(["#flood", "#tfw"], { y: -1920, duration: 0.5, ease: "power3.in" }, 9.6);
+      tl.fromTo("#ph3", { y: 700, filter: "blur(14px)" }, { y: 0, filter: "blur(0px)", duration: 0.6, ease: "expo.out" }, 9.7);
+      IN("#t3a", 9.95); IN("#t3b", 10.95); IN("#t3c", 12.08);
+      tl.fromTo("#nt", { y: -260, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "expo.out" }, 10.26);
+      tl.fromTo("#pill", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.3, ease: "expo.out" }, 11.0);
+      tl.to("#nt", { scale: 0.96, duration: 0.08, ease: "power2.out" }, 12.7).to("#nt", { scale: 1, duration: 0.12, ease: "power2.out" }, 12.78);
+
+      // 4 · Cevap — iris bildirimden açılır
+      tl.fromTo("#s4w", { clipPath: "circle(0% at 50% 42%)" }, { clipPath: "circle(130% at 50% 42%)", duration: 0.38, ease: "power3.in" }, 12.85);
+      IN("#t4a", 13.26);
+      tl.fromTo("#typed", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 0.42, ease: "none" }, 13.32);
+      tl.set("#typed", { opacity: 0 }, 13.8);
+      tl.fromTo("#b4", { opacity: 0, y: 40, scale: 0.92 }, { opacity: 1, y: 0, scale: 1, duration: 0.36, ease: "expo.out" }, 13.8);
+      IN("#t4b", 14.6);
+      tl.fromTo("#tfcard", { y: 160, opacity: 0, rotation: -3, filter: "blur(12px)" }, { y: 0, opacity: 1, rotation: -1.5, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, 14.6);
+      tl.to("#st-w", { opacity: 0, y: -14, duration: 0.12 }, 15.1);
+      tl.fromTo("#st-ok", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.2, ease: "back.out(2)" }, 15.12);
+      tl.to("#tfcard", { backgroundColor: "#e3f6ea", duration: 0.2 }, 15.12);
+      tl.to("#s4w", { x: -1080, filter: "blur(12px)", duration: 0.32, ease: "power3.in" }, 16.0);
+
+      // 5 · Teklif
+      tl.fromTo("#lg", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: "expo.out" }, 16.2);
+      IN("#t5k", 16.38, { d: 0.2 });
+      tl.fromTo("#t5a", { opacity: 0, scale: 1.35, filter: "blur(14px)" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.28, ease: "expo.out" }, 17.62);
+      tl.fromTo("#t5b", { opacity: 0, scale: 1.35, filter: "blur(14px)" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.28, ease: "expo.out" }, 17.8);
+      IN("#t5c", 18.94, { d: 0.2 });
+      IN("#t5d", 19.3, { d: 0.2 });
+      tl.fromTo("#cta", { opacity: 0, scale: 0.7, y: 40 }, { opacity: 1, scale: 1, y: 0, duration: 0.5, ease: "back.out(1.7)" }, 20.45);
+      tl.to("#cta", { scale: 0.95, duration: 0.08, ease: "power2.out" }, 21.2).to("#cta", { scale: 1, duration: 0.25, ease: "back.out(2)" }, 21.28);
+      IN("#t5e", 19.95, { d: 0.25 });
+      tl.fromTo("#ph5", { y: 700, rotation: 4 }, { y: 0, rotation: -3, duration: 0.9, ease: "expo.out" }, 16.3);
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
