@@ -20,10 +20,10 @@ SHOTS:
                      "Müşteri gelmedi." 5.15'te kart kızarır + sarsılır (impact); 6.16 kart boşalır "BOŞ · 60 dk", başlık "Koltuk boş.";
                      7.32 boş saatin içinde "−₺1.200" rozeti damga gibi basılır, çerçeve kızarır (pop), başlık "1 saat boşa gitti."
   8.42–13.20 HATIRLATMA  Gün sahnesi bulanıklaşarak çekilir; uygulamanın logo animasyonu (LueraTimeflowMark, koyu): "luera" 8.6,
-                     nokta 8.88 (pop), hap açılır 9.08, "timeflow" 9.38; logo 10.08'de çıkar, kilit ekranlı telefon yükselir (10.18);
+                     nokta 8.88 (pop), hap açılır 9.08, "timeflow" 9.38; logo 10.08'de çıkar; GERÇEK kilit ekranının (kullanıcının iPhone'u, gercek-ekran/kilit-bos.webp) alt yarısı yakın çekim olarak yükselir (10.18), hafif itme;
                      bildirim düşer 10.6 (pop); "OTOMATİK · 2 SAAT ÖNCE" 11.0; başlık üç satır kelimeyle; 12.70 dokunuş (click) → iris.
   12.85–16.30 CEVAP  WhatsApp sohbeti; "Evet, geliyorum" yazılır (tick) ve gider (pop 13.8);
-                     TimeFlow kartı girer 14.6, BEKLENİYOR → ONAYLADI ✓ 15.1 (confirm). Yatay kırbaçla çıkış (whoosh 16.0).
+                     TimeFlow kartı girer 14.6, BEKLENİYOR → GELİRİM DEDİ ✓ 15.1 (panelin kendi ifadesi) (confirm). Yatay kırbaçla çıkış (whoosh 16.0).
   16.10–22.80 TEKLİF  logo · "ANKARA'YA ÖZEL" 16.38 · riser → "7 gün ücretsiz" 17.64 · "İlk 2 ay %50 indirim" 18.93 ·
                      WhatsApp düğmesi 20.45, basılır 21.2 (click) · koşul satırı · 1.6 s sabit son kare.
 BANNED:  boşlukta küçük öğeler; parlama/neon; mor-mavi gradyan; her şeyin aynı anda solarak gelmesi; okunurken kayan yazı;
