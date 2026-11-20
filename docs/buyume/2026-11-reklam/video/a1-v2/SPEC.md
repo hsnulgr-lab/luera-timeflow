@@ -34,4 +34,4 @@ QA:      0.0 (kapak: kanca okunuyor) · 0.6 (GELMEDİ?) · 2.4 (onay balonu) · 
 
 ## Ses
 Seslendirme: ElevenLabs (13 Kasım, A.mp3). Efektler: motion-graphics/sound-effects kütüphanesi, hepsi **CC0**
-(Freesound/Kenney; kaynaklar o deponun LICENSES.md'sinde). Müzik: henüz yok (kullanıcı onayı bekleniyor).
+(Freesound/Kenney; kaynaklar o deponun LICENSES.md'sinde). Müzik: YOK — kullanıcı kararı (2026-11-20); film seslendirme + efektlerle taşınır.

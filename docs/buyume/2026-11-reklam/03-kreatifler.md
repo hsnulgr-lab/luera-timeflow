@@ -15,7 +15,7 @@ Videolar (`*.mp4`) git'e girmez (büyük); üreticiyle aynı hâlleriyle yeniden
 | Kod | Açı | Biçim | Durum | Kredi |
 |---|---|---|---|---|
 | **A1** | Gelmeyen müşteri | Video 9:16 · 21 sn | ✅ hazır | 0 |
-| **A1 v2** | Gelmeyen müşteri · **profesyonel sürüm** | Video 9:16 · 22,8 sn | ✅ hazır (müzik yok) | 0 |
+| **A1 v2** | Gelmeyen müşteri · **profesyonel sürüm** | Video 9:16 · 22,8 sn | ✅ hazır | 0 |
 | **B1** | Defter karmaşası | Video 9:16 · 17 sn | ✅ hazır | 0 |
 | **D1** | Teklif | Video 9:16 · 18 sn | ✅ hazır | 0 |
 | **G1** | Gelmeyen müşteri | Görsel 4:5 | ✅ hazır | 0 |
@@ -103,6 +103,6 @@ Sahne belgesi `video/a1-v2/SPEC.md`. Çıktı `kreatif/A1v2-gelmeyen-musteri.mp4
 - **Instagram Reels güvenli alanı:** bütün yazı ve ürün 270–1248 px bandında (üstteki %14 ve alttaki
   %35 Instagram'ın kendi yazı/düğmeleriyle örtülür).
 - Efekt sesleri: `motion-graphics/sound-effects` kütüphanesinden, hepsi **CC0** (Freesound, Kenney).
-  Seslendirme: 13 Kasım ElevenLabs kaydı. **Müzik henüz yok** (kullanıcı onayıyla Mixkit'ten eklenecek).
+  Seslendirme: 13 Kasım ElevenLabs kaydı. **Müzik yok — kullanıcı kararı (2026-11-20).**
 - Yeniden üretmek: `cd video/a1-v2 && HYPERFRAMES_NO_TELEMETRY=1 npx hyperframes@0.9.70 render -q delivery -o ../../kreatif/A1v2-gelmeyen-musteri.mp4`
   (FFmpeg gerekir; Homebrew ile kuruldu).
