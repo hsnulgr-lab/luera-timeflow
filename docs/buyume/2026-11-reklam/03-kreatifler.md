@@ -19,7 +19,7 @@ Videolar (`*.mp4`) git'e girmez (büyük); üreticiyle aynı hâlleriyle yeniden
 | **A3** | "Bu mesajı siz yazmadınız" · **sessiz**, A1'in alternatifi | Video 9:16 · 20,5 sn | ✅ onaylı (2026-11-20) | 0 |
 | **B1** | Defter karmaşası | Video 9:16 · 17 sn | ✅ hazır | 0 |
 | **D1** | Teklif | Video 9:16 · 18 sn | ✅ hazır | 0 |
-| **D1 v2** | Teklif · **profesyonel sürüm** (telefon + bilgisayar) | Video 9:16 · 19,4 sn | ✅ hazır | 0 |
+| **D1 v2** | Teklif · **profesyonel sürüm** (telefon + bilgisayar) | Video 9:16 · 19,4 sn | ✅ onaylı (2026-11-20) | 0 |
 | **G1** | Gelmeyen müşteri | Görsel 4:5 | ✅ hazır | 0 |
 | **G2** | Defteri bırakın | Görsel 4:5 | ✅ hazır | 0 |
 | **G3** | İlk 2 ay yarı fiyat | Görsel 4:5 | ✅ hazır | 0 |
