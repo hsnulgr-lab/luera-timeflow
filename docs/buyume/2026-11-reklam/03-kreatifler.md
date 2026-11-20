@@ -19,6 +19,7 @@ Videolar (`*.mp4`) git'e girmez (büyük); üreticiyle aynı hâlleriyle yeniden
 | **A3** | "Bu mesajı siz yazmadınız" · **sessiz**, A1'in alternatifi | Video 9:16 · 20,5 sn | ✅ onaylı (2026-11-20) | 0 |
 | **B1** | Defter karmaşası | Video 9:16 · 17 sn | ✅ hazır | 0 |
 | **D1** | Teklif | Video 9:16 · 18 sn | ✅ hazır | 0 |
+| **D1 v2** | Teklif · **profesyonel sürüm** (telefon + bilgisayar) | Video 9:16 · 19,4 sn | ✅ hazır | 0 |
 | **G1** | Gelmeyen müşteri | Görsel 4:5 | ✅ hazır | 0 |
 | **G2** | Defteri bırakın | Görsel 4:5 | ✅ hazır | 0 |
 | **G3** | İlk 2 ay yarı fiyat | Görsel 4:5 | ✅ hazır | 0 |
@@ -90,7 +91,7 @@ Model: Seedance 2.5 · 9:16 · 720p · 5 sn · sessiz → **35 kredi/sahne** (fi
 Her üretimden önce kesin kredi tutarını sorup onayını alacağım.
 
 ## Yayın sırası önerisi (Ankara testi, hafta 1)
-Aynı reklam setinde **A1 v2, A3, D1, G1, G3, K1** (6 kreatif; A1 v2 ile A3 aynı açının iki kancası, A/B) → 72 saat sonra konuşma başı maliyete
+Aynı reklam setinde **A1 v2, A3, D1 v2, G1, G3, K1** (6 kreatif; A1 v2 ile A3 aynı açının iki kancası, A/B) → 72 saat sonra konuşma başı maliyete
 göre en kötü 2'si kapanır, yerine A2 / G2 girer. (Kurallar: `05-kampanya.md`, aşama 5.)
 
 ## A1 v2 · HyperFrames ile profesyonel sürüm (2026-11-20)
@@ -121,3 +122,16 @@ Sahne belgesi `video/a1-v2/SPEC.md`. Çıktı `kreatif/A1v2-gelmeyen-musteri.mp4
   → gerçek müdür Akış ekranı "Bütün gün tek ekranda." → teklif.
 - Gerçek görüntüler: kilit ekranı ve Akış ekranı kullanıcının iPhone'undan.
 - WhatsApp ön metin kodu: **A3**.
+
+## D1 v2 · Teklif (2026-11-20)
+
+`video/d1-v2/` · `video/d1-v2/SPEC.md` · `kreatif/D1v2-teklif.mp4` · seslendirme 13 Kasım (C.mp3), müzik yok, −14 LUFS.
+
+- Kare 0: "Ankara'daki güzellik salonları" + yelpaze açılmış üç gerçek ekran; ikinci satır slot makinesi gibi döner
+  (nail barlar → epilasyon merkezleri → kuaförler).
+- Logo animasyonu → "7 gün ücretsiz" → "İlk 2 ay %50 indirim" → "399,50 TL'den başlayan paketler".
+- Her kelimede telefon ekranı kayar: Randevu (takvim) · WhatsApp hatırlatma (Evet/Hayır) · Paket takibi ("4 seans kaldı") · Kasa (₺1.200).
+- "Tek uygulamada. Telefonda da, bilgisayarda da.": telefon küçülür, arkadan bilgisayarda **yeni Gün planı** (uzman sütunları)
+  gelir — `docs/gun-plani-tasarim/ekip.dc.html` tasarımından işlendi, kodu main'de (503a2f4).
+  ⚠️ Reklam yayına girmeden yeni Gün planının canlıda olduğu doğrulanmalı (reklamda gösterilen ekran = müşterinin göreceği ekran).
+- "Kurulumu birlikte yapıyoruz." → teklif kartı ve WhatsApp düğmesi. WhatsApp ön metin kodu: **D1**.

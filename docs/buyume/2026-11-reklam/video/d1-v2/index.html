@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      @font-face { font-family: "Hanken Grotesk"; font-weight: 500; src: url("assets/fonts/HankenGrotesk_500Medium.ttf"); }
+      @font-face { font-family: "Hanken Grotesk"; font-weight: 700; src: url("assets/fonts/HankenGrotesk_700Bold.ttf"); }
+      @font-face { font-family: "Hanken Grotesk"; font-weight: 800; src: url("assets/fonts/HankenGrotesk_800ExtraBold.ttf"); }
+      @font-face { font-family: "Hanken Grotesk"; font-weight: 900; src: url("assets/fonts/HankenGrotesk_900Black.ttf"); }
+      :root {
+        --ground: #0e0a06;
+        --ink: #f3ede3;
+        --muted: rgba(243, 237, 227, 0.62);
+        --dim: rgba(243, 237, 227, 0.38);
+        --or: #ff5a1f;
+        --red: #ff4d3d;
+        --ok: #2fbf71;
+        --wa: #25d366;
+        --dark: #120e08;
+        --hk: "Hanken Grotesk", Inter, sans-serif;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--ground); }
+      #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: var(--ground); font-family: var(--hk); color: var(--ink); }
+      .scene { position: absolute; inset: 0; width: 1080px; height: 1920px; }
+      .abs { position: absolute; }
+      #light { position: absolute; inset: 0; background: radial-gradient(62% 40% at 50% 16%, rgba(255, 110, 40, 0.17), rgba(255, 110, 40, 0) 70%); }
+      #grain { position: absolute; inset: 0; opacity: 0.07; mix-blend-mode: overlay; pointer-events: none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='7' stitchTiles='stitch'/></filter><rect width='300' height='300' filter='url(%23n)'/></svg>"); }
+
+      /* Başlıklar */
+      .title { position: absolute; left: 60px; width: 960px; text-align: center; font-weight: 900; letter-spacing: -0.035em; line-height: 0.98; }
+      .w { display: inline-block; }
+      .kicker { position: absolute; left: 60px; width: 960px; text-align: center; font-weight: 800; font-size: 38px; letter-spacing: 0.22em; color: var(--muted); }
+
+      /* Telefon */
+      .phone { position: absolute; left: 220px; width: 640px; height: 1320px; border-radius: 96px; background: #1c1813; padding: 14px;
+        box-shadow: 0 40px 80px rgba(0, 0, 0, 0.55), inset 0 0 0 2px rgba(243, 237, 227, 0.14); }
+      .screen { position: relative; width: 100%; height: 100%; border-radius: 82px; overflow: hidden; background: #0a0a0a; }
+      .island { position: absolute; top: 26px; left: 50%; margin-left: -88px; width: 176px; height: 52px; border-radius: 26px; background: #000; z-index: 5; }
+      .sbar { position: absolute; top: 34px; left: 64px; font: 700 30px Inter, sans-serif; color: #ededed; z-index: 4; }
+      .batt { position: absolute; top: 40px; right: 56px; width: 56px; height: 26px; border: 2.5px solid rgba(237, 237, 237, 0.8); border-radius: 8px; z-index: 4; }
+      .batt::after { content: ""; position: absolute; left: 3px; top: 3px; width: 38px; height: 15px; border-radius: 4px; background: #ededed; }
+
+      /* WhatsApp */
+      .wa-head { position: absolute; top: 96px; left: 0; right: 0; height: 132px; background: #131313; z-index: 3; font-family: Inter, sans-serif; }
+      .wa-back { position: absolute; left: 30px; top: 22px; font-size: 76px; line-height: 1; color: #ededed; font-weight: 400; }
+      .wa-av { position: absolute; left: 84px; top: 28px; width: 76px; height: 76px; border-radius: 50%; background: #3b4a54; color: #ededed; font: 700 36px/76px Inter, sans-serif; text-align: center; }
+      .wa-name { position: absolute; left: 180px; top: 30px; font: 700 34px Inter, sans-serif; color: #ededed; }
+      .wa-sub { position: absolute; left: 180px; top: 76px; font: 400 24px Inter, sans-serif; color: #8e9190; }
+      .wa-body { position: absolute; top: 228px; left: 0; right: 0; bottom: 128px; background: #0a0a0a url("assets/img/wa-zemin.png") repeat; background-size: 520px auto; }
+      .msgs { position: absolute; left: 24px; right: 24px; top: 22px; display: flex; flex-direction: column; gap: 14px; font-family: Inter, sans-serif; }
+      .chip { align-self: center; background: #1c1c1c; color: #ededed; font: 700 24px Inter, sans-serif; padding: 10px 22px; border-radius: 22px; }
+      .lbl { font: 900 22px Inter, sans-serif; letter-spacing: 0.12em; color: var(--or); margin: 6px 0 -6px 6px; }
+      .b { position: relative; max-width: 470px; padding: 16px 22px 40px; border-radius: 26px; font: 400 27px/1.34 Inter, sans-serif; color: #ededed; }
+      .b b { font-weight: 700; }
+      .b.in { align-self: flex-start; background: #242625; }
+      .b.out { align-self: flex-end; background: #134d37; }
+      .tm { position: absolute; right: 18px; bottom: 9px; font-size: 19px; color: #8e9190; }
+      .b.out .tm { color: rgba(255, 255, 255, 0.6); }
+      .tick { color: #53bdeb; font-weight: 700; }
+      .wa-input { position: absolute; left: 0; right: 0; bottom: 0; height: 128px; background: #111; }
+      .wa-field { position: absolute; left: 96px; right: 120px; top: 26px; height: 66px; border-radius: 33px; background: #292929; font: 400 27px/66px Inter, sans-serif; color: #ededed; padding-left: 26px; overflow: hidden; white-space: nowrap; }
+      .wa-plus { position: absolute; left: 34px; top: 22px; font: 300 60px Inter, sans-serif; color: #ededed; }
+      .wa-send { position: absolute; right: 30px; top: 24px; width: 70px; height: 70px; border-radius: 50%; background: #21c063; }
+
+      /* Gün sütunu */
+      #cal { position: absolute; left: 70px; top: 512px; width: 940px; height: 736px; border-radius: 48px; background: #16110c; box-shadow: 0 40px 80px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(243, 237, 227, 0.1); overflow: hidden; }
+      .cal-head { position: absolute; left: 44px; top: 34px; font: 800 44px var(--hk); color: var(--ink); }
+      .cal-head span { color: var(--or); }
+      .cal-sub { position: absolute; left: 44px; top: 92px; font: 500 26px var(--hk); color: var(--muted); }
+      .row { position: absolute; left: 0; right: 0; height: 92px; border-top: 2px solid rgba(243, 237, 227, 0.08); }
+      .row i { position: absolute; left: 40px; top: 14px; font: 500 26px var(--hk); font-style: normal; color: var(--dim); }
+      .appt { position: absolute; left: 150px; right: 34px; border-radius: 30px; padding: 20px 26px; background: #f3ede3; color: var(--dark); overflow: hidden; }
+      .appt .nm { font: 800 38px var(--hk); letter-spacing: -0.01em; }
+      .appt .sv { font: 500 25px var(--hk); color: #5c5248; margin-top: 4px; }
+      .appt .st { font: 900 22px var(--hk); letter-spacing: 0.14em; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+      .appt .st::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: currentColor; }
+      .appt .pr { position: absolute; right: 28px; top: 22px; font: 800 34px var(--hk); }
+      .appt.muted { background: #2a221a; color: var(--ink); }
+      .appt.muted .sv { color: var(--muted); }
+      .appt, #slot { z-index: 2; }
+      #nowline { z-index: 1; position: absolute; left: 130px; right: 20px; height: 4px; background: var(--or); border-radius: 2px; }
+      #nowline::before { content: ""; position: absolute; left: -10px; top: -8px; width: 20px; height: 20px; border-radius: 50%; background: var(--or); }
+      #slot { position: absolute; left: 150px; right: 34px; border-radius: 30px; border: 3px dashed rgba(243, 237, 227, 0.35);
+        background: repeating-linear-gradient(135deg, rgba(243, 237, 227, 0.06) 0 14px, rgba(243, 237, 227, 0) 14px 28px); }
+      #slot .lb { position: absolute; left: 28px; top: 30px; font: 900 30px var(--hk); letter-spacing: 0.14em; color: rgba(243, 237, 227, 0.85); }
+      #slot .lb2 { position: absolute; left: 28px; top: 78px; font: 500 26px var(--hk); color: var(--muted); }
+      #loss { position: absolute; right: 26px; top: 38px; height: 88px; padding: 0 26px; border-radius: 24px; background: #2b0f0b;
+        border: 3px solid var(--red); color: var(--red); font: 900 60px/82px var(--hk); letter-spacing: -0.03em; box-shadow: 0 16px 40px rgba(255, 77, 61, 0.25); }
+
+      /* Kilit ekranı */
+      .lock { position: absolute; inset: 0; background: radial-gradient(120% 70% at 50% 0%, #5a3216 0%, #24160c 50%, #0b0806 100%); }
+      .lk-date { position: absolute; top: 120px; width: 100%; text-align: center; font: 700 32px var(--hk); color: rgba(243, 237, 227, 0.85); }
+      .lk-time { position: absolute; top: 154px; width: 100%; text-align: center; font: 800 190px var(--hk); letter-spacing: -0.04em; color: rgba(243, 237, 227, 0.95); }
+      .notif { position: absolute; left: 26px; right: 26px; border-radius: 40px; padding: 24px 26px 26px 120px; background: rgba(44, 40, 36, 0.94); color: #f2f2f2; font-family: Inter, sans-serif; }
+      .notif .ic { position: absolute; left: 24px; top: 26px; width: 74px; height: 74px; border-radius: 18px; background: var(--wa); }
+      .notif .ic svg { position: absolute; left: 15px; top: 15px; }
+      .notif .who { font: 700 28px Inter, sans-serif; }
+      .notif .when { position: absolute; right: 26px; top: 26px; font: 400 22px Inter, sans-serif; color: rgba(242, 242, 242, 0.55); }
+      .notif .txt { font: 400 26px/1.32 Inter, sans-serif; color: rgba(242, 242, 242, 0.92); margin-top: 6px; }
+      #pill { position: absolute; left: 0; width: 1080px; text-align: center; }
+      #pill span { display: inline-block; background: rgba(255, 90, 31, 0.14); border: 2px solid rgba(255, 90, 31, 0.6); color: var(--or); font: 900 28px var(--hk); letter-spacing: 0.14em; padding: 14px 28px; border-radius: 40px; }
+
+      /* Gerçek kilit ekranındaki bildirim (iOS görünümü, gerçek görüntü pikselleriyle) */
+      .rn { position: absolute; left: 32px; width: 857px; border-radius: 50px; padding: 26px 30px 30px 134px; background: rgba(44, 44, 46, 0.88);
+        box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.08); font-family: Inter, sans-serif; color: #fff; }
+      .rn .ic { position: absolute; left: 30px; top: 30px; width: 84px; height: 84px; border-radius: 21px; background: var(--wa); }
+      .rn .ic svg { position: absolute; left: 17px; top: 17px; }
+      .rn .who { font: 600 31px Inter, sans-serif; }
+      .rn .when { position: absolute; right: 32px; top: 30px; font: 400 26px Inter, sans-serif; color: rgba(255, 255, 255, 0.55); }
+      .rn .txt { font: 400 29px/1.32 Inter, sans-serif; color: rgba(255, 255, 255, 0.92); margin-top: 4px; }
+
+      /* TimeFlow kartı */
+      #tfcard { position: absolute; left: 100px; top: 1000px; width: 880px; height: 236px; border-radius: 46px; background: #f3ede3; color: var(--dark); padding: 34px 40px; box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6); }
+      #tfcard .st { position: absolute; left: 40px; top: 34px; font: 900 26px var(--hk); letter-spacing: 0.14em; display: flex; align-items: center; gap: 12px; }
+      #tfcard .st::before { content: ""; width: 14px; height: 14px; border-radius: 50%; background: currentColor; }
+      #tfcard .nm { position: absolute; left: 40px; top: 84px; font: 800 52px var(--hk); letter-spacing: -0.02em; }
+      #tfcard .sv { position: absolute; left: 40px; top: 152px; font: 500 30px var(--hk); color: #5c5248; }
+      .mini { position: absolute; right: 36px; top: 30px; display: flex; align-items: center; gap: 8px; font: 900 30px var(--hk); letter-spacing: -0.04em; color: var(--dark); }
+      .mini b { font: 800 15px/28px var(--hk); letter-spacing: 0; color: #fff; background: var(--or); border-radius: 14px; padding: 0 10px; }
+
+      /* Logo */
+      .logo { position: absolute; left: 0; width: 1080px; text-align: center; font: 900 76px var(--hk); letter-spacing: -0.05em; color: var(--ink); }
+      .logo b { display: inline-block; vertical-align: 10px; margin-left: 12px; font: 800 24px/38px var(--hk); letter-spacing: -0.01em; color: #fff; background: var(--or); border-radius: 19px; padding: 0 16px; }
+
+      /* Teklif */
+      #cta { position: absolute; left: 150px; top: 952px; width: 780px; height: 144px; border-radius: 72px; background: var(--wa); color: #0b141a;
+        font: 800 58px/144px var(--hk); letter-spacing: -0.02em; text-align: center; box-shadow: 0 24px 60px rgba(37, 211, 102, 0.25); }
+      #cta svg { display: inline-block; vertical-align: -10px; margin-right: 18px; }
+      .fine { position: absolute; left: 0; width: 1080px; text-align: center; }
+
+      /* ── A3'e özel ── */
+      .lk2 { display: inline-flex; align-items: flex-end; font: 900 120px var(--hk); letter-spacing: -0.045em; line-height: 0.8; color: #f3ece0; }
+      .lk2 .pl { display: inline-flex; align-items: center; justify-content: center; width: 136px; height: 46px; margin-left: 6px; margin-bottom: 2px;
+        background: #ff5a1f; border-radius: 23px; transform-origin: 0% 100%; }
+      .lk2 .pl span { font: 800 24px var(--hk); letter-spacing: -0.01em; color: #0e0e0e; }
+      .sub { position: absolute; left: 60px; width: 960px; text-align: center; font: 600 46px var(--hk); color: var(--muted); letter-spacing: -0.01em; }
+      #track { position: absolute; left: 110px; top: 500px; width: 6px; height: 700px; border-radius: 3px; background: rgba(243, 237, 227, 0.12); }
+      #trackfill { position: absolute; left: 110px; top: 500px; width: 6px; height: 700px; border-radius: 3px; background: var(--or); transform-origin: 50% 0; }
+      .node { position: absolute; left: 99px; width: 28px; height: 28px; border-radius: 50%; background: #0e0a06; border: 5px solid var(--or); }
+      .nl { position: absolute; left: 170px; font: 900 29px var(--hk); letter-spacing: 0.16em; color: var(--or); }
+      .nb { position: absolute; left: 170px; max-width: 860px; padding: 20px 30px 24px; border-radius: 30px; background: #242625; color: #ededed;
+        font: 400 37px/1.3 Inter, sans-serif; }
+      .nb b { font-weight: 700; }
+      .card { position: absolute; left: 70px; width: 940px; border-radius: 44px; background: #17120c; box-shadow: inset 0 0 0 2px rgba(243, 237, 227, 0.1), 0 30px 70px rgba(0, 0, 0, 0.45); }
+      .card .who { position: absolute; left: 44px; top: 36px; font: 900 24px var(--hk); letter-spacing: 0.16em; color: var(--dim); }
+      .card .ob { position: absolute; right: 40px; top: 28px; padding: 16px 26px 18px; border-radius: 26px; background: #134d37; color: #ededed; font: 400 34px Inter, sans-serif; }
+      .card .ob .tick { color: #53bdeb; font-weight: 700; font-size: 24px; margin-left: 8px; }
+      .card .res { position: absolute; left: 44px; font: 900 56px var(--hk); letter-spacing: -0.02em; }
+      .card .rs2 { position: absolute; left: 44px; font: 600 34px var(--hk); color: var(--muted); }
+      .card .ar { position: absolute; left: 44px; font: 800 44px var(--hk); color: var(--dim); }
+
+      /* ── D1 v2'ye özel ── */
+      #slot0 { position: absolute; left: 0; top: 430px; width: 1080px; height: 130px; overflow: hidden; }
+      #roll { position: absolute; left: 0; top: 0; width: 1080px; }
+      #roll div { height: 130px; text-align: center; font: 900 98px/130px var(--hk); letter-spacing: -0.035em; color: var(--or); }
+      .mp { position: absolute; width: 380px; height: 820px; border-radius: 58px; background: #1c1813; padding: 9px;
+        box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6), inset 0 0 0 2px rgba(243, 237, 227, 0.14); transform-origin: 50% 100%; }
+      .mp img { width: 100%; height: 100%; object-fit: cover; object-position: top; border-radius: 50px; display: block; }
+      .lk3 { display: inline-flex; align-items: flex-end; font: 900 150px var(--hk); letter-spacing: -0.045em; line-height: 0.8; color: #f3ece0; }
+      .lk3 .pl { display: inline-flex; align-items: center; justify-content: center; width: 169px; height: 57px; margin-left: 7px; margin-bottom: 2px;
+        background: #ff5a1f; border-radius: 28.5px; transform-origin: 0% 100%; }
+      .lk3 .pl span { font: 800 30px var(--hk); letter-spacing: -0.01em; color: #0e0e0e; }
+      .sw { position: absolute; left: 60px; width: 960px; text-align: center; font: 900 100px var(--hk); letter-spacing: -0.035em; line-height: 1.0; color: var(--ink); }
+      .sc { position: absolute; inset: 0; overflow: hidden; background: #0a0a0a; }
+      .sc > img { width: 100%; display: block; }
+      #mon { position: absolute; left: 40px; top: 520px; width: 840px; height: 588px; border-radius: 28px; border: 14px solid #1c1813; overflow: hidden;
+        background: #f3ede3; box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6); }
+      #mon img { width: 100%; height: 100%; object-fit: cover; object-position: left top; display: block; }
+      #stand { position: absolute; left: 380px; top: 1108px; width: 160px; height: 70px; background: linear-gradient(#1c1813, #120e0a);
+        clip-path: polygon(22% 0, 78% 0, 100% 100%, 0 100%); }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="19.4" data-width="1080" data-height="1920" data-motion-blur="on">
+      <div id="light"></div>
+
+      <!-- 0–5.1 · Kime: Ankara'daki ... (slot) -->
+      <div id="k0" class="scene clip" data-start="0" data-duration="5.15" data-track-index="0">
+        <div id="k0w" class="scene">
+          <div id="fan" class="abs" style="left:0;top:0;width:1080px;height:1920px">
+            <div id="mp1" class="mp" style="left:110px;top:700px"><img src="assets/img/mudur-03-takvim.webp" alt="" /></div>
+            <div id="mp3" class="mp" style="left:590px;top:700px"><img src="assets/img/mudur-06-kasa.webp" alt="" /></div>
+            <div id="mp2" class="mp" style="left:350px;top:640px"><img src="assets/img/mudur-akis.webp" alt="" /></div>
+          </div>
+          <div class="title" style="top:296px;font-size:120px"><span id="h1" class="w">Ankara'daki</span></div>
+          <div id="slot0"><div id="roll"><div>güzellik salonları</div><div>nail barlar</div><div>epilasyon merkezleri</div><div>kuaförler</div></div></div>
+        </div>
+      </div>
+
+      <!-- 5.0–9.3 · Teklif -->
+      <div id="k1" class="scene clip" data-start="5.0" data-duration="4.3" data-track-index="1">
+        <div id="k1w" class="scene">
+          <div class="abs" style="left:0;top:500px;width:1080px;display:flex;justify-content:center">
+            <span id="lu3" class="lk3"><span id="lw3">luera</span><span id="pl3" class="pl"><span id="plt3">timeflow</span></span></span>
+          </div>
+          <div class="title" style="top:700px;font-size:140px"><span id="o1" class="w">7 gün ücretsiz</span></div>
+          <div class="title" style="top:890px;font-size:92px;font-weight:800"><span id="o2" class="w">İlk 2 ay <span style="color:var(--or);font-weight:900">%50 indirim</span></span></div>
+          <div id="o3" class="sub" style="top:1030px">399,50 TL'den başlayan paketler</div>
+        </div>
+      </div>
+
+      <!-- 9.2–15.6 · Ne var + Kurulum -->
+      <div id="k2" class="scene clip" data-start="9.2" data-duration="6.45" data-track-index="2">
+        <div id="k2w" class="scene">
+          <div id="w1" class="sw" style="top:300px">Randevu</div>
+          <div id="w2" class="sw" style="top:300px;font-size:92px">WhatsApp <span style="color:var(--or)">hatırlatma</span></div>
+          <div id="w3" class="sw" style="top:300px">Paket takibi</div>
+          <div id="w4" class="sw" style="top:300px">Kasa</div>
+          <div id="w5" class="sw" style="top:286px">Tek <span style="color:var(--or)">uygulamada.</span></div>
+          <div id="w5s" class="sub" style="top:404px">Telefonda da, bilgisayarda da.</div>
+          <div id="w6" class="sw" style="top:280px;font-size:92px;line-height:1.02">Kurulumu<br /><span style="color:var(--or)">birlikte</span> yapıyoruz.</div>
+          <div id="stand"></div>
+          <div id="mon"><img src="assets/img/masaustu-gun-plani.png" alt="" /></div>
+          <div id="ph" class="phone" style="top:470px;transform-origin:50% 0">
+            <div class="screen">
+              <div id="sc1" class="sc"><img src="assets/img/mudur-03-takvim.webp" alt="" /></div>
+              <div id="sc2" class="sc">
+                <div class="wa-head"><div class="wa-back">‹</div><div class="wa-av">S</div><div class="wa-name">Sizin Salonunuz</div><div class="wa-sub">işletme hattı · sizin numaranız</div></div>
+                <div class="wa-body"><div class="msgs">
+                  <div class="chip">Dün</div>
+                  <div class="lbl">OTOMATİK · 1 GÜN ÖNCE</div>
+                  <div id="wb" class="b in">Merhaba Ayşe Hanım ✨<br /><b>Sizin Salonunuz</b> olarak randevunuzu hatırlatmak istedik.<br /><br /><b>Yarın, 10:30</b> · cilt bakımı<br /><br />Gelebilecek misiniz? <b>Evet</b> ya da <b>Hayır</b> yazmanız yeterli.<span class="tm">10:30</span></div>
+                  <div id="wo" class="b out">Evet ✓<span class="tm">10:41 <span class="tick">✓✓</span></span></div>
+                </div></div>
+              </div>
+              <div id="sc3" class="sc" style="background:#14100c"><div id="pk" class="abs" style="inset:0;transform-origin:50% 30%"><img src="assets/img/mudur-akis.webp" alt="" style="position:absolute;left:-92px;top:0;width:796px;transform:translateY(-937px)" /></div><div class="abs" style="left:0;top:0;width:100%;height:150px;background:linear-gradient(#14100c 62%, rgba(20,16,12,0))"></div></div>
+              <div id="sc4" class="sc"><img src="assets/img/mudur-06-kasa.webp" alt="" /></div>
+              <div class="island"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 15.6–19.4 · Çağrı -->
+      <div id="s5" class="scene clip" data-start="15.6" data-duration="3.8" data-track-index="3">
+        <div id="ph5" class="phone" style="top:1290px;transform-origin:50% 0"><div class="screen"><img src="assets/img/akis.png" alt="" style="width:100%;display:block" /><div class="island"></div></div></div>
+        <div id="ph5fade" class="abs" style="left:0;top:1260px;width:1080px;height:260px;background:linear-gradient(#0e0a06,rgba(14,10,6,0))"></div>
+        <div id="lg" class="logo" style="top:282px">luera<b>timeflow</b></div>
+        <div id="t5k" class="kicker" style="top:404px;color:var(--or)">ANKARA'YA ÖZEL</div>
+        <div class="title" style="top:452px;font-size:170px;line-height:0.92"><span id="t5a" class="w">7 gün</span><br /><span id="t5b" class="w">ücretsiz</span></div>
+        <div class="title" style="top:784px;font-size:76px;font-weight:800"><span id="t5c" class="w">İlk 2 ay <span style="color:var(--or);font-weight:900">%50 indirim</span></span></div>
+        <div id="t5d" class="fine" style="top:884px;font:600 34px var(--hk);color:var(--muted)">Güzellik salonu · Nail bar · Epilasyon · Kuaför</div>
+        <div id="cta"><svg width="58" height="58" viewBox="0 0 24 24"><path fill="#0b141a" d="M12 3C6.9 3 3 6.6 3 11c0 1.9.7 3.6 1.9 5L4 20.5l4.7-1.6c1 .4 2.1.6 3.3.6 5.1 0 9-3.6 9-8S17.1 3 12 3z"/></svg>WhatsApp'tan yazın</div>
+        <div id="t5e" class="fine" style="top:1120px;font:600 30px/1.4 var(--hk);color:var(--muted)">Aylık paketlerde · 31 Aralık 2026'ya kadar<br />Kurulumu birlikte yapıyoruz</div>
+      </div>
+
+      <div id="grain"></div>
+
+      <audio id="vo" class="clip" src="assets/audio/vo-c.mp3" data-start="0.25" data-track-index="10" data-volume="1"></audio>
+      <audio id="fx-t1" class="clip" src="assets/sfx/tick.ogg" data-start="2.42" data-duration="0.02" data-track-index="11" data-volume="0.5"></audio>
+      <audio id="fx-t2" class="clip" src="assets/sfx/tick.ogg" data-start="3.62" data-duration="0.02" data-track-index="11" data-volume="0.5"></audio>
+      <audio id="fx-t3" class="clip" src="assets/sfx/tick.ogg" data-start="4.57" data-duration="0.02" data-track-index="11" data-volume="0.5"></audio>
+      <audio id="fx-wh1" class="clip" src="assets/sfx/whoosh.ogg" data-start="4.88" data-duration="0.43" data-track-index="12" data-volume="0.45"></audio>
+      <audio id="fx-pop1" class="clip" src="assets/sfx/pop.ogg" data-start="5.32" data-duration="0.1" data-track-index="11" data-volume="0.5"></audio>
+      <audio id="fx-imp" class="clip" src="assets/sfx/impact.ogg" data-start="6.01" data-duration="0.28" data-track-index="11" data-volume="0.55"></audio>
+      <audio id="fx-pop2" class="clip" src="assets/sfx/pop.ogg" data-start="7.72" data-duration="0.1" data-track-index="11" data-volume="0.45"></audio>
+      <audio id="fx-wh2" class="clip" src="assets/sfx/whoosh2.ogg" data-start="9.1" data-duration="0.31" data-track-index="12" data-volume="0.45"></audio>
+      <audio id="fx-wh3" class="clip" src="assets/sfx/whoosh.ogg" data-start="10.16" data-duration="0.43" data-track-index="12" data-volume="0.35"></audio>
+      <audio id="fx-pop3" class="clip" src="assets/sfx/pop.ogg" data-start="10.62" data-duration="0.1" data-track-index="11" data-volume="0.4"></audio>
+      <audio id="fx-wh4" class="clip" src="assets/sfx/whoosh2.ogg" data-start="11.42" data-duration="0.31" data-track-index="12" data-volume="0.35"></audio>
+      <audio id="fx-wh5" class="clip" src="assets/sfx/whoosh.ogg" data-start="12.32" data-duration="0.43" data-track-index="12" data-volume="0.35"></audio>
+      <audio id="fx-wh6" class="clip" src="assets/sfx/whoosh3.ogg" data-start="12.84" data-duration="0.56" data-track-index="13" data-volume="0.45"></audio>
+      <audio id="fx-wh7" class="clip" src="assets/sfx/whoosh.ogg" data-start="15.5" data-duration="0.43" data-track-index="12" data-volume="0.4"></audio>
+      <audio id="fx-pop4" class="clip" src="assets/sfx/pop.ogg" data-start="16.37" data-duration="0.1" data-track-index="11" data-volume="0.45"></audio>
+      <audio id="fx-click" class="clip" src="assets/sfx/click.ogg" data-start="17.23" data-duration="0.09" data-track-index="11" data-volume="0.6"></audio>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      const IN = (sel, at, o = {}) => tl.fromTo(sel, { opacity: 0, filter: "blur(10px)", ...(o.from || {}) },
+        { opacity: 1, filter: "blur(0px)", duration: o.d || 0.16, ease: o.ease || "power2.out", ...(o.to || {}) }, at);
+      const OUT = (sel, at, d = 0.14) => tl.to(sel, { opacity: 0, filter: "blur(8px)", duration: d, ease: "power2.in" }, at);
+
+      // 0 · Kime — kare 0'da başlık + ilk kelime + gerçek ekranlar
+      tl.set(["#h1"], { opacity: 1 }, 0);
+      tl.fromTo("#mp1", { rotation: -6, y: 40 }, { rotation: -11, y: 0, duration: 4.8, ease: "power1.out" }, 0);
+      tl.fromTo("#mp3", { rotation: 6, y: 40 }, { rotation: 11, y: 0, duration: 4.8, ease: "power1.out" }, 0);
+      tl.fromTo("#mp2", { y: 30 }, { y: 0, duration: 4.8, ease: "power1.out" }, 0);
+      tl.set("#roll > div:nth-child(n+2)", { opacity: 0 }, 0);
+      [[2.4, 1], [3.6, 2], [4.55, 3]].forEach(([t, i]) => {
+        tl.set(`#roll > div:nth-child(${i + 1})`, { opacity: 1 }, t - 0.02);
+        tl.to("#roll", { y: -130 * i, duration: 0.22, ease: "power3.out" }, t);
+      });
+      tl.to("#k0w", { y: -240, opacity: 0, filter: "blur(14px)", duration: 0.3, ease: "power3.in" }, 4.88);
+
+      // 1 · Teklif — logo animasyonu + 7 gün ücretsiz + %50
+      tl.set("#lu3", { x: 84 }, 0);
+      tl.set("#pl3", { clipPath: "inset(0px 112px 0px 0px round 28.5px)", scale: 0.16, opacity: 0 }, 0);
+      tl.set("#plt3", { opacity: 0 }, 0);
+      tl.fromTo("#lw3", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 5.05);
+      tl.to("#pl3", { opacity: 1, scale: 0.55, duration: 0.26, ease: "back.out(2.6)" }, 5.3);
+      tl.to("#pl3", { scale: 1, clipPath: "inset(0px 0px 0px 0px round 28.5px)", duration: 0.36, ease: "power3.inOut" }, 5.56);
+      tl.to("#lu3", { x: 0, duration: 0.36, ease: "power3.inOut" }, 5.56);
+      tl.to("#plt3", { opacity: 1, duration: 0.18 }, 5.8);
+      tl.fromTo("#o1", { opacity: 0, scale: 1.35, filter: "blur(14px)" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.28, ease: "expo.out" }, 6.02);
+      IN("#o2", 7.72, { d: 0.2 });
+      IN("#o3", 7.95, { d: 0.22 });
+      tl.to("#k1w", { y: -240, opacity: 0, filter: "blur(14px)", duration: 0.3, ease: "power3.in" }, 9.08);
+
+      // 2 · Ne var — her kelimede ekran kayar
+      tl.set(["#w2", "#w3", "#w4", "#w5", "#w5s", "#w6"], { opacity: 0 }, 0);
+      tl.set(["#mon", "#stand"], { x: -960, opacity: 0 }, 0);
+      tl.fromTo("#ph", { y: 640, opacity: 0, filter: "blur(14px)" }, { y: 0, opacity: 1, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, 9.22);
+      IN("#w1", 9.45, { d: 0.18 });
+      const swipe = (sel, at) => tl.fromTo(sel, { x: 640 }, { x: 0, duration: 0.32, ease: "power3.out" }, at);
+      tl.set(["#sc2", "#sc3", "#sc4"], { x: 640 }, 0);
+      OUT("#w1", 10.12); IN("#w2", 10.24, { d: 0.18 }); swipe("#sc2", 10.18);
+      tl.fromTo("#wo", { opacity: 0, y: 20, scale: 0.92 }, { opacity: 1, y: 0, scale: 1, duration: 0.3, ease: "expo.out" }, 10.62);
+      OUT("#w2", 11.38); IN("#w3", 11.5, { d: 0.18 }); swipe("#sc3", 11.44);
+      tl.fromTo("#pk", { scale: 1 }, { scale: 1.06, duration: 0.9, ease: "power1.out" }, 11.5);
+      OUT("#w3", 12.28); IN("#w4", 12.4, { d: 0.18 }); swipe("#sc4", 12.34);
+      // tek uygulamada: telefon küçülüp sağa, bilgisayar soldan
+      OUT("#w4", 12.78); IN("#w5", 12.9, { d: 0.2 });
+      tl.to("#ph", { scale: 0.62, x: 250, y: 190, duration: 0.6, ease: "power3.inOut" }, 12.86);
+      tl.to(["#mon", "#stand"], { x: 0, opacity: 1, duration: 0.6, ease: "expo.out" }, 12.92);
+      IN("#w5s", 13.08, { d: 0.22 });
+      // Kurulum
+      OUT(["#w5", "#w5s"], 14.16); IN("#w6", 14.3, { d: 0.22 });
+      tl.to("#k2w", { y: 220, opacity: 0, filter: "blur(14px)", duration: 0.3, ease: "power3.in" }, 15.45);
+
+      // 3 · Çağrı
+      tl.fromTo("#ph5", { y: 700, rotation: 4 }, { y: 0, rotation: -3, duration: 0.9, ease: "expo.out" }, 15.7);
+      tl.fromTo("#lg", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: "expo.out" }, 15.62);
+      IN("#t5k", 15.72, { d: 0.2 });
+      tl.fromTo("#t5a", { opacity: 0, scale: 1.3, filter: "blur(12px)" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.26, ease: "expo.out" }, 15.82);
+      tl.fromTo("#t5b", { opacity: 0, scale: 1.3, filter: "blur(12px)" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.26, ease: "expo.out" }, 15.95);
+      IN("#t5c", 16.15, { d: 0.2 });
+      tl.fromTo("#cta", { opacity: 0, scale: 0.7, y: 40 }, { opacity: 1, scale: 1, y: 0, duration: 0.5, ease: "back.out(1.7)" }, 16.35);
+      IN("#t5d", 16.5, { d: 0.2 });
+      IN("#t5e", 16.7, { d: 0.25 });
+      tl.to("#cta", { scale: 0.95, duration: 0.08, ease: "power2.out" }, 17.2).to("#cta", { scale: 1, duration: 0.25, ease: "back.out(2)" }, 17.28);
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
