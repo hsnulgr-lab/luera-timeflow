@@ -16,6 +16,7 @@ Videolar (`*.mp4`) git'e girmez (büyük); üreticiyle aynı hâlleriyle yeniden
 |---|---|---|---|---|
 | **A1** | Gelmeyen müşteri | Video 9:16 · 21 sn | ✅ hazır | 0 |
 | **A1 v2** | Gelmeyen müşteri · **profesyonel sürüm** | Video 9:16 · 22,8 sn | ✅ hazır | 0 |
+| **A3** | "Bu mesajı siz yazmadınız" · **sessiz**, A1'in alternatifi | Video 9:16 · 20,5 sn | ✅ hazır | 0 |
 | **B1** | Defter karmaşası | Video 9:16 · 17 sn | ✅ hazır | 0 |
 | **D1** | Teklif | Video 9:16 · 18 sn | ✅ hazır | 0 |
 | **G1** | Gelmeyen müşteri | Görsel 4:5 | ✅ hazır | 0 |
@@ -106,3 +107,17 @@ Sahne belgesi `video/a1-v2/SPEC.md`. Çıktı `kreatif/A1v2-gelmeyen-musteri.mp4
   Seslendirme: 13 Kasım ElevenLabs kaydı. **Müzik yok — kullanıcı kararı (2026-11-20).**
 - Yeniden üretmek: `cd video/a1-v2 && HYPERFRAMES_NO_TELEMETRY=1 npx hyperframes@0.9.70 render -q delivery -o ../../kreatif/A1v2-gelmeyen-musteri.mp4`
   (FFmpeg gerekir; Homebrew ile kuruldu).
+
+## A3 · "Bu mesajı siz yazmadınız" (2026-11-20)
+
+`video/a3/` · sahne belgesi `video/a3/SPEC.md` · çıktı `kreatif/A3-bu-mesaji-siz-yazmadiniz.mp4`.
+
+- **Seslendirme ve müzik yok**; sessiz izleyen yalnız yazıyla anlar. Kısık efekt sesleri (CC0), −18 LUFS.
+- A1 v2 **kayıpla** açar (gelmedi, −₺1.200); A3 **merakla ve süreçle** açar. İkisi aynı reklam setinde A/B testi:
+  hangisi daha ucuza WhatsApp konuşması getiriyor, ilk 72 saatte okunur.
+- Akış: kilit ekranında bildirim + "Bu mesajı siz yazmadınız." → logo animasyonu + "yazdı. Sizin WhatsApp numaranızdan."
+  → üç duraklı yol (randevu alınınca · 1 gün önce Evet/Hayır · 2 saat önce) "Siz işinize bakın."
+  → Evet: "Gelirim dedi · koltuk dolu" / Hayır: "Saat boşalır · bekleme listesindekine teklif gider"
+  → gerçek müdür Akış ekranı "Bütün gün tek ekranda." → teklif.
+- Gerçek görüntüler: kilit ekranı ve Akış ekranı kullanıcının iPhone'undan.
+- WhatsApp ön metin kodu: **A3**.
