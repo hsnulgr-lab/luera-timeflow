@@ -178,10 +178,10 @@ Reklam Yöneticisi → **Sütunlar: Özelleştir** → şunları seç ve "Ankara
 **Gün 0–3 (20–23 Kasım): dokunma.** Bütçe, kitle, metin değişirse Meta'nın öğrenmesi sıfırlanır.
 Tek istisna: reklam reddedilirse ya da 24 saatte **0 gösterim** varsa → bana yaz.
 
-Meta bir gün bütçenin %75'ine kadar fazlasını harcayabilir (225 TL). Haftalık ortalama yine
-150 TL/gün olur, bu normal.
+Meta bir gün bütçenin %75'ine kadar fazlasını harcayabilir (≈ 220 TL). Haftalık ortalama yine
+125 TL/gün olur, bu normal. Hesap harcama sınırı 380 TL olduğu için toplam bunu aşamaz.
 
-**3. günün sonunda (≈ 450 TL harcanmışken)** konuşma başına maliyete göre:
+**3. günün sonunda (≈ 375 TL harcanmışken)** konuşma başına maliyete göre:
 
 | Konuşma başına maliyet | Ne yaparız |
 |---|---|
@@ -193,7 +193,17 @@ Meta bir gün bütçenin %75'ine kadar fazlasını harcayabilir (225 TL). Haftal
 - Gelenlerin **%30'undan azı gerçekten salon sahibiyse** (öğrenci, müşteri, iş arayan…) → metne
   "Salon sahipleri için" eklenir, yaş önerisi 27+ yapılır.
 - **5 konuşmadan en az 1'i deneme başlatıyorsa** ve maliyet ≤ 60 TL ise → **büyüt**: her 3 günde
-  bütçe **+%20** (150 → 180 → 215…). Tek seferde iki katına **çıkarma**.
+  bütçe **+%20** (125 → 150 → 180…). Tek seferde iki katına **çıkarma**.
+
+### Günlük rakamlar (Reklam Yöneticisi, "Bugün")
+
+| Gün | Saat | Harcama | Gösterim | Erişim | Konuşma | TL/konuşma | 3 sn ÷ gösterim | %100 izleyen | Yerleşim |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 · 20 Kas (17:07'den) | 21:01 | 42,99 TL | 208 | 181 | 1 (Kod: A1) | 42,99 | %20 (42) | 7 | IG Reels 108 · IG akış 65 · IG hikâye 28 · FB 7 |
+
+Gün 0 notu: tek konuşma istatistik değil; karar 3. günün sonunda. Kanca %20, eşik %25'in altında:
+izleyenlerin çoğu ilk 3 saniyede geçiyor, 25'ten sonra kalan izleyici iyi tutuyor (26 → 7 sona kadar).
+3. günde kanca hâlâ %20 civarındaysa A3 (daha sert açılış) eklenirken bu da gerekçe olur.
 
 **Hafta 3+:** Ankara'da 3 ödeyen salon olursa Türkiye geneli: ayrı kampanya, `utm_campaign=tr-genel`,
 kupon `ILK50` (Dodo'da ayrıca oluşturulur).
