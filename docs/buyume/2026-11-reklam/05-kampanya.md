@@ -16,8 +16,14 @@ görüntüsünü at, yerini söylerim.
 
 **Ne:** Reklam hesabının toplamda harcayabileceği en yüksek tutar.
 **Neden:** Bütçeyi yanlışlıkla 1.500 yazmak gibi bir hata olursa para buna takılır ve durur.
-**Nasıl:** Faturalama ve ödemeler → **Ödeme ayarları** → **Hesap harcama limiti** → `5000` TL.
-**Ne görmelisin:** "Hesap harcama limiti: ₺5.000".
+**Nasıl:** Faturalama ve ödemeler → **Ödeme ayarları** → **Hesap harcama limiti** → `380` TL (3 günlük deneme,
+kartta 500 TL var). Devam kararında karta para yüklenir ve limit yükseltilir.
+**Ne görmelisin:** "Hesap harcama limiti: ₺380".
+
+**Vergi (2026-11-20, kart eklerken görüldü):** KDV numarası girilmezse Meta faturaya **KDV** ekler
+(ekranda yazıyor: "KDV numarası geçersiz veya eksikse senden KDV alınacaktır"). Üstüne **%5 konum
+ücreti**. Karttan çıkan ≈ reklam harcaması × **~1,26**. 380 TL limit → en çok ~480 TL. Şirket kurulunca
+KDV numarası Faturalama → İşletme ve vergi bilgileri'ne girilir (muhasebeciye sorulacak).
 
 ---
 
@@ -49,7 +55,7 @@ Bu ekranda bir "kurulum" seçimi sorulursa (**Manuel** ya da **Advantage+**) →
 | WhatsApp numarası | yeni hat (sayfaya bağladığın) |
 | **Performans hedefi** | **Konuşma sayısını en üst düzeye çıkar** |
 | Maliyet hedefi | **boş** (Meta en düşük maliyete göre gider) |
-| **Bütçe** | **Günlük bütçe · 150,00 TL** |
+| **Bütçe** | **Günlük bütçe · 125,00 TL** (3 günlük deneme; devamda 150 TL) |
 | Başlangıç | bugün, şimdiki saat |
 | Bitiş | **yok** |
 | Reklam zamanlaması | tüm gün (açık bırak) |
