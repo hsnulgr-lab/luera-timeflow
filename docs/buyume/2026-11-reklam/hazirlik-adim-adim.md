@@ -3,6 +3,11 @@
 **Tarih:** 2026-11-19 · Aşama 3 · Sıra önemli: 1 → 9.
 Her adım: **ne · neden · nasıl · ne görmelisin · bana ne söyle.**
 
+> **Durum 2026-11-20 (reklam günü):** ✅ 0 · yeni hat + WhatsApp Business kurulu (hat SMS almıyor; sorun değil,
+> Facebook'a bağlarken onay kodu WhatsApp'ın içine gelir). Bugünün sırası: 3 → 4 → 6 → 5 → 7 → reklam
+> (`05-kampanya.md`) → 2 + 1 (kupon; **ilk satın alma bağlantısından önce** şart, reklamı bekletmez).
+> 8 (Higgsfield) bugün gerekmez. Konuşma metinleri: `04-haftalik.md`.
+
 | # | İş | Kim | Süre |
 |---|---|---|---|
 | 0 | WhatsApp numarası kararı | **Sen karar ver** | — |
@@ -135,6 +140,7 @@ ekler (dijital hizmet vergisi); faturaları sakla.
 **Nasıl:**
 1. Uygulamayı kur, işletme adı **"TimeFlow · Salon Randevu Programı"**, kategori **Yazılım**.
 2. **Araçlar → Facebook ve Instagram** → giriş → "TimeFlow by Luera" sayfası → **WhatsApp'ı bağla**.
+   Onay kodu **WhatsApp'ın içine mesaj olarak** gelir; "SMS ile gönder" seçeneği çıkarsa WhatsApp olanı seç.
 3. **İşletme profili:**
    - Açıklama: `Güzellik salonu, nail bar, epilasyon ve kuaförler için randevu programı. Hatırlatmalar sizin WhatsApp numaranızdan gider.`
    - Web sitesi: `https://lueratech.com/?utm_source=whatsapp&utm_medium=profil&utm_campaign=ankara-test`
@@ -144,7 +150,7 @@ ekler (dijital hizmet vergisi); faturaları sakla.
 5. **Uzakta mesajı** (21:00–09:00):
    > Şu an salonlar kapalı, biz de :) Sabah 09:00'dan sonra ilk iş size döneceğim.
 6. **Hızlı yanıtlar** (Araçlar → Hızlı yanıtlar): `/fiyat`, `/kurulum`, `/android`, `/bağlantı`,
-   `/veri` — metinleri `04-haftalik.md` §2'de (aşama 6'da yazılacak).
+   `/veri` — metinleri `04-haftalik.md` §3'te.
 7. **Etiketler** (sohbete basılı tut → Etiketle): `1-Yeni`, `2-Gösterim`, `3-Deneme`, `4-Ödedi`,
    `5-Kayıp`. Huni bu etiketlerden sayılır.
 **Ne görmelisin:** Facebook sayfasında "WhatsApp: bağlı"; kendine başka telefondan yazınca karşılama mesajı.
