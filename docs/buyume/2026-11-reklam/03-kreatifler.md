@@ -16,7 +16,7 @@ Videolar (`*.mp4`) git'e girmez (büyük); üreticiyle aynı hâlleriyle yeniden
 |---|---|---|---|---|
 | **A1** | Gelmeyen müşteri | Video 9:16 · 21 sn | ✅ hazır | 0 |
 | **A1 v2** | Gelmeyen müşteri · **profesyonel sürüm** | Video 9:16 · 22,8 sn | ✅ hazır | 0 |
-| **A3** | "Bu mesajı siz yazmadınız" · **sessiz**, A1'in alternatifi | Video 9:16 · 20,5 sn | ✅ hazır | 0 |
+| **A3** | "Bu mesajı siz yazmadınız" · **sessiz**, A1'in alternatifi | Video 9:16 · 20,5 sn | ✅ onaylı (2026-11-20) | 0 |
 | **B1** | Defter karmaşası | Video 9:16 · 17 sn | ✅ hazır | 0 |
 | **D1** | Teklif | Video 9:16 · 18 sn | ✅ hazır | 0 |
 | **G1** | Gelmeyen müşteri | Görsel 4:5 | ✅ hazır | 0 |
@@ -90,7 +90,7 @@ Model: Seedance 2.5 · 9:16 · 720p · 5 sn · sessiz → **35 kredi/sahne** (fi
 Her üretimden önce kesin kredi tutarını sorup onayını alacağım.
 
 ## Yayın sırası önerisi (Ankara testi, hafta 1)
-Aynı reklam setinde **A1, B1, D1, G1, G3, K1** (6 kreatif) → 72 saat sonra konuşma başı maliyete
+Aynı reklam setinde **A1 v2, A3, D1, G1, G3, K1** (6 kreatif; A1 v2 ile A3 aynı açının iki kancası, A/B) → 72 saat sonra konuşma başı maliyete
 göre en kötü 2'si kapanır, yerine A2 / G2 girer. (Kurallar: `05-kampanya.md`, aşama 5.)
 
 ## A1 v2 · HyperFrames ile profesyonel sürüm (2026-11-20)
