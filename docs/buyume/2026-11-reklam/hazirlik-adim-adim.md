@@ -191,7 +191,7 @@ ekler (dijital hizmet vergisi); faturaları sakla.
 **Uygulamada ziyaretçi ölçümü yok** (UTM'yi okuyan araç yok). Zincir şöyle kurulur:
 
 1. **Kreatife özel ön metin:** her reklamın "hazır mesajı" farklı bir harf taşır:
-   `Merhaba, TimeFlow hakkında bilgi almak istiyorum. (A1)` → WhatsApp'a gelen ilk mesajdan
+   `Merhaba, TimeFlow hakkında bilgi almak istiyorum. Kod: A1` → WhatsApp'a gelen ilk mesajdan
    hangi kreatif olduğu okunur. Kod listesi `03-kreatifler.md`'de.
 2. **WhatsApp etiketleri** (6. adım): konuşma → gösterim → deneme → ödeme.
 3. **Kupon:** Dodo'da hangi abonelik `ANKARA50` ile geldi; kodum artık ödeme kaydına

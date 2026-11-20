@@ -142,7 +142,7 @@ repodaki dosya boş şablon olarak kalır, dolu hâli git'e girmez.
 
 Bana şunları at:
 1. Reklam Yöneticisi satırı ("Ankara test" sütunlarıyla) → ekran görüntüsü.
-2. Bugün kaç WhatsApp konuşması geldi, kaçı `(A1)` (ya da başka kod) ile, kaçı gerçekten salon sahibi.
+2. Bugün kaç WhatsApp konuşması geldi, kaçı `Kod: A1` (ya da başka kod) ile, kaçı gerçekten salon sahibi.
 3. Takıldığın bir soru varsa o soru (adsız).
 
 Ben de karşılığında: bugünün maliyeti, kural tablosuna göre (`05-kampanya.md` §7) "dokunma / ekle / değiştir" kararı.

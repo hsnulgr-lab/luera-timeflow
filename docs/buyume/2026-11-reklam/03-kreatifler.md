@@ -46,7 +46,7 @@ Ana malzeme her yerde **gerçek uygulama ekranı** ve sistemin **gerçek WhatsAp
 
 WhatsApp **hazır ilk mesajı** her reklamda farklı koddur; gelen ilk mesajdan hangi kreatif
 olduğu okunur (`takip.csv` · `kreatif_kodu`). Hepsi:
-`Merhaba, TimeFlow hakkında bilgi almak istiyorum. (KOD)`
+`Merhaba, TimeFlow hakkında bilgi almak istiyorum. Kod: KOD`
 
 | Kod | Birincil metin (02 §7) | Başlık | Hazır sorular (en çok 3) |
 |---|---|---|---|

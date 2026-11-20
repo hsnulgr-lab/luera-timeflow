@@ -107,8 +107,13 @@ Ankara'ya özel: 7 gün ücretsiz + ilk 2 ay %50. Kurulumu birlikte yapıyoruz. 
 - Tür: **Önceden doldurulmuş mesaj**. "Sorular" türünü **seçme**: soru seçilirse kod kaybolur, hangi reklamdan geldiği okunamaz.
 - Mesaj:
 ```
-Merhaba, TimeFlow hakkında bilgi almak istiyorum. (A1)
+Merhaba, TimeFlow hakkında bilgi almak istiyorum. Kod: A1
 ```
+
+> **Kurulumda görülen (2026-11-20):** Meta parantezi siler, `(A1)` kaydedilmez → kod **`Kod: A1`** biçiminde.
+> Reklamın karşılama mesajı WhatsApp Business'taki karşılama mesajının yerine geçer (aynı metin girildi).
+> Facebook sayfa kimliğiyle gezinirken reklamdaki sayfa seçici kilitli kalır → kişisel profile geç; yine kilitliyse reklam setinde **yeni reklam** oluştur.
+> Yayından önce Meta **hesapla ilişkili doğrulanmış telefon numarası** ister (#3858013): Reklam Yöneticisi → "Telefon numarası ekle" (SMS kodu kullanıcıda).
 
 ### 3b · Kreatif iyileştirmeleri — HEPSİNİ KAPAT
 
@@ -122,7 +127,7 @@ yapay zekâ ile değiştirilmiş görsellere "Yapay zekâ bilgisi" etiketi koyar
 ### 3c · Takip
 
 **İzleme** bölümü: Web sitesi olayları **kapalı** kalır (sitede piksel yok). Ölçüm WhatsApp'taki
-`(A1)` kodu ve etiketlerle yapılır (`hazirlik-adim-adim.md` §9).
+`Kod: A1` ve etiketlerle yapılır (`hazirlik-adim-adim.md` §9).
 
 **Bana:** reklam ekranının görüntüsü + sağdaki **önizleme** (Instagram Reels görünümü).
 
@@ -137,7 +142,7 @@ yapay zekâ ile değiştirilmiş görsellere "Yapay zekâ bilgisi" etiketi koyar
 3. **WhatsApp Mesajı Gönder**'e bas → hangi WhatsApp'ın açıldığına bak. **Kişisel** WhatsApp'ın açılırsa
    orada gönderme, kapat: kişisel numaranla yeni hatta yazmak doğru denemedir, aşağıya bak.
 4. Gönder → **yeni hattın WhatsApp Business'ında** şu mesaj görünmeli:
-   `Merhaba, TimeFlow hakkında bilgi almak istiyorum. (A1)` + **karşılama mesajı** otomatik dönmeli.
+   `Merhaba, TimeFlow hakkında bilgi almak istiyorum. Kod: A1` + **karşılama mesajı** otomatik dönmeli.
 
 **Bana:** "önizleme tamam" + Business'a düşen mesajın görüntüsü (kendi kişisel numaranın göründüğü
 yeri karalayabilirsin).
