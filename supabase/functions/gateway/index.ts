@@ -29,120 +29,115 @@ Deno.serve(async (req: Request) => {
     return handleInbound(req);
 });
 
+// ── Kimlik (denetim 2026-11-24 · B2) ─────────────────────────────────────────
+//
+// Eskiden API anahtarı İSTEĞE BAĞLIYDI: anahtar yoksa ya da yanlışsa işletme
+// ve kullanıcı GÖVDEDEN okunuyordu. Kayıt herkese açık, işletme kimliği de
+// herkese açık logo adresinde yazdığı için internetteki herkes başka bir
+// salona randevu yazabiliyor, müşterisinin adını değiştirebiliyor ve çakışma
+// cevabından müşteri adlarını okuyabiliyordu.
+//
+// Kural artık: geçerli ve etkin bir `integration_connections.api_key` ŞART.
+// İşletme ve kullanıcı YALNIZ o satırdan gelir; gövdedeki `user_id` ve
+// `organization_id` hiçbir koşulda okunmaz.
+
+const json = (body: unknown, status: number) => new Response(JSON.stringify(body), {
+    status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+});
+
+/** "Bearer x", "x" ya da bağlantı dizesi "x|user_id" → yalnız anahtar. */
+export function extractApiKey(header: string | null, bodyKey: unknown): string {
+    const h = String(header || '').trim();
+    const raw = (h.toLowerCase().startsWith('bearer ') ? h.slice(7) : h).trim()
+        || (typeof bodyKey === 'string' ? bodyKey.trim() : '');
+    return raw.split('|')[0].trim();
+}
+
+/** Yalnız bu iki durum dışarıdan yazılabilir; gerisi (completed, no_show…) salonun işi. */
+export function safeStatus(v: unknown): 'pending' | 'confirmed' {
+    return v === 'confirmed' ? 'confirmed' : 'pending';
+}
+
 async function handleInbound(req: Request): Promise<Response> {
     try {
-        const body = await req.json();
+        const body = await req.json().catch(() => null);
+        if (!body || typeof body !== 'object') return json({ error: 'Geçersiz gövde' }, 400);
 
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-        // ── API key doğrulama ──────────────────────────────────────────────────
-        // Authorization header, x-timeflow-key header veya body.api_key'den al
-        const authHeader = req.headers.get('authorization') || req.headers.get('x-timeflow-key') || '';
-        const rawKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+        const apiKey = extractApiKey(
+            req.headers.get('authorization') || req.headers.get('x-timeflow-key'),
+            body.api_key,
+        );
+        if (!apiKey) return json({ error: 'API anahtarı gerekli' }, 401);
 
-        // Connection string formatı: "api_key|user_id" — sadece api_key kısmını al
-        const apiKeyRaw = rawKey || body.api_key || '';
-        const apiKey = apiKeyRaw.includes('|') ? apiKeyRaw.split('|')[0] : apiKeyRaw;
+        const { data: conn } = await supabase
+            .from('integration_connections')
+            .select('user_id, organization_id')
+            .eq('api_key', apiKey)
+            .eq('active', true)
+            .maybeSingle();
+        if (!conn?.user_id) return json({ error: 'Geçersiz API anahtarı' }, 401);
 
-        let resolvedUserId: string | null = null;
-        let resolvedOrgId: string | null = null;
+        const user_id: string = conn.user_id;
+        let organization_id: string | null = conn.organization_id ?? null;
 
-        if (apiKey) {
-            // API key ile user_id çöz
-            const { data: conn } = await supabase
-                .from('integration_connections')
-                .select('user_id, organization_id')
-                .eq('api_key', apiKey)
-                .eq('active', true)
-                .maybeSingle();
-
-            if (conn?.user_id) {
-                resolvedUserId = conn.user_id;
-                resolvedOrgId = conn.organization_id ?? null;
-
-                // org_id yoksa (eski kayıt) organization_members'dan çöz
-                if (!resolvedOrgId) {
-                    const { data: member } = await supabase
-                        .from('organization_members')
-                        .select('org_id')
-                        .eq('user_id', resolvedUserId)
-                        .limit(1)
-                        .maybeSingle();
-                    resolvedOrgId = member?.org_id ?? null;
-                }
-
-                // Son kullanım zamanını güncelle
-                await supabase
-                    .from('integration_connections')
-                    .update({ last_used_at: new Date().toISOString() })
-                    .eq('api_key', apiKey);
-            }
-        }
-
-        const { event_type, payload } = body;
-        const data_source = payload || body;
-
-        const {
-            customer_name, customer_phone, date,
-            start_time, end_time, service,
-        } = data_source;
-        const staff_id: string | null = data_source.staff_id || null;
-
-        // user_id: API key'den çözüldüyse onu kullan, yoksa body'den al
-        const user_id = resolvedUserId || data_source.user_id;
-
-        // org_id: API key'den çözüldüyse onu kullan, yoksa body'den al
-        // Connection string'den user_id parse edildiyse onu da dene
-        let organization_id = resolvedOrgId || data_source.organization_id || null;
-
-        // Hâlâ org_id yoksa body'deki user_id üzerinden çöz
-        if (!organization_id && user_id) {
-            const { data: member } = await supabase
+        // Eski kayıt (organization_id boş): yalnız TEK üyelik varsa o işletme.
+        // Sırasız `limit(1)` iki işletmeli kullanıcıda rastgele seçiyordu.
+        if (!organization_id) {
+            const { data: members } = await supabase
                 .from('organization_members')
                 .select('org_id')
                 .eq('user_id', user_id)
-                .limit(1)
-                .maybeSingle();
-            organization_id = member?.org_id ?? null;
+                .limit(2);
+            organization_id = members?.length === 1 ? members[0].org_id : null;
         }
-
-        if (!customer_name || !customer_phone || !date || !start_time || !end_time || !service || !user_id) {
-            return new Response(
-                JSON.stringify({
-                    error: 'Eksik alan',
-                    required: ['customer_name', 'customer_phone', 'date', 'start_time', 'end_time', 'service'],
-                    hint: apiKey ? 'API key geçerli, user_id otomatik çözüldü' : 'API key yoksa user_id gerekli',
-                }),
-                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-        }
-
         if (!organization_id) {
-            return new Response(
-                JSON.stringify({ error: 'Organizasyon bulunamadı', hint: 'API key geçerli bir organizasyona bağlı değil' }),
-                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
+            return json({ error: 'Organizasyon bulunamadı', hint: 'API anahtarı tek bir işletmeye bağlı değil' }, 400);
+        }
+
+        await supabase
+            .from('integration_connections')
+            .update({ last_used_at: new Date().toISOString() })
+            .eq('api_key', apiKey);
+
+        const { event_type, payload } = body;
+
+        // Bağlantı testi (src/services/integrationApi.ts · testConnection).
+        if (event_type === 'ping') return json({ ok: true, event_type }, 200);
+
+        const data_source = (payload && typeof payload === 'object') ? payload : body;
+        const { customer_name, customer_phone, date, start_time, end_time, service } = data_source;
+
+        if (!customer_name || !customer_phone || !date || !start_time || !end_time || !service) {
+            return json({
+                error: 'Eksik alan',
+                required: ['customer_name', 'customer_phone', 'date', 'start_time', 'end_time', 'service'],
+            }, 400);
         }
 
         // ── Abonelik kapısı ───────────────────────────────────────────────────
-        // Eskiden burada Core'un has_active_subscription RPC'si çağrılıyordu:
-        // proje-arası bir tur, kendi ENFORCE bayrağı, kendi hata yorumu. Artık
-        // ürünün geri kalanıyla AYNI kapıdan geçiyor (_shared/entitlement) —
-        // iki ayrı mantık, iki farklı cevap demekti.
+        // Ürünün geri kalanıyla AYNI kapı (_shared/entitlement).
         const access = await checkAccess(supabase, organization_id);
         if (!access.ok) {
-            return new Response(
-                JSON.stringify({ error: 'SUB_NONE', state: access.effective, hint: 'Bu organizasyonun aktif TimeFlow aboneliği yok' }),
-                { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
+            return json({ error: 'SUB_NONE', state: access.effective, hint: 'Bu organizasyonun aktif TimeFlow aboneliği yok' }, 403);
         }
 
-        // ── Çakışma kontrolü (organization_id bazlı) ──────────────────────────
+        // Personel bu işletmenin mi? Değilse randevu yabancı bir kimliğe bağlanırdı.
+        let staff_id: string | null = data_source.staff_id || null;
+        if (staff_id) {
+            const { data: st } = await supabase
+                .from('staff').select('id')
+                .eq('id', staff_id).eq('organization_id', organization_id)
+                .maybeSingle();
+            if (!st?.id) return json({ error: 'Personel bulunamadı' }, 400);
+            staff_id = st.id;
+        }
+
+        // ── Çakışma kontrolü ──────────────────────────────────────────────────
         let conflictQuery = supabase
             .from('reservations')
-            .select('id, customer_name, start_time, end_time')
+            .select('start_time, end_time')
             .eq('organization_id', organization_id)
             .eq('date', date)
             .neq('status', 'cancelled');
@@ -154,6 +149,7 @@ async function handleInbound(req: Request): Promise<Response> {
         const newStart = timeToMinutes(start_time);
         const newEnd   = timeToMinutes(end_time);
 
+        // deno-lint-ignore no-explicit-any
         const conflict = (conflicts || []).find((r: any) => {
             if (!r.start_time || !r.end_time) return false;
             const rStart = timeToMinutes(r.start_time.slice(0, 5));
@@ -162,42 +158,45 @@ async function handleInbound(req: Request): Promise<Response> {
         });
 
         if (conflict) {
-            return new Response(
-                JSON.stringify({ error: 'Çakışma var', conflict }),
-                { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
+            // Yalnız saat: dolu saatin KİMDE olduğu dışarıya söylenmez.
+            return json({
+                error: 'Çakışma var',
+                conflict: { start_time: String(conflict.start_time).slice(0, 5), end_time: String(conflict.end_time).slice(0, 5) },
+            }, 409);
         }
 
-        // ── Müşteri upsert (telefona göre) ───────────────────────────────────
-        let customer_id: string | null = data_source.customer_id || null;
+        // ── Müşteri ───────────────────────────────────────────────────────────
+        // Gelen kimlik bu işletmenin değilse yok sayılır, telefondan bulunur.
+        // Var olan müşterinin adı/e-postası GÜNCELLENMEZ: dış kaynak salonun
+        // elle düzelttiği kaydın üzerine yazmamalı.
+        let customer_id: string | null = null;
+        if (data_source.customer_id) {
+            const { data: c } = await supabase
+                .from('customers').select('id')
+                .eq('id', data_source.customer_id).eq('organization_id', organization_id)
+                .maybeSingle();
+            customer_id = c?.id ?? null;
+        }
 
         if (!customer_id) {
-            // Aynı telefon + org'da müşteri var mı?
-            const { data: existingCustomer, error: customerLookupError } = await supabase
+            const { data: existing, error: customerLookupError } = await supabase
                 .from('customers')
                 .select('id')
                 .eq('organization_id', organization_id)
                 .eq('phone', customer_phone)
                 .eq('is_active', true)
+                .order('created_at', { ascending: true })
+                .limit(1)
                 .maybeSingle();
 
             if (customerLookupError) {
                 console.error('Customer lookup error:', customerLookupError);
-                return new Response(
-                    JSON.stringify({ error: 'Müşteri kaydı doğrulanamadı' }),
-                    { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-                );
+                return json({ error: 'Müşteri kaydı doğrulanamadı' }, 500);
             }
 
-            if (existingCustomer?.id) {
-                customer_id = existingCustomer.id;
-                // İsim veya e-posta değiştiyse güncelle
-                await supabase
-                    .from('customers')
-                    .update({ name: customer_name, email: data_source.customer_email || null })
-                    .eq('id', customer_id);
+            if (existing?.id) {
+                customer_id = existing.id;
             } else {
-                // Yeni müşteri oluştur
                 const { data: newCustomer, error: customerCreateError } = await supabase
                     .from('customers')
                     .insert({
@@ -212,10 +211,7 @@ async function handleInbound(req: Request): Promise<Response> {
 
                 if (customerCreateError || !newCustomer?.id) {
                     console.error('Customer create error:', customerCreateError);
-                    return new Response(
-                        JSON.stringify({ error: 'Müşteri kaydı oluşturulamadı' }),
-                        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-                    );
+                    return json({ error: 'Müşteri kaydı oluşturulamadı' }, 500);
                 }
                 customer_id = newCustomer.id;
             }
@@ -236,7 +232,7 @@ async function handleInbound(req: Request): Promise<Response> {
                 end_time,
                 service,
                 service_color:   data_source.service_color   || '#CCFF00',
-                status:          data_source.status          || 'pending',
+                status:          safeStatus(data_source.status),
                 notes:           data_source.notes           || '',
                 staff_id,
             })
@@ -245,27 +241,16 @@ async function handleInbound(req: Request): Promise<Response> {
 
         if (error) {
             console.error('Insert error:', error);
-            return new Response(
-                JSON.stringify({
-                    error: isReservationConflict(error)
-                        ? 'Seçilen saat az önce doldu. Lütfen başka bir saat seçin.'
-                        : 'Rezervasyon oluşturulamadı',
-                    detail: error.message,
-                }),
-                { status: isReservationConflict(error) ? 409 : 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
+            const clash = isReservationConflict(error);
+            return json({
+                error: clash ? 'Seçilen saat az önce doldu. Lütfen başka bir saat seçin.' : 'Rezervasyon oluşturulamadı',
+            }, clash ? 409 : 500);
         }
 
-        return new Response(
-            JSON.stringify({ success: true, event_type, organization_id, reservation: data }),
-            { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return json({ success: true, event_type, organization_id, reservation: data }, 201);
     } catch (err) {
         console.error('Gateway error:', err);
-        return new Response(
-            JSON.stringify({ error: 'Sunucu hatası' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return json({ error: 'Sunucu hatası' }, 500);
     }
 }
 

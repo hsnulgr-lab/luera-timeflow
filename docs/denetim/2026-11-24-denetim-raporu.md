@@ -376,7 +376,11 @@ tetikleyicinin 132 hâli; fonksiyonlar önceki commit'ten yeniden yüklenir.
 (3) Yüklemeyi ve göçü ben komutlarıyla yazacağım; sen çalıştırıp çıktıyı
 yapıştır. Görmen gereken: S1'de demo için `pending` = 0.
 
-### P2 · `gateway`i kapat (B2) — en kısa sürede
+### P2 · `gateway`i kapat (B2) — ✅ CANLIDA (2026-11-24)
+
+> S6: tek kullanım LeadFlow, son 2026-06-02 ve anahtarlı; CallFlow hiç.
+> Yüklendi (`deploy-functions.sh gateway`), anahtarsız istek canlıda
+> `401 {"error":"API anahtarı gerekli"}` döndü. Test: `tests/gateway-kimlik.test.mjs`.
 
 **Değişecek:** `gateway/index.ts` —
 - Geçerli `integration_connections.api_key` **zorunlu**; yoksa 401. Gövdedeki
