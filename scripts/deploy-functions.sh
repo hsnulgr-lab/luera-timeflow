@@ -11,6 +11,10 @@ set -euo pipefail
 # Kullanım:
 #   scripts/deploy-functions.sh remind public-booking
 #   scripts/deploy-functions.sh            # _shared değişince: hepsi
+#   scripts/deploy-functions.sh --kuru gateway   # denetle + sunucudaki sürümü göster, YÜKLEME
+#
+# Emniyet kemeri (scripts/deploy-guard.sh): yalnız main, supabase/functions
+# temiz, GitHub'ın gerisinde değil. Bilerek aşmak: ZORLA=1 scripts/deploy-functions.sh …
 #
 # Ortam değişkenleri (varsayılanları aşağıda):
 #   DEPLOY_HOST   sunucu (root@ip)
@@ -32,7 +36,21 @@ SSH_OPTS=(-i "$SSH_KEY" -o BatchMode=yes)
 
 cd "$(dirname "$0")/.."
 
-FUNCTIONS=("$@")
+KURU=0
+FUNCTIONS=()
+for a in "$@"; do
+    if [ "$a" = "--kuru" ]; then KURU=1; else FUNCTIONS+=("$a"); fi
+done
+
+# 0) Emniyet kemeri — SSH'tan ÖNCE: yanlış koddan yüklemeye hiç başlanmasın.
+# shellcheck source=deploy-guard.sh
+. scripts/deploy-guard.sh
+echo "▸ Denetim…"
+deploy_guard || exit 1
+VERSION=$(deploy_version)
+echo "  ✓ yüklenecek: $VERSION"
+echo
+
 if [ ${#FUNCTIONS[@]} -eq 0 ]; then
     # Argüman yoksa tüm fonksiyonlar (klasör adları)
     while IFS= read -r d; do FUNCTIONS+=("$(basename "$d")"); done \
@@ -74,11 +92,23 @@ HOSTPATH="${LOOKUP#* }"
 
 echo "  konteyner: $CONTAINER"
 echo "  klasör:    $HOSTPATH"
+
+# Sunucuda şu an hangi sürüm var? (`_shared/.surum`, her yüklemede yazılır.)
+REMOTE_VERSION=$(ssh "${SSH_OPTS[@]}" "$HOST" "cat '$HOSTPATH/_shared/.surum' 2>/dev/null" || true)
+echo "  sunucuda:  ${REMOTE_VERSION:-bilinmiyor (bu korumadan önceki yükleme)}"
+echo "  yeni:      $VERSION"
 echo
+
+if [ "$KURU" = "1" ]; then
+    echo "✓ Kuru koşu: hiçbir şey yüklenmedi."
+    exit 0
+fi
 
 # 2) _shared her zaman gider — fonksiyonların çoğu ondan import ediyor.
 echo "▸ _shared kopyalanıyor…"
 rsync -az --delete -e "ssh ${SSH_OPTS[*]}" supabase/functions/_shared/ "$HOST:$HOSTPATH/_shared/"
+# Sürüm izi: bir sonraki yükleme "sunucuda ne var" diye buradan okur.
+ssh "${SSH_OPTS[@]}" "$HOST" "printf '%s\n' '$VERSION' > '$HOSTPATH/_shared/.surum'"
 
 for fn in "${FUNCTIONS[@]}"; do
     if [ ! -d "supabase/functions/$fn" ]; then

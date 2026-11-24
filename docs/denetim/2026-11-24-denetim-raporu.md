@@ -408,7 +408,12 @@ akışına anahtar eklenmeden bu yüklenmemeli.
 politika okuması. **Yayın:** yalnız göç. **Geri alma:** 016'daki eski
 politikalar. **Kullanıcı:** göç sonrası Ayarlar → profil → logo yükle; yüklenmeli.
 
-### P4 · `deploy-functions.sh` koruması (B7)
+### P4 · `deploy-functions.sh` koruması (B7) — ✅ KODDA (2026-11-24)
+
+> `scripts/deploy-guard.sh` + `deploy-functions.sh --kuru`; test
+> `tests/deploy-koruma.test.mjs` (geçici depolar, bash 3.2). Plandan fark:
+> GitHub'ın ÖNÜNDE olmak serbest (yalnız uyarı) — bu projede yükleme push'tan
+> önce yapılabiliyor; GERİDE olmak durdurur. Sürüm izi `_shared/.surum`.
 
 Betiğin başına: dal `main` değilse dur; `git status --porcelain
 supabase/functions` boş değilse dur; `git fetch` sonrası `HEAD` ≠
