@@ -112,7 +112,7 @@
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--dc-border2) transparent;
-  animation: ks-page-in 0.42s cubic-bezier(.2, .8, .2, 1) both;
+  animation: ks-page-in 0.42s cubic-bezier(.2, .8, .2, 1) backwards; /* both değil — bkz. beautyReservations.css */
 }
 
 .ks-page-head {

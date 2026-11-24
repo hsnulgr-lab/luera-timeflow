@@ -57,7 +57,7 @@
         var(--tfr-canvas);
     font-size: 14px;
     line-height: 1.45;
-    animation: tfr-arrive .32s cubic-bezier(.2, .75, .25, 1) both;
+    animation: tfr-arrive .32s cubic-bezier(.2, .75, .25, 1) backwards; /* both DEĞİL: biten transform animasyonu fixed perdeyi bu kutuya hapsediyordu (2026-11-20) */
 }
 
 .tfr.dark, .dark .tfr {

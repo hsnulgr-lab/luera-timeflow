@@ -1157,7 +1157,8 @@ function WhatsAppDialog({ customer, businessName, next, balance, account, renewa
     const templates = useMemo(() => {
         const out: { label: string; text: string }[] = [];
         if (next) out.push({
-            label: 'Randevu teyidi',
+            // Metin hatırlatma — eskiden "Randevu teyidi" adını taşıyordu (2026-11-20)
+            label: 'Randevu hatırlatması',
             text: `Merhaba ${customer.name}, ${businessName}. ${fmtShort(next.date)} ${next.startTime} randevunuzu hatırlatmak istedik. Görüşmek üzere!`,
         });
         if (balance > 0) out.push({

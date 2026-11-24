@@ -54,7 +54,7 @@
         var(--tfv2-canvas);
     font-size: 14px;
     line-height: 1.45;
-    animation: tfv2-page-in .32s cubic-bezier(.2, .75, .25, 1) both;
+    animation: tfv2-page-in .32s cubic-bezier(.2, .75, .25, 1) backwards; /* both DEĞİL: biten transform animasyonu fixed perdeyi bu kutuya hapsediyordu (2026-11-20) */
 }
 
 /* Tema sınıfı GLOBAL DEĞİL: her sayfa kendi köküne `dark` ekliyor

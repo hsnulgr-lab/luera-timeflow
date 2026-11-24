@@ -70,20 +70,25 @@ interface DayAgendaGridProps {
     onOpen: (r: Reservation) => void;
     /** Karttaki ↗ — müşteri kartı. Verilmezse ↗ da onOpen'ı çağırır. */
     onCustomer?: (r: Reservation) => void;
-    /** Boş saate tıklama — yeni seans */
-    /** anchor: tıklanan hücre — takvim mini pencereyi onun yanında açar */
+    /** Boş yarım saate tıklama — yeni seans. hour kesirli olabilir (14.5 = 14:30).
+     *  anchor: tıklanan hücre — takvim mini pencereyi onun yanında açar */
     onAddAt: (hour: number, columnId: string | null, groupBy: 'resource' | 'staff', anchor?: DOMRect) => void;
     /** Faz ilerletme — çubuktaki Geldi / Başladı / Bitti */
+    /** Dışarıdan yönetilen personel süzgeci ('' = tümü). Verilirse ızgaranın
+     *  kendi "Tüm personel" kutusu gizlenir — takvimin üst çubuğunda zaten
+     *  aynı seçim var, iki kutu birbirinden habersizdi (2026-11-20). */
+    staffFilter?: string;
 }
 
 export function DayAgendaGrid({
     dateStr, today, reservations, resources, staff, resourceTypeLabel,
-    workingHours, onOpen, onCustomer, onAddAt,
+    workingHours, onOpen, onCustomer, onAddAt, staffFilter: staffFilterProp,
 }: DayAgendaGridProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const gridRef = useRef<HTMLDivElement>(null);
     const [groupBy, setGroupBy] = useState<'resource' | 'staff'>(resources.length > 0 ? 'resource' : 'staff');
-    const [staffFilter, setStaffFilter] = useState('');
+    const [localStaffFilter, setStaffFilter] = useState('');
+    const staffFilter = staffFilterProp ?? localStaffFilter;
     const [hover, setHover] = useState<{ r: Reservation; rect: DOMRect } | null>(null);
 
     // Sayaçlar canlı kalsın (bekliyor 8 dk → 9 dk)
@@ -272,12 +277,12 @@ export function DayAgendaGrid({
                             ))}
                         </div>
                     )}
-                    <select value={staffFilter} onChange={(e) => setStaffFilter(e.target.value)}
+                    {staffFilterProp === undefined && <select value={staffFilter} onChange={(e) => setStaffFilter(e.target.value)}
                         aria-label="Personel filtresi"
                         className="appearance-none bg-transparent border border-[var(--dc-border)] rounded-[10px] pl-3.5 pr-8 py-[9px] text-[12.5px] font-semibold text-[var(--dc-ink70)] outline-none hover:border-[var(--dc-muted2)] transition-colors">
                         <option value="">Tüm personel</option>
                         {activeStaff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
+                    </select>}
                 </div>
             </div>
 
@@ -336,12 +341,16 @@ export function DayAgendaGrid({
                             ))}
 
                             <div className="absolute top-0 bottom-0 left-1.5 right-1.5">
-                                {/* Boş saat yakalayıcıları */}
-                                {Array.from({ length: Math.max(0, Math.ceil(close) - Math.floor(open)) }, (_, i) => Math.floor(open) + i).map((h) => (
+                                {/* Boş yarım saat yakalayıcıları. Saatlik kutu dolu saatin
+                                    üstüne de çiziliyor, kartı turuncu bir çerçeveye
+                                    gömüyordu (2026-11-20): seans kesen yarım saatte kutu yok. */}
+                                {Array.from({ length: Math.max(0, (Math.ceil(close) - Math.floor(open)) * 2) }, (_, i) => Math.floor(open) + i / 2)
+                                    .filter((h) => h < close && !placed.some(({ r }) => timeToH(r.startTime) < h + 0.5 && timeToH(r.endTime) > h))
+                                    .map((h) => (
                                     <button key={h} type="button" onClick={(e) => onAddAt(h, col.id, groupBy, e.currentTarget.getBoundingClientRect())}
                                         aria-label={`${col.name} · ${fmtH(h)} için yeni seans`}
                                         className="absolute left-0 right-0 rounded-[11px] border border-transparent grid place-items-center text-transparent hover:border-[rgba(255,90,31,.5)] hover:bg-[rgba(255,90,31,.045)] hover:text-[var(--dc-orange)] transition-all"
-                                        style={{ top: topPx(h) + 3, height: PPH - 6 }}>
+                                        style={{ top: topPx(h) + 3, height: PPH / 2 - 6 }}>
                                         <span className="text-[18px] font-normal leading-none">+</span>
                                     </button>
                                 ))}
@@ -350,12 +359,15 @@ export function DayAgendaGrid({
                                 {placed.map(({ r, lane, lanes }) => {
                                     const a = timeToH(r.startTime);
                                     const b = timeToH(r.endTime);
-                                    const durMin = Math.round((b - a) * 60);
                                     const ph = phaseOf(r);
                                     const svc = r.serviceColor || 'var(--dc-orange)';
                                     const railW = ph === 'active' ? 4 : 3;
                                     const railColor = ph === 'arrived' ? 'var(--dc-amber)' : ph === 'active' ? 'var(--dc-orange)' : svc;
-                                    const tier = durMin <= 15 ? 'micro' : durMin <= 30 ? 'short' : 'full';
+                                    // Katman dakikaya göre değil kartın gerçek boyuna göre: 20 dk'lık
+                                    // seans (26 px) iki satırı sığdıramıyor, ad yarıdan kesiliyordu
+                                    // (2026-11-20). micro = saat + ad tek satır.
+                                    const hPx = Math.max(18, (b - a) * PPH - 6);
+                                    const tier = hPx < 40 ? 'micro' : hPx < 64 ? 'short' : 'full';
                                     const width = `calc((100% - ${(lanes - 1) * LANE_GAP}px) / ${lanes})`;
                                     const left = `calc((100% - ${(lanes - 1) * LANE_GAP}px) / ${lanes} * ${lane} + ${LANE_GAP * lane}px)`;
                                     return (
@@ -364,22 +376,21 @@ export function DayAgendaGrid({
                                             onKeyDown={(e) => { if (e.key === 'Enter') { setHover(null); onOpen(r); } }}
                                             onMouseEnter={(e) => setHover({ r, rect: e.currentTarget.getBoundingClientRect() })}
                                             onMouseLeave={() => setHover(null)}
-                                            className={cn('group/appt absolute rounded-xl bg-[var(--dc-card)] overflow-hidden cursor-pointer flex flex-col justify-center transition-all hover:-translate-y-px hover:z-20',
-                                                tier === 'micro' ? 'px-3 gap-0' : tier === 'short' ? 'px-3 py-[5px] gap-px' : 'px-[13px] py-[11px] gap-[3px]',
+                                            className={cn('group/appt absolute rounded-xl bg-[var(--dc-card)] overflow-hidden cursor-pointer flex transition-all hover:-translate-y-px hover:z-20',
+                                                tier === 'micro' ? 'flex-row items-center px-3 gap-2' : 'flex-col justify-center',
+                                                tier === 'micro' ? '' : tier === 'short' ? 'px-3 py-[5px] gap-px' : 'px-[13px] py-[11px] gap-[3px]',
                                                 ph === 'completed' && 'opacity-55 hover:opacity-90')}
                                             style={{
-                                                top: topPx(a) + 3, height: (b - a) * PPH - 6, left, width,
+                                                top: topPx(a) + 3, height: hPx, left, width,
                                                 boxShadow: ph === 'completed' ? '0 1px 2px rgba(14,14,14,.04)' : CARD_SHADOW,
                                             }}>
                                             {/* Izgaradaki tek renk kaynağı: sol şerit */}
                                             <span className="absolute left-0 top-0 bottom-0 transition-all" style={{ width: railW, background: railColor }} />
-                                            {tier !== 'micro' && (
-                                                <span className="text-[11px] font-medium text-[var(--dc-muted)] leading-none tracking-[.01em]" style={{ fontFamily: MONO }}>
-                                                    {tier === 'short' ? r.startTime : `${r.startTime}–${r.endTime}`}
-                                                </span>
-                                            )}
+                                            <span className="text-[11px] font-medium text-[var(--dc-muted)] leading-none tracking-[.01em] flex-shrink-0" style={{ fontFamily: MONO }}>
+                                                {tier === 'full' ? `${r.startTime}–${r.endTime}` : r.startTime}
+                                            </span>
                                             <span className={cn('font-bold text-[var(--dc-ink)] tracking-[-0.015em] truncate',
-                                                tier === 'micro' ? 'text-[13px] leading-none' : 'text-[15px] leading-[1.15]',
+                                                tier === 'micro' ? 'text-[13px] leading-none min-w-0 pr-6' : 'text-[15px] leading-[1.15]',
                                                 ph === 'completed' && 'font-medium')}>{r.customerName}</span>
                                             {tier === 'full' && (
                                                 <span className="text-[12px] font-medium text-[var(--dc-muted)] leading-[1.15] truncate">{r.service}</span>

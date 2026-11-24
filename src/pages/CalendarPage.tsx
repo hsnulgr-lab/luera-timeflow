@@ -1023,8 +1023,11 @@ export const CalendarPage = () => {
                                     workingHours={settings.workingHours || []}
                                     onOpen={(r) => openReservation(r)}
                                     onCustomer={openCustomerCard}
+                                    staffFilter={staffFilter === 'all' ? '' : staffFilter}
                                     onAddAt={(hour, columnId, groupBy, anchor) => {
-                                        openNewAt(toISODate(currentDate), `${String(hour).padStart(2, '0')}:00`, anchor, {
+                                        const hh = Math.floor(hour);
+                                        const mm = Math.round((hour - hh) * 60);
+                                        openNewAt(toISODate(currentDate), `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`, anchor, {
                                             ...(groupBy === 'resource' ? { resourceId: columnId } : {}),
                                             ...(groupBy === 'staff' ? { staffId: columnId } : {}),
                                         });
