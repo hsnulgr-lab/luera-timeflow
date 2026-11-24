@@ -75,6 +75,9 @@ const corsHeaders = {
  * DURULUR: `organizations.owner_id` cascade ile o işletmeyi de silerdi.
  */
 
+/** Ortak test hesapları — silinemez (bkz. Deno.serve içindeki not). */
+const PROTECTED_ACCOUNTS = new Set(['playtest@lueratech.com']);
+
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
     if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
@@ -112,6 +115,19 @@ Deno.serve(async (req: Request) => {
             if (out.kind === 'bad_request') return json({ error: 'apple_bad_request', detail: out.reason }, 400);
             return null;
         };
+
+        // ── Ortak test hesabı (Google Play kapalı testi · 2026-11-13) ──────
+        // Play'in 12 kişilik kapalı testinde yabancı test kullanıcıları ve
+        // Google inceleyicisi AYNI hesaba giriyor. Biri "Hesabımı sil"e basarsa
+        // herkesin girişi ve tohum verisi gider. Bu hesap silinemez; gerçek
+        // kullanıcı hesaplarının silme yolu değişmez. (Apple hakemi demo@
+        // hesabını kullanıyor — o bilerek listede DEĞİL: 5.1.1(v) denetiminde
+        // silmenin çalıştığı görülmeli.)
+        const email = (userData.user.email ?? '').toLowerCase();
+        if (PROTECTED_ACCOUNTS.has(email)) {
+            console.log(`account-delete refused protected=${email}`);
+            return json({ error: 'protected_account' }, 403);
+        }
 
         const resolved = await resolveOrg(admin, userId, body.orgId ?? null);
 

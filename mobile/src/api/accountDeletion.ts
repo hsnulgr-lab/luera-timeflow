@@ -24,6 +24,8 @@ export type DeleteFailure =
     | 'no-session'
     /** Sahibi değil. `admin` bile silemez: işletmeyi yok etmek sahibin işi. */
     | 'forbidden'
+    /** Ortak test hesabı (Play kapalı testi) — sunucu silmeyi reddeder. */
+    | 'protected'
     /** Abonelik iptal edilemedi — SİLME YAPILMADI, hesap olduğu gibi duruyor. */
     | 'subscription'
     /** Apple yeniden doğrulaması tutmadı (kod geçersiz / başka Apple Kimliği) — SİLME YAPILMADI. */
@@ -88,6 +90,7 @@ export async function deleteAccount(
     const result = body;
     if (!result?.deleted) {
         if (result?.error === 'forbidden_role') return { ok: false, reason: 'forbidden' };
+        if (result?.error === 'protected_account') return { ok: false, reason: 'protected' };
         if (result?.error === 'subscription_cancel_failed') return { ok: false, reason: 'subscription' };
         if (result?.error === 'apple_code_invalid' || result?.error === 'apple_mismatch') {
             return { ok: false, reason: 'apple' };

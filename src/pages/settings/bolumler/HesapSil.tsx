@@ -287,6 +287,7 @@ function FailureBox({ reason }: { reason: DeleteFailure }) {
     const text: Record<DeleteFailure, string> = {
         subscription: 'Aboneliğiniz iptal edilemedi; hiçbir şey silinmedi. Biraz sonra tekrar deneyin.',
         forbidden: 'Hesap silme yalnız işletme sahibine açık; hiçbir şey silinmedi.',
+        protected: 'Bu, herkesin kullandığı ortak test hesabı; silinemez. Hiçbir şey silinmedi.',
         'no-session': 'Oturumunuz düşmüş; hiçbir şey silinmedi. Yeniden giriş yapıp tekrar deneyin.',
         apple_mismatch: 'Bu Apple Kimliği bu hesaba ait değil; hiçbir şey silinmedi.',
         apple_code_invalid: 'Apple doğrulamasının süresi doldu; hiçbir şey silinmedi. Yeniden doğrulayın.',

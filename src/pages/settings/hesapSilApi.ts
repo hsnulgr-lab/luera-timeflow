@@ -47,7 +47,7 @@ export async function fetchDeletionFacts(orgId: string, userId: string): Promise
 }
 
 export type DeleteFailure =
-    | 'offline' | 'no-session' | 'forbidden' | 'subscription'
+    | 'offline' | 'no-session' | 'forbidden' | 'protected' | 'subscription'
     | 'apple_mismatch' | 'apple_code_invalid' | 'server' | 'unknown';
 
 export interface AppleProof { code: string; redirectUri: string }
@@ -78,6 +78,7 @@ export async function deleteAccount(orgId: string | null, apple?: AppleProof | n
     }
     if (!res?.deleted) {
         if (res?.error === 'forbidden_role') return { ok: false, reason: 'forbidden' };
+        if (res?.error === 'protected_account') return { ok: false, reason: 'protected' };
         if (res?.error === 'subscription_cancel_failed') return { ok: false, reason: 'subscription' };
         if (res?.error === 'apple_mismatch') return { ok: false, reason: 'apple_mismatch' };
         if (res?.error === 'apple_code_invalid') return { ok: false, reason: 'apple_code_invalid' };

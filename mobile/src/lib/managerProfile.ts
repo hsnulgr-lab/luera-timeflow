@@ -580,11 +580,14 @@ export const DELETE_FAILED =
  * hesap duruyor.
  */
 export type DeleteFailureReason =
-    'not-configured' | 'no-session' | 'forbidden' | 'subscription' | 'apple' | 'cancelled' | 'server';
+    'not-configured' | 'no-session' | 'forbidden' | 'protected' | 'subscription' | 'apple' | 'cancelled' | 'server';
 
 export function deleteFailureText(reason: DeleteFailureReason | null): string {
     if (reason === 'forbidden') {
         return 'Bu işletmeyi yalnız sahibi silebilir. Hesabınız olduğu gibi duruyor.';
+    }
+    if (reason === 'protected') {
+        return 'Bu, herkesin kullandığı ortak test hesabı; silinemez. Hesabınız olduğu gibi duruyor.';
     }
     if (reason === 'no-session') {
         return 'Oturumunuz kapanmış. Tekrar girip deneyin. Hesabınız olduğu gibi duruyor.';
