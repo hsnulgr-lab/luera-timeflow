@@ -62,6 +62,7 @@ Ek olarak 4 önemli, 10 küçük bulgu var (tablo §2). Kaydedilmemiş 15 dosya
 | B15 | 🟡 | Masaüstü önbelleği yalnız "Çıkış"ta silinir; oturum düşünce ortak bilgisayarda kalır | `src/lib/swrCache.ts` · `AuthContext.tsx:154` | kesin, düşük etki |
 | B16 | 🟡 | Web bildirim aboneliğinde `member` kendini `manager` yazabiliyor; `staffId` işletmeye karşı doğrulanmıyor | `push-subscribe/index.ts:138-152` | kesin, sızıntı yok |
 | B17 | 🟡 | `checkAccess` bayrağı okuyamazsa kapı açılıyor (fail-open) | `_shared/entitlement.ts:197-200` | kesin (bilinçli) |
+| B18 | 🟡 | Takvim gün görünümü 96 px sola kaymış; başlık ve ilk sütun kesik (eskiden de var) | `CalendarPage` · `.calendar-focus-page` | yerelde kesin · canlıda olası |
 
 ### 2.2 Bulguların ayrıntısı
 
@@ -240,6 +241,15 @@ WhatsApp'ı bozar) yalnız bellekte duruyor, betikte değil.
   işletmesine yazılıyor), ama `member` müdür bildirimlerini alabiliyor.
 - **B17** Bayrak sorgusu geçici hata verirse herkes geçer. Bilinçli (kilitlemek
   daha kötü); yalnız not.
+
+#### B18 🟡 Takvim gün görünümü 96 px sola kaymış (önceden de var)
+
+2026-11-24 yerel bakışında (panel-harness, 1440×900) `.calendar-focus-page`
+kapsayıcısı `overflow-x: hidden` iken `scrollLeft = 96` (içerik 1460, kutu 1364):
+"Seans Takvimi" başlığı ve ilk sütunun solu kenar çubuğunun altında kalıyor.
+20 Kasım değişikliğinden ÖNCEKİ dosyalarla da aynı ölçüldü → yeni değil.
+Canlıda da olup olmadığı **olası**: canlı takvimde Gün görünümünde başlığın tam
+görünüp görünmediğine bakılmalı. Taşan 96 px'in kaynağı henüz bulunmadı.
 
 ### 2.3 Çok kiracılık (masaüstü · telefon · sunucu)
 
