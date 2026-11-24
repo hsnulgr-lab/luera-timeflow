@@ -399,7 +399,7 @@ yabancı `customer_id` yok sayılır, 409'da ad yok).
 S6 son kullanım tarihini gösterir. Anahtarsız meşru çağıran varsa onun
 akışına anahtar eklenmeden bu yüklenmemeli.
 
-### P3 · Görsel deposu (B4) — ✅ CANLIDA (2026-11-24; pg_policies doğrulandı, panelden yükleme denemesi bekliyor)
+### P3 · Görsel deposu (B4) — ✅ CANLIDA (2026-11-24; pg_policies doğrulandı, panelden logo yükleme çalıştı)
 
 > Göç `145_org_public_klasor.sql` (numara 145: demo kilidi iptal edildi).
 > Test `tests/org-public-klasor.test.mjs` (PGlite: önce açık gösteriliyor, sonra kapandığı; silme kuralı sökülünce düşüyor).
