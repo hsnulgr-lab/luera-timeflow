@@ -399,9 +399,12 @@ yabancı `customer_id` yok sayılır, 409'da ad yok).
 S6 son kullanım tarihini gösterir. Anahtarsız meşru çağıran varsa onun
 akışına anahtar eklenmeden bu yüklenmemeli.
 
-### P3 · Görsel deposu (B4)
+### P3 · Görsel deposu (B4) — ✅ KODDA, canlıda çalıştırma kullanıcıda (2026-11-24)
 
-**Göç** `146_org_public_klasor.sql`: insert/update/delete politikalarına
+> Göç `145_org_public_klasor.sql` (numara 145: demo kilidi iptal edildi).
+> Test `tests/org-public-klasor.test.mjs` (PGlite: önce açık gösteriliyor, sonra kapandığı; silme kuralı sökülünce düşüyor).
+
+**Göç** `145_org_public_klasor.sql`: insert/update/delete politikalarına
 `(storage.foldername(name))[1]::uuid IN (SELECT auth_user_org_ids())` ekle.
 **Test:** PGlite'ta `storage` şeması yok; politika metni için
 `tests/org-public-politika.test.mjs` (metin denetimi) + canlıda S7 ile
@@ -422,7 +425,7 @@ supabase/functions` boş değilse dur; `git fetch` sonrası `HEAD` ≠
 basılır ("sunucuda a1b2c3d → yüklenecek e4f5g6h"). Test: betik `--kuru` kipi.
 Göç yok, üretime etkisi yok.
 
-### P5 · Herkese açık form (B5)
+### P5 · Herkese açık form (B5) — ⏸ ERTELENDİ (kullanıcı: "sonra konuşuruz", 2026-11-24)
 
 - `public-booking`: aynı numaraya/IP'ye son 1 saatte 3'ten fazla randevu → 429.
   `ignoreOptOut: true` kaldırılır: DUR listesindeki numaraya onay **gitmez**,
